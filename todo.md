@@ -61,7 +61,8 @@
 - [x] Sync all fixes and save updated scripts
 
 ## Active Bugs
-- [ ] Upcoming Courses shows empty even though GHL has real bookings for Victor, Fredrik, Ivar
+- [x] Upcoming Bookings: shows empty — fixed (mock mode was enabled, now disabled)
+- [x] Course Calendar: shows 0 slots — fixed (mock mode disabled, parallel fetching, 30-day limit enforced)
 
 ## High Priority
 - [ ] PUBLIC: Customer-facing course booking page (no login required) — all available dates by course type/language, filterable by city, click to book via GHL link
@@ -72,4 +73,4 @@
 
 ## In Progress
 - [x] Sätt Ivar Bohlins GHL-kalender-ID automatiskt i databasen
-- [ ] Revert Swedish UI translations back to English (dashboard = English, chat = Swedish)
+- [x] Revert Swedish UI translations back to English (dashboard = English, chat = Swedish)

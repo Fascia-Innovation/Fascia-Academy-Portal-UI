@@ -337,20 +337,24 @@ export async function getAllAppointments(
   }
 
   // Real GHL: must fetch per-calendar since the API requires calendarId
+  // Use parallel fetching with concurrency limit to avoid timeouts
   const calendars = await getCalendars();
+  const startMs = String(new Date(startDate).getTime());
+  const endMs = String(new Date(endDate).getTime());
+  const CONCURRENCY = 8;
   const results: GHLAppointment[] = [];
-  for (const cal of calendars) {
-    try {
-      // GHL API requires timestamps in milliseconds
-      const startMs = String(new Date(startDate).getTime());
-      const endMs = String(new Date(endDate).getTime());
-      const data = await ghlGet<{ events: GHLAppointment[] }>(
-        `/calendars/events`,
-        { calendarId: cal.id, locationId: LOCATION_ID, startTime: startMs, endTime: endMs }
-      );
-      results.push(...(data.events ?? []));
-    } catch {
-      // Skip calendars that fail
+  for (let i = 0; i < calendars.length; i += CONCURRENCY) {
+    const batch = calendars.slice(i, i + CONCURRENCY);
+    const batchResults = await Promise.allSettled(
+      batch.map((cal) =>
+        ghlGet<{ events: GHLAppointment[] }>(
+          `/calendars/events`,
+          { calendarId: cal.id, locationId: LOCATION_ID, startTime: startMs, endTime: endMs }
+        ).then((d) => d.events ?? [])
+      )
+    );
+    for (const r of batchResults) {
+      if (r.status === "fulfilled") results.push(...r.value);
     }
   }
   return results;
