@@ -46,7 +46,7 @@ export default function Login() {
           <h1 className="text-3xl font-bold text-white" style={{ fontFamily: "'Playfair Display', serif" }}>
             Fascia Academy
           </h1>
-          <p className="text-[oklch(0.65_0.03_250)] mt-2 text-sm">Settlement Dashboard</p>
+          <p className="text-[oklch(0.65_0.03_250)] mt-2 text-sm">Settlement Portal</p>
         </div>
 
         {/* Card */}

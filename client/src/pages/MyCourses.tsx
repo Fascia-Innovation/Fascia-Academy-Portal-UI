@@ -131,23 +131,23 @@ export default function MyCourses() {
           {/* Summary */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="bg-card rounded-xl border border-border p-5">
-              <div className="text-xs text-muted-foreground mb-1">Total Participants</div>
+              <div className="text-xs text-muted-foreground mb-1">Total participants</div>
               <div className="text-2xl font-bold text-foreground">
                 {data.courses.reduce((s, c) => s + c.participants.length, 0)}
               </div>
             </div>
             <div className="bg-card rounded-xl border border-border p-5">
-              <div className="text-xs text-muted-foreground mb-1">Courses This Month</div>
+              <div className="text-xs text-muted-foreground mb-1">Courses this month</div>
               <div className="text-2xl font-bold text-foreground">{data.courses.length}</div>
             </div>
             <div className="bg-[oklch(0.22_0.04_255)] rounded-xl border border-[oklch(0.30_0.05_255)] p-5">
-              <div className="text-xs text-[oklch(0.72_0.12_75)] mb-1">Total Payout (SEK)</div>
+              <div className="text-xs text-[oklch(0.72_0.12_75)] mb-1">Total payout (SEK)</div>
               <div className="text-2xl font-bold text-white">
                 {fmt(data.courses.filter(c => c.currency === "SEK").reduce((s, c) => s + c.totalPayout, 0), "SEK")}
               </div>
             </div>
             <div className="bg-[oklch(0.22_0.04_255)] rounded-xl border border-[oklch(0.30_0.05_255)] p-5">
-              <div className="text-xs text-[oklch(0.72_0.12_75)] mb-1">Total Payout (EUR)</div>
+              <div className="text-xs text-[oklch(0.72_0.12_75)] mb-1">Total payout (EUR)</div>
               <div className="text-2xl font-bold text-white">
                 {fmt(data.courses.filter(c => c.currency === "EUR").reduce((s, c) => s + c.totalPayout, 0), "EUR")}
               </div>
@@ -184,8 +184,8 @@ export default function MyCourses() {
                       <th className="text-xs font-medium text-muted-foreground uppercase tracking-wider py-3 px-4 text-left">Participant</th>
                       <th className="text-xs font-medium text-muted-foreground uppercase tracking-wider py-3 px-4 text-right">Paid (incl. VAT)</th>
                       <th className="text-xs font-medium text-muted-foreground uppercase tracking-wider py-3 px-4 text-right">Excl. VAT</th>
-                      <th className="text-xs font-medium text-muted-foreground uppercase tracking-wider py-3 px-4 text-right">Affiliate Code</th>
-                      <th className="text-xs font-medium text-muted-foreground uppercase tracking-wider py-3 px-4 text-right">Your Payout</th>
+                      <th className="text-xs font-medium text-muted-foreground uppercase tracking-wider py-3 px-4 text-right">Affiliate code</th>
+                      <th className="text-xs font-medium text-muted-foreground uppercase tracking-wider py-3 px-4 text-right">Your payout</th>
                       <th className="py-3 px-4 w-8"></th>
                     </tr>
                   </thead>
@@ -209,8 +209,8 @@ export default function MyCourses() {
           ))}
 
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800">
-            <strong>Note:</strong> Payout = Paid amount excl. VAT − 3.1% transaction fee − FA margin − affiliate commission (if applicable). 
-            Please issue your invoice to Fascia Academy with payment terms of 20 days.
+            <strong>Note:</strong> Payout = Paid amount excl. VAT − 3.1% transaction fee − FA margin − affiliate commission (if applicable).
+            Please invoice Fascia Academy with 20-day payment terms.
           </div>
         </div>
       )}

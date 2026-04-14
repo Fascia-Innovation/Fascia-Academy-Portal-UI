@@ -72,7 +72,7 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
       refetch();
       setLocation("/users");
     },
-    onError: () => toast.error("Failed to restore admin session"),
+    onError: () => toast.error("Could not restore admin session"),
   });
 
   const logoutMutation = trpc.dashboard.logout.useMutation({
@@ -80,7 +80,7 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
       utils.dashboard.me.invalidate();
       window.location.href = "/login";
     },
-    onError: () => toast.error("Logout failed"),
+    onError: () => toast.error("Sign out failed"),
   });
 
   const visibleItems = NAV_ITEMS.filter(
@@ -132,7 +132,7 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
             className="flex items-center gap-2 w-full px-3 py-2 text-sm text-[oklch(0.65_0.03_250)] hover:text-white hover:bg-[oklch(0.25_0.05_255)] rounded-lg transition-colors"
           >
             <LogOut className="h-4 w-4" />
-            Sign out
+              Sign out
           </button>
         </div>
       </aside>
@@ -144,7 +144,7 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
           <div className="flex items-center justify-between bg-amber-50 border-b border-amber-300 text-amber-800 px-6 py-2.5 shrink-0">
             <div className="flex items-center gap-2 text-sm font-medium">
               <Eye className="h-4 w-4" />
-              <span>Viewing as <strong>{user?.name}</strong> ({user?.role?.replace("_", " ")})</span>
+              <span>Viewing as <strong>{user?.name}</strong> ({user?.role === "course_leader" ? "Course Leader" : user?.role === "affiliate" ? "Affiliate" : "Admin"})</span>
             </div>
             <button
               onClick={() => stopImpersonationMutation.mutate()}

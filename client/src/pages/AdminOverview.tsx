@@ -58,7 +58,7 @@ export default function AdminOverview() {
     return (
       <div className="p-8">
         <div className="bg-destructive/10 text-destructive rounded-lg p-4 text-sm">
-          Failed to load data: {error.message}
+          Could not load data: {error.message}
         </div>
       </div>
     );
@@ -82,7 +82,7 @@ export default function AdminOverview() {
       {/* Participant count */}
       <div className="flex items-center gap-2 mb-6 p-4 bg-[oklch(0.22_0.04_255)] rounded-xl text-white">
         <Users className="h-5 w-5 text-[oklch(0.72_0.12_75)]" />
-        <span className="text-sm text-white/70">Total participants attended this month:</span>
+        <span className="text-sm text-white/70">Total participants this month:</span>
         <span className="text-lg font-bold">{d.participantCount}</span>
       </div>
 

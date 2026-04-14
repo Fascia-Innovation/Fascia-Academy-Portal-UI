@@ -10,7 +10,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-SE", {
+  return new Date(iso).toLocaleDateString("sv-SE", {
     weekday: "short",
     day: "numeric",
     month: "short",
@@ -27,7 +27,7 @@ export default function UpcomingCourses() {
     intro: "Intro Course",
     diplo: "Diploma Course",
     cert: "Certification",
-    vidare: "Advanced",
+    vidare: "Advanced Training",
   };
 
   return (
@@ -98,7 +98,7 @@ export default function UpcomingCourses() {
                 ))}
                 {course.appointments.length > 10 && (
                   <div className="px-6 py-3 text-xs text-muted-foreground">
-                    +{course.appointments.length - 10} more appointments
+                    +{course.appointments.length - 10} more bookings
                   </div>
                 )}
               </div>

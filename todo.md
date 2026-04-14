@@ -69,3 +69,7 @@
 ## In Progress
 - [x] Rename "Upcoming Courses" to "Upcoming Bookings" in sidebar and page title
 - [x] New admin view: Course Calendar — all GHL availability grouped by course type + language, showing date/time/location/course leader/available seats/booked participants list
+
+## In Progress
+- [x] Sätt Ivar Bohlins GHL-kalender-ID automatiskt i databasen
+- [ ] Revert Swedish UI translations back to English (dashboard = English, chat = Swedish)

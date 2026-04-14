@@ -8,7 +8,7 @@ const COURSE_TYPE_LABELS: Record<string, string> = {
   intro: "Intro",
   diplo: "Diploma",
   cert: "Certification",
-  vidare: "Advanced",
+  vidare: "Advanced Training",
 };
 
 const COURSE_TYPE_COLORS: Record<string, string> = {
@@ -82,7 +82,7 @@ function SlotCard({ slot }: { slot: Slot }) {
               </span>
               {isFull && (
                 <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200">
-                  Full
+                  Fully Booked
                 </span>
               )}
             </div>
@@ -131,7 +131,7 @@ function SlotCard({ slot }: { slot: Slot }) {
             className="mt-3 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
             {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-            {expanded ? "Hide" : "Show"} {slot.participants.length} participant{slot.participants.length !== 1 ? "s" : ""}
+            {expanded ? "Hide" : "Show"} {slot.participants.length} participants
           </button>
         )}
       </div>
@@ -216,7 +216,7 @@ export default function CourseCalendar() {
           Course Calendar
         </h1>
         <p className="text-muted-foreground text-sm mt-1">
-          Available course dates across all calendars — showing free slots and bookings
+          Available course dates across all calendars — free slots and bookings
         </p>
       </div>
 
@@ -296,7 +296,7 @@ export default function CourseCalendar() {
       ) : error ? (
         <div className="flex items-center gap-2 text-red-600 bg-red-50 border border-red-200 rounded-lg p-4 text-sm">
           <AlertCircle className="h-4 w-4 shrink-0" />
-          <span>Failed to load course calendar: {error.message}</span>
+          <span>Could not load course calendar: {error.message}</span>
         </div>
       ) : grouped.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-48 text-muted-foreground gap-3">

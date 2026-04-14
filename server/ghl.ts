@@ -209,73 +209,80 @@ export async function getCourseCalendar(
   const calendars = await getCalendars();
   const activeCals = calendars.filter(c => !c.name.startsWith("Template"));
 
-  const results: GHLFreeSlot[] = [];
+  // Process calendars in parallel batches of 8 to avoid timeouts
+  const BATCH_SIZE = 8;
+  const allResults: GHLFreeSlot[] = [];
 
-  for (const cal of activeCals) {
-    // Fetch free slots
-    const slotsByDate = await getCalendarFreeSlots(cal.id, startMs, endMs);
-    const allSlotTimes = Object.values(slotsByDate).flat();
-    if (allSlotTimes.length === 0) continue;
+  for (let i = 0; i < activeCals.length; i += BATCH_SIZE) {
+    const batch = activeCals.slice(i, i + BATCH_SIZE);
+    const batchResults = await Promise.all(batch.map(async (cal) => {
+      const slotResults: GHLFreeSlot[] = [];
 
-    // Fetch booked appointments for this calendar in the range
-    const startMs2 = String(startMs);
-    const endMs2 = String(Math.min(endMs, startMs + 30 * 24 * 60 * 60 * 1000));
-    let bookedAppts: GHLAppointment[] = [];
-    try {
-      const evData = await ghlGet<{ events: GHLAppointment[] }>(
-        `/calendars/events`,
-        { calendarId: cal.id, locationId: LOCATION_ID, startTime: startMs2, endTime: endMs2 }
-      );
-      bookedAppts = (evData.events ?? []).filter(e => {
-        const s = (e.appointmentStatus ?? e.status ?? "").toLowerCase();
-        return !["cancelled", "no_show", "noshow", "invalid"].includes(s);
-      });
-    } catch { /* skip */ }
+      // Fetch free slots
+      const slotsByDate = await getCalendarFreeSlots(cal.id, startMs, endMs);
+      const allSlotTimes = Object.values(slotsByDate).flat();
+      if (allSlotTimes.length === 0) return slotResults;
 
-    // Determine location from team member
-    const primaryMember = cal.teamMembers?.find(m => m.isPrimary) ?? cal.teamMembers?.[0];
-    const rawLocation = primaryMember?.meetingLocation ?? "";
-    // Clean up location: take city part (last segment after tab/comma)
-    const locationParts = rawLocation.split(/\t|,/).map(s => s.trim()).filter(Boolean);
-    const location = locationParts[locationParts.length - 1] ?? rawLocation;
-
-    const maxSeats = cal.appoinmentPerSlot ?? 14;
-    const courseLeader = extractCourseLeaderName(cal.name);
-
-    for (const [date, slots] of Object.entries(slotsByDate)) {
-      for (const slotTime of slots) {
-        // Match booked appointments to this slot (within same hour)
-        const slotHour = new Date(slotTime).getTime();
-        const slotParticipants = bookedAppts
-          .filter(a => {
-            const aTime = new Date(a.startTime).getTime();
-            return Math.abs(aTime - slotHour) < 60 * 60 * 1000; // within 1 hour
-          })
-          .map(a => ({
-            id: a.contactId,
-            name: a.title ?? a.contactId,
-            email: a.contact?.email ?? "",
-            status: a.appointmentStatus ?? a.status ?? "",
-          }));
-
-        results.push({
-          date,
-          slotTime,
-          calendarId: cal.id,
-          calendarName: cal.name,
-          courseLeader,
-          location,
-          maxSeats,
-          bookedSeats: slotParticipants.length,
-          availableSeats: Math.max(0, maxSeats - slotParticipants.length),
-          participants: slotParticipants,
+      // Fetch booked appointments for this calendar in the range
+      const startMs2 = String(startMs);
+      const endMs2 = String(Math.min(endMs, startMs + 30 * 24 * 60 * 60 * 1000));
+      let bookedAppts: GHLAppointment[] = [];
+      try {
+        const evData = await ghlGet<{ events: GHLAppointment[] }>(
+          `/calendars/events`,
+          { calendarId: cal.id, locationId: LOCATION_ID, startTime: startMs2, endTime: endMs2 }
+        );
+        bookedAppts = (evData.events ?? []).filter(e => {
+          const s = (e.appointmentStatus ?? e.status ?? "").toLowerCase();
+          return !["cancelled", "no_show", "noshow", "invalid"].includes(s);
         });
+      } catch { /* skip */ }
+
+      // Determine location from team member
+      const primaryMember = cal.teamMembers?.find(m => m.isPrimary) ?? cal.teamMembers?.[0];
+      const rawLocation = primaryMember?.meetingLocation ?? "";
+      const locationParts = rawLocation.split(/\t|,/).map((s: string) => s.trim()).filter(Boolean);
+      const location = locationParts[locationParts.length - 1] ?? rawLocation;
+
+      const maxSeats = cal.appoinmentPerSlot ?? 14;
+      const courseLeader = extractCourseLeaderName(cal.name);
+
+      for (const [date, slots] of Object.entries(slotsByDate)) {
+        for (const slotTime of slots) {
+          const slotHour = new Date(slotTime).getTime();
+          const slotParticipants = bookedAppts
+            .filter(a => {
+              const aTime = new Date(a.startTime).getTime();
+              return Math.abs(aTime - slotHour) < 60 * 60 * 1000;
+            })
+            .map(a => ({
+              id: a.contactId,
+              name: a.title ?? a.contactId,
+              email: a.contact?.email ?? "",
+              status: a.appointmentStatus ?? a.status ?? "",
+            }));
+
+          slotResults.push({
+            date,
+            slotTime,
+            calendarId: cal.id,
+            calendarName: cal.name,
+            courseLeader,
+            location,
+            maxSeats,
+            bookedSeats: slotParticipants.length,
+            availableSeats: Math.max(0, maxSeats - slotParticipants.length),
+            participants: slotParticipants,
+          });
+        }
       }
-    }
+      return slotResults;
+    }));
+    allResults.push(...batchResults.flat());
   }
 
   // Sort by date then time
-  return results.sort((a, b) => a.slotTime.localeCompare(b.slotTime));
+  return allResults.sort((a, b) => a.slotTime.localeCompare(b.slotTime));
 }
 
 export async function getCalendars(): Promise<GHLCalendar[]> {
