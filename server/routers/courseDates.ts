@@ -85,7 +85,7 @@ interface GhlCalendar {
   id: string;
   name: string;
   groupId?: string;
-  teamMembers?: Array<{ userId: string }>;
+  teamMembers?: Array<{ userId: string; meetingLocation?: string; isPrimary?: boolean }>;
 }
 
 async function getGhlCalendars(): Promise<GhlCalendar[]> {
@@ -174,8 +174,25 @@ export const courseDatesRouter = router({
       .filter((c) => !c.name.startsWith("Template"))
       .map((c) => {
         const groupInfo = c.groupId ? CALENDAR_GROUPS[c.groupId as keyof typeof CALENDAR_GROUPS] : null;
-        const primaryMember = c.teamMembers?.[0];
+        const primaryMember = c.teamMembers?.find((m) => m.isPrimary) ?? c.teamMembers?.[0];
         const user = primaryMember ? userMap.get(primaryMember.userId) : null;
+        // Parse meetingLocation for address/city auto-fill
+        const rawLocation = primaryMember?.meetingLocation ?? "";
+        // meetingLocation is often "Venue Name\tAddress, City" or "Address, City"
+        const parts = rawLocation.split(/\t/).map((s: string) => s.trim()).filter(Boolean);
+        let autoVenueName: string | null = null;
+        let autoAddress: string | null = null;
+        let autoCity: string | null = null;
+        if (parts.length >= 2) {
+          autoVenueName = parts[0];
+          const addrParts = parts[1].split(",").map((s: string) => s.trim());
+          autoCity = addrParts[addrParts.length - 1] ?? null;
+          autoAddress = parts[1];
+        } else if (parts.length === 1) {
+          const addrParts = parts[0].split(",").map((s: string) => s.trim());
+          autoCity = addrParts[addrParts.length - 1] ?? null;
+          autoAddress = parts[0];
+        }
         return {
           id: c.id,
           name: c.name,
@@ -186,6 +203,9 @@ export const courseDatesRouter = router({
           primaryUserId: user?.id ?? null,
           primaryUserName: user?.name ?? null,
           profilePhoto: user?.profilePhoto ?? null,
+          autoVenueName,
+          autoAddress,
+          autoCity,
         };
       })
       .sort((a, b) => a.name.localeCompare(b.name, "sv"));
@@ -299,6 +319,25 @@ export const courseDatesRouter = router({
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
 
       await db.delete(courseDates).where(eq(courseDates.id, input.id));
+      return { success: true };
+    }),
+
+  // ─── Admin: duplicate a course date (as draft) ──────────────────────────────
+  duplicate: adminProcedure
+    .input(z.object({ id: z.number().int() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      const rows = await db.select().from(courseDates).where(eq(courseDates.id, input.id));
+      const src = rows[0];
+      if (!src) throw new TRPCError({ code: "NOT_FOUND", message: "Course date not found" });
+
+      const { id: _id, createdAt: _ca, ...rest } = src as any;
+      await db.insert(courseDates).values({
+        ...rest,
+        published: false, // always start as draft
+      });
       return { success: true };
     }),
 });

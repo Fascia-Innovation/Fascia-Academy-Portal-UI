@@ -98,3 +98,11 @@
 - [x] Admin form: Live preview of auto-generated course description (template + dynamic fields)
 - [x] Course description templates: one per course type (intro/diplo/cert/vidare), SE + EN variants
 - [ ] Public /courses: Show venue name + address on course cards and booking modal
+
+## Course Dates Admin UX Round 2
+- [x] Fix calendar search: filter strictly on course leader name + calendar name (not show all when no match)
+- [x] Copy/duplicate course date (copies as Draft/unpublished)
+- [x] Auto-fill address + city from GHL calendar meetingLocation when calendar is selected
+- [x] Make description template text editable in the form (textarea, pre-filled from template)
+- [x] Default times: 10:00 start, 17:00 end; auto-set end date = start date when start date changes
+- [x] Copy-to-clipboard button in description preview

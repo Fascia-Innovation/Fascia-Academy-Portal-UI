@@ -1,9 +1,9 @@
 /**
  * Admin: Course Dates Management
- * Allows admin to add/edit/delete manually registered course dates.
+ * Allows admin to add/edit/delete/duplicate manually registered course dates.
  * These feed the public booking page (/courses).
  */
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -55,6 +55,8 @@ import {
   Eye,
   ChevronDown,
   ChevronUp,
+  Copy,
+  Pencil as PencilIcon,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -73,12 +75,10 @@ const COURSE_TYPE_COLORS: Record<string, string> = {
 };
 
 // ─── Course description templates ────────────────────────────────────────────
-// Template text per course type + language.
-// Dynamic placeholders: {leaderName}, {phone}, {date}, {time}, {venueName}, {address}, {city}
 const DESCRIPTION_TEMPLATES: Record<string, Record<string, string>> = {
   sv: {
     intro: `**{title}**
-*1 dag (10.00–17.00) + digitalt material*
+*1 dag (10.00-17.00) + digitalt material*
 
 **Om kursen**
 Introduktionskurs Fascia ger en grundläggande och praktisk förståelse för vad fascia är, hur den fungerar och hur fasciabehandling används. Kursen kombinerar teori med praktisk behandling.
@@ -95,7 +95,7 @@ Efter genomförd kurs har du:
 Kursen är fristående men utgör också den gemensamma grund som används vidare i Fascia Academys utbildningsresa.
 
 **För vem**
-Kursen är öppen för alla som vill lära sig mer om fascia – både privat och professionellt.
+Kursen är öppen för alla som vill lära sig mer om fascia - både privat och professionellt.
 Du behöver inga förkunskaper eller tidigare utbildning.
 Kursen passar dig som:
 - Är nyfiken på hur fascia påverkar kroppen
@@ -105,9 +105,9 @@ Kursen passar dig som:
 - Överväger vidare utbildning inom Fascia Academy
 
 **Upplägg för dagen**
-10.00–12.00 — Teoretisk introduktion: fascia, kroppen och grundläggande begrepp
-12.00–13.00 — Lunchpaus (lunch ingår ej)
-13.00–17.00 — Praktisk del: grundläggande fasciabehandling med maskin
+10.00-12.00 - Teoretisk introduktion: fascia, kroppen och grundläggande begrepp
+12.00-13.00 - Lunchpaus (lunch ingår ej)
+13.00-17.00 - Praktisk del: grundläggande fasciabehandling med maskin
 
 **Praktiskt genomförande**
 All fasciabehandling under kursen utförs utanpå kläder.
@@ -229,7 +229,7 @@ Telefonnummer: {phone}
   },
   en: {
     intro: `**{title}**
-*1 day (10:00–17:00) + digital material*
+*1 day (10:00-17:00) + digital material*
 
 **About the course**
 Introduction Course Fascia provides a fundamental and practical understanding of what fascia is, how it works, and how fascia treatment is applied. The course combines theory with hands-on treatment.
@@ -244,7 +244,7 @@ After completing the course, you will have:
 - The opportunity to continue training as a Qualified and Certified Fascia Specialist
 
 **Who is it for?**
-The course is open to everyone who wants to learn more about fascia – both privately and professionally.
+The course is open to everyone who wants to learn more about fascia - both privately and professionally.
 No prior knowledge or training is required.
 The course is suitable for you who:
 - Are curious about how fascia affects the body
@@ -254,9 +254,9 @@ The course is suitable for you who:
 - Are considering further training within Fascia Academy
 
 **Schedule for the day**
-10:00–12:00 — Theoretical introduction: fascia, the body, and basic concepts
-12:00–13:00 — Lunch break (lunch not included)
-13:00–17:00 — Practical session: basic fascia treatment with machine
+10:00-12:00 - Theoretical introduction: fascia, the body, and basic concepts
+12:00-13:00 - Lunch break (lunch not included)
+13:00-17:00 - Practical session: basic fascia treatment with machine
 
 **Practical information**
 All fascia treatment during the course is performed over clothing.
@@ -300,7 +300,7 @@ Phone: {phone}
 Qualified Fascia Specialist is the next step in Fascia Academy's training system, providing you with an in-depth understanding of fascia's role in the body and practical skills in advanced fascia treatment.
 
 **Prerequisites**
-Completed Introduction Course Fascia is required.
+Completed Introduction Course Fascia is required for participation.
 
 **This is included**
 - In-depth digital course material
@@ -312,7 +312,12 @@ Completed Introduction Course Fascia is required.
 Price: 1 500 EUR (incl. VAT) / 15 000 SEK (incl. VAT)
 Payment is made at the time of registration.
 
-**If you have questions, please contact the course leader:**
+**Registration terms**
+- Registration is binding
+- Rebooking is free of charge up to 5 days before the course starts
+- For rebooking: contact info@fasciaacademy.com
+
+**If you have questions about the course, please contact the course leader:**
 Course leader: {leaderName}
 Phone: {phone}
 
@@ -325,10 +330,10 @@ Phone: {phone}
 *5 days + digital material*
 
 **About the course**
-Certified Fascia Specialist is the advanced step in Fascia Academy's training system. The course provides deep knowledge and certification as a Fascia Specialist.
+Certified Fascia Specialist is the advanced step in Fascia Academy's training system. The course provides you with in-depth knowledge and certification as a Fascia Specialist.
 
 **Prerequisites**
-Completed Qualified Fascia Specialist is required.
+Completed Qualified Fascia Specialist is required for participation.
 
 **This is included**
 - Advanced digital course material
@@ -338,8 +343,9 @@ Completed Qualified Fascia Specialist is required.
 
 **Price and terms**
 Price: 5 000 EUR (incl. VAT) / 50 000 SEK (incl. VAT)
+Payment is made at the time of registration.
 
-**If you have questions, please contact the course leader:**
+**If you have questions about the course, please contact the course leader:**
 Course leader: {leaderName}
 Phone: {phone}
 
@@ -355,9 +361,9 @@ Phone: {phone}
 Advanced Fascia Specialist is a continuing education course for those who are already certified and want to further expand their expertise.
 
 **Prerequisites**
-Completed Certified Fascia Specialist is required.
+Completed Certified Fascia Specialist is required for participation.
 
-**If you have questions, please contact the course leader:**
+**If you have questions about the course, please contact the course leader:**
 Course leader: {leaderName}
 Phone: {phone}
 
@@ -368,7 +374,7 @@ Phone: {phone}
   },
 };
 
-// Course titles per type + language
+// Course title per type + language
 const COURSE_TITLES: Record<string, Record<string, string>> = {
   sv: {
     intro: "Introduktionskurs Fascia by Fascia Academy",
@@ -384,7 +390,7 @@ const COURSE_TITLES: Record<string, Record<string, string>> = {
   },
 };
 
-function generateDescription(
+function buildDescription(
   courseType: string,
   language: string,
   leaderName: string,
@@ -392,25 +398,25 @@ function generateDescription(
   venueName: string,
   address: string,
   city: string,
-  startDate: string
+  startDate: string,
+  customTemplate?: string
 ): string {
   const lang = language === "en" ? "en" : "sv";
-  const template = DESCRIPTION_TEMPLATES[lang]?.[courseType] ?? "";
-  const title = COURSE_TITLES[lang]?.[courseType] ?? "";
+  const type = courseType || "intro";
+  const template = customTemplate ?? (DESCRIPTION_TEMPLATES[lang]?.[type] ?? "");
 
-  // Format date for display
+  const title = COURSE_TITLES[lang]?.[type] ?? "";
+  const fullTitle = city
+    ? `(${city}) ${title} - Kursledare: ${leaderName}`
+    : `${title} - Kursledare: ${leaderName}`;
+
   let dateStr = "";
-  let timeStr = "";
   if (startDate) {
     try {
       const d = new Date(startDate);
       dateStr = format(d, lang === "sv" ? "d MMMM yyyy" : "MMMM d, yyyy");
-      timeStr = format(d, "HH:mm");
     } catch {}
   }
-
-  // Add location prefix to title if city is known
-  const fullTitle = city ? `(${city}) ${title} – Kursledare: ${leaderName}` : `${title} – Kursledare: ${leaderName}`;
 
   return template
     .replace(/{title}/g, fullTitle)
@@ -419,8 +425,21 @@ function generateDescription(
     .replace(/{venueName}/g, venueName || "[Lokal]")
     .replace(/{address}/g, address || "[Adress]")
     .replace(/{city}/g, city || "[Stad]")
-    .replace(/{date}/g, dateStr || "[Datum]")
-    .replace(/{time}/g, timeStr || "[Tid]");
+    .replace(/{date}/g, dateStr || "[Datum]");
+}
+
+// Default start/end times for new forms
+function defaultStartDate(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 7); // next week as default
+  d.setHours(10, 0, 0, 0);
+  return format(d, "yyyy-MM-dd'T'HH:mm");
+}
+function defaultEndDate(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 7);
+  d.setHours(17, 0, 0, 0);
+  return format(d, "yyyy-MM-dd'T'HH:mm");
 }
 
 type FormData = {
@@ -439,6 +458,7 @@ type FormData = {
   maxSeats: string;
   notes: string;
   published: boolean;
+  customDescription: string; // editable template override
 };
 
 const emptyForm = (): FormData => ({
@@ -452,11 +472,12 @@ const emptyForm = (): FormData => ({
   venueName: "",
   address: "",
   courseLeaderPhone: "",
-  startDate: "",
-  endDate: "",
+  startDate: defaultStartDate(),
+  endDate: defaultEndDate(),
   maxSeats: "12",
   notes: "",
   published: true,
+  customDescription: "",
 });
 
 export default function CourseDates() {
@@ -466,7 +487,9 @@ export default function CourseDates() {
   const [form, setForm] = useState<FormData>(emptyForm());
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const [calPickerOpen, setCalPickerOpen] = useState(false);
+  const [calSearch, setCalSearch] = useState("");
   const [showPreview, setShowPreview] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState(false);
 
   const { data: courseDates = [], isLoading } = trpc.courseDates.listAdmin.useQuery();
   const { data: ghlCalendars = [], isLoading: calendarsLoading } = trpc.courseDates.getCalendars.useQuery();
@@ -501,16 +524,36 @@ export default function CourseDates() {
     onError: (e) => toast.error(e.message),
   });
 
-  // When a GHL calendar is selected, auto-fill course type, language, leader name
+  const duplicateMutation = trpc.courseDates.duplicate.useMutation({
+    onSuccess: () => {
+      toast.success("Course date duplicated as draft — update the date and publish when ready");
+      utils.courseDates.listAdmin.invalidate();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  // Calendar map for quick lookup
   const calendarMap = useMemo(
     () => new Map(ghlCalendars.map((c) => [c.id, c])),
     [ghlCalendars]
   );
 
+  // Strict search: filter calendars by course leader name OR calendar name
+  const filteredCalendars = useMemo(() => {
+    const q = calSearch.toLowerCase().trim();
+    if (!q) return ghlCalendars;
+    return ghlCalendars.filter((c) => {
+      const leaderMatch = (c.primaryUserName ?? "").toLowerCase().includes(q);
+      const nameMatch = c.name.toLowerCase().includes(q);
+      return leaderMatch || nameMatch;
+    });
+  }, [ghlCalendars, calSearch]);
+
   function handleCalendarSelect(calId: string) {
     const cal = calendarMap.get(calId);
     if (!cal) return;
     setCalPickerOpen(false);
+    setCalSearch("");
     setForm((f) => ({
       ...f,
       ghlCalendarId: calId,
@@ -518,13 +561,31 @@ export default function CourseDates() {
       ghlUserId: cal.primaryUserId ?? "",
       courseType: (cal.courseType as FormData["courseType"]) ?? f.courseType,
       language: (cal.language as FormData["language"]) ?? f.language,
+      // Auto-fill address/city from GHL meetingLocation if fields are empty
+      venueName: f.venueName || ((cal as any).autoVenueName ?? ""),
+      address: f.address || ((cal as any).autoAddress ?? ""),
+      city: f.city || ((cal as any).autoCity ?? ""),
+      // Reset custom description when calendar changes
+      customDescription: "",
     }));
+    setEditingTemplate(false);
+  }
+
+  // When start date changes, auto-set end date to same day at 17:00
+  function handleStartDateChange(val: string) {
+    setForm((f) => {
+      // Only auto-update end date if it hasn't been manually changed from default
+      const newEnd = val ? val.substring(0, 11) + "17:00" : f.endDate;
+      return { ...f, startDate: val, endDate: newEnd };
+    });
   }
 
   function openCreate() {
     setEditingId(null);
     setForm(emptyForm());
     setShowPreview(false);
+    setEditingTemplate(false);
+    setCalSearch("");
     setDialogOpen(true);
   }
 
@@ -546,8 +607,11 @@ export default function CourseDates() {
       maxSeats: String(row.maxSeats),
       notes: row.notes ?? "",
       published: row.published,
+      customDescription: "",
     });
     setShowPreview(false);
+    setEditingTemplate(false);
+    setCalSearch("");
     setDialogOpen(true);
   }
 
@@ -579,10 +643,10 @@ export default function CourseDates() {
 
   const isSaving = createMutation.isPending || updateMutation.isPending;
 
-  // Generated description preview
+  // Auto-generated description (uses custom template if set)
   const descriptionPreview = useMemo(
     () =>
-      generateDescription(
+      buildDescription(
         form.courseType,
         form.language,
         form.courseLeaderName,
@@ -590,10 +654,25 @@ export default function CourseDates() {
         form.venueName,
         form.address,
         form.city,
-        form.startDate
+        form.startDate,
+        form.customDescription || undefined
       ),
-    [form.courseType, form.language, form.courseLeaderName, form.courseLeaderPhone, form.venueName, form.address, form.city, form.startDate]
+    [form.courseType, form.language, form.courseLeaderName, form.courseLeaderPhone, form.venueName, form.address, form.city, form.startDate, form.customDescription]
   );
+
+  // Initialize editable template from the auto-generated one
+  function startEditingTemplate() {
+    if (!form.customDescription) {
+      setForm((f) => ({ ...f, customDescription: descriptionPreview }));
+    }
+    setEditingTemplate(true);
+    setShowPreview(true);
+  }
+
+  function resetTemplate() {
+    setForm((f) => ({ ...f, customDescription: "" }));
+    setEditingTemplate(false);
+  }
 
   // Selected calendar display name
   const selectedCalendarName = useMemo(
@@ -750,12 +829,22 @@ export default function CourseDates() {
                       ) : (
                         <span className="inline-flex items-center gap-1 text-xs text-gray-600 bg-gray-100 px-2 py-0.5 rounded-full">
                           <span className="h-1.5 w-1.5 rounded-full bg-gray-400" />
-                          Hidden
+                          Draft
                         </span>
                       )}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1 justify-end">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          title="Duplicate as draft"
+                          onClick={() => duplicateMutation.mutate({ id: row.id })}
+                          disabled={duplicateMutation.isPending}
+                        >
+                          <Copy className="h-3.5 w-3.5" />
+                        </Button>
                         <Button
                           variant="ghost"
                           size="icon"
@@ -798,7 +887,7 @@ export default function CourseDates() {
                   <Loader2 className="h-4 w-4 animate-spin" /> Loading calendars...
                 </div>
               ) : (
-                <Popover open={calPickerOpen} onOpenChange={setCalPickerOpen}>
+                <Popover open={calPickerOpen} onOpenChange={(open) => { setCalPickerOpen(open); if (!open) setCalSearch(""); }}>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
@@ -813,42 +902,50 @@ export default function CourseDates() {
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-[500px] p-0" align="start">
-                    <Command>
-                      <CommandInput placeholder="Search calendar by name or course leader..." />
-                      <CommandList className="max-h-72">
-                        <CommandEmpty>No calendars found.</CommandEmpty>
-                        <CommandGroup>
-                          {ghlCalendars.map((cal) => (
-                            <CommandItem
-                              key={cal.id}
-                              value={`${cal.name} ${cal.primaryUserName ?? ""}`}
-                              onSelect={() => handleCalendarSelect(cal.id)}
-                              className="flex items-center gap-2 cursor-pointer"
-                            >
-                              <Check
-                                className={`h-4 w-4 shrink-0 ${form.ghlCalendarId === cal.id ? "opacity-100" : "opacity-0"}`}
-                              />
-                              <div className="flex-1 min-w-0">
-                                <div className="font-medium text-sm truncate">{cal.name}</div>
-                                {cal.primaryUserName && (
-                                  <div className="text-xs text-muted-foreground">{cal.primaryUserName}</div>
-                                )}
-                              </div>
-                              {cal.courseType && (
-                                <span className={`text-xs px-1.5 py-0.5 rounded shrink-0 ${COURSE_TYPE_COLORS[cal.courseType]}`}>
-                                  {COURSE_TYPE_LABELS[cal.courseType]}
-                                </span>
+                    <div className="flex items-center border-b px-3 gap-2">
+                      <svg className="h-4 w-4 shrink-0 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                      <input
+                        className="flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                        placeholder="Search by course leader name..."
+                        value={calSearch}
+                        onChange={(e) => setCalSearch(e.target.value)}
+                        autoFocus
+                      />
+                    </div>
+                    <div className="max-h-72 overflow-y-auto py-1">
+                      {filteredCalendars.length === 0 ? (
+                        <div className="py-6 text-center text-sm text-muted-foreground">No calendars found.</div>
+                      ) : (
+                        filteredCalendars.map((cal) => (
+                          <button
+                            key={cal.id}
+                            type="button"
+                            onClick={() => handleCalendarSelect(cal.id)}
+                            className={`w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-accent hover:text-accent-foreground cursor-pointer transition-colors ${form.ghlCalendarId === cal.id ? "bg-accent/50" : ""}`}
+                          >
+                            <Check
+                              className={`h-4 w-4 shrink-0 ${form.ghlCalendarId === cal.id ? "opacity-100" : "opacity-0"}`}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium text-sm truncate">{cal.name}</div>
+                              {cal.primaryUserName && (
+                                <div className="text-xs text-muted-foreground">{cal.primaryUserName}</div>
                               )}
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
+                            </div>
+                            {cal.courseType && (
+                              <span className={`text-xs px-1.5 py-0.5 rounded shrink-0 ${COURSE_TYPE_COLORS[cal.courseType]}`}>
+                                {COURSE_TYPE_LABELS[cal.courseType]}
+                              </span>
+                            )}
+                          </button>
+                        ))
+                      )}
+                    </div>
                   </PopoverContent>
                 </Popover>
               )}
               <p className="text-xs text-muted-foreground">
-                Selecting a calendar auto-fills course type, language, and course leader.
+                Selecting a calendar auto-fills course type, language, course leader, and location.
               </p>
             </div>
 
@@ -881,7 +978,7 @@ export default function CourseDates() {
                 <Label>Course Type</Label>
                 <Select
                   value={form.courseType}
-                  onValueChange={(v) => setForm((f) => ({ ...f, courseType: v as FormData["courseType"] }))}
+                  onValueChange={(v) => setForm((f) => ({ ...f, courseType: v as FormData["courseType"], customDescription: "" }))}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -898,7 +995,7 @@ export default function CourseDates() {
                 <Label>Language</Label>
                 <Select
                   value={form.language}
-                  onValueChange={(v) => setForm((f) => ({ ...f, language: v as FormData["language"] }))}
+                  onValueChange={(v) => setForm((f) => ({ ...f, language: v as FormData["language"], customDescription: "" }))}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -918,7 +1015,7 @@ export default function CourseDates() {
                 <Input
                   type="datetime-local"
                   value={form.startDate}
-                  onChange={(e) => setForm((f) => ({ ...f, startDate: e.target.value }))}
+                  onChange={(e) => handleStartDateChange(e.target.value)}
                 />
               </div>
               <div className="space-y-1.5">
@@ -931,7 +1028,7 @@ export default function CourseDates() {
               </div>
             </div>
 
-            {/* ── Venue + City + Seats ── */}
+            {/* ── Venue + Address + City + Seats ── */}
             <div className="space-y-1.5">
               <Label className="flex items-center gap-1.5">
                 <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
@@ -1000,28 +1097,88 @@ export default function CourseDates() {
               />
             </div>
 
-            {/* ── Course Description Preview ── */}
+            {/* ── Course Description Preview / Edit ── */}
             <div className="rounded-lg border overflow-hidden">
-              <button
-                type="button"
-                onClick={() => setShowPreview((v) => !v)}
-                className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium hover:bg-muted/30 transition-colors"
-              >
-                <span className="flex items-center gap-2">
+              <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/20">
+                <button
+                  type="button"
+                  onClick={() => setShowPreview((v) => !v)}
+                  className="flex items-center gap-2 text-sm font-medium hover:text-foreground transition-colors"
+                >
                   <Eye className="h-4 w-4 text-muted-foreground" />
-                  Preview course description
-                  <span className="text-xs text-muted-foreground font-normal">(auto-generated from template)</span>
-                </span>
-                {showPreview ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-              </button>
+                  Course description
+                  <span className="text-xs text-muted-foreground font-normal">
+                    {form.customDescription ? "(custom)" : "(auto-generated)"}
+                  </span>
+                  {showPreview ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </button>
+                <div className="flex items-center gap-2">
+                  {form.customDescription && (
+                    <button
+                      type="button"
+                      onClick={resetTemplate}
+                      className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      Reset to auto
+                    </button>
+                  )}
+                  {!editingTemplate ? (
+                    <button
+                      type="button"
+                      onClick={startEditingTemplate}
+                      className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <PencilIcon className="h-3 w-3" />
+                      Edit
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setEditingTemplate(false)}
+                      className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      Done
+                    </button>
+                  )}
+                </div>
+              </div>
               {showPreview && (
-                <div className="border-t bg-muted/20 p-4">
-                  <pre className="text-xs whitespace-pre-wrap font-mono text-foreground/80 leading-relaxed max-h-64 overflow-y-auto">
-                    {descriptionPreview}
-                  </pre>
-                  <p className="text-xs text-muted-foreground mt-3">
-                    Copy this text into your booking platform (e.g. Circle). Fill in phone, address, and venue name above to personalise it.
-                  </p>
+                <div className="p-4">
+                  {editingTemplate ? (
+                    <>
+                      <Textarea
+                        value={form.customDescription || descriptionPreview}
+                        onChange={(e) => setForm((f) => ({ ...f, customDescription: e.target.value }))}
+                        rows={20}
+                        className="font-mono text-xs"
+                      />
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Edit freely. Use placeholders: {"{leaderName}"}, {"{phone}"}, {"{venueName}"}, {"{address}"}, {"{city}"}, {"{date}"}
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <pre className="text-xs whitespace-pre-wrap font-mono text-foreground/80 leading-relaxed max-h-64 overflow-y-auto">
+                        {descriptionPreview}
+                      </pre>
+                      <div className="flex items-center justify-between mt-3">
+                        <p className="text-xs text-muted-foreground">
+                          Copy and paste into Circle or your booking platform.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(descriptionPreview);
+                            toast.success("Copied to clipboard");
+                          }}
+                          className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+                        >
+                          <Copy className="h-3 w-3" />
+                          Copy
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
             </div>
