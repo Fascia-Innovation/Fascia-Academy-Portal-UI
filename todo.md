@@ -106,3 +106,26 @@
 - [x] Make description template text editable in the form (textarea, pre-filled from template)
 - [x] Default times: 10:00 start, 17:00 end; auto-set end date = start date when start date changes
 - [x] Copy-to-clipboard button in description preview
+
+## Round 3: Multi-day dates, Prices, Public Page Overhaul
+### Admin
+- [ ] DB: Add `additional_days` (JSON array of {date, startTime, endTime}) to course_dates
+- [ ] DB: Add `booking_info` (text, optional) to course_dates for vägbeskrivning/extra info
+- [ ] DB: Add `profile_url` to local_users (course leader website link)
+- [ ] Fix GHL address auto-fill: parse street/zip/city correctly into Address + City fields
+- [ ] Admin form: Multi-day date picker (add/remove extra days with date+time each)
+- [ ] Admin form: "Other information for booking" textarea (vägbeskrivning etc)
+- [ ] User Management: Add profile_url field per user
+
+### Public /courses page
+- [ ] Full course names SE: Introduktionskurs Fascia, Diplomerad Fasciaspecialist, Certifierad Fasciaspecialist, Vidareutbildning för Certifierade Fasciaspecialister
+- [ ] Full course names EN: Introduction Course Fascia, Qualified Fascia Specialist, Certified Fascia Specialist, Advanced Training for Certified Fascia Specialists
+- [ ] Prices on course cards: SE (3500/15000/50000/9375 kr inkl. moms), EN (/10 in EUR)
+- [ ] Reorder page sections: 1. Kalender, 2. Karta, 3. Kursledare
+- [ ] "Mer info" modal: template text (left) + unique info (right: all dates/times, contact, address, booking_info)
+- [ ] Multi-day courses: show "Startdatum" label clearly
+- [ ] Kursledarkort: fix layout overlap, add "Om kursledaren" button → profile_url link
+- [ ] "Mer info" button in Calendar view (next to Boka)
+- [ ] "Mer info" button in Map popup (next to Boka)
+- [ ] Map popup: show course type first, then course leader
+- [ ] Section "Mer om kurserna": one link/button per course type → fasciaacademy.com (with TODO note to update URLs)

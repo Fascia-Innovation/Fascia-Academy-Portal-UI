@@ -17,6 +17,7 @@ type UserForm = {
   role: "admin" | "course_leader" | "affiliate";
   ghlContactId: string;
   affiliateCode: string;
+  profileUrl: string; // link to course leader's profile page on fasciaacademy.com
 };
 
 const EMPTY_FORM: UserForm = {
@@ -26,6 +27,7 @@ const EMPTY_FORM: UserForm = {
   role: "course_leader",
   ghlContactId: "",
   affiliateCode: "",
+  profileUrl: "",
 };
 
 const ROLE_LABELS: Record<string, string> = {
@@ -106,6 +108,7 @@ export default function UserManagement() {
       role: user.role,
       ghlContactId: user.ghlContactId ?? "",
       affiliateCode: user.affiliateCode ?? "",
+      profileUrl: (user as any).profileUrl ?? "",
     });
     setEditId(user.id);
   };
@@ -123,6 +126,7 @@ export default function UserManagement() {
         role: form.role,
         ghlContactId: form.ghlContactId || undefined,
         affiliateCode: form.affiliateCode || undefined,
+        profileUrl: form.profileUrl || undefined,
         ...(form.password ? { password: form.password } : {}),
       });
     } else {
@@ -134,6 +138,7 @@ export default function UserManagement() {
         role: form.role,
         ghlContactId: form.ghlContactId || undefined,
         affiliateCode: form.affiliateCode || undefined,
+        profileUrl: form.profileUrl || undefined,
       });
     }
   };
@@ -295,14 +300,28 @@ export default function UserManagement() {
               </Select>
             </div>
             {form.role === "course_leader" && (
-              <div className="space-y-1.5">
-                <Label>GHL Calendar ID (optional)</Label>
-                <Input value={form.ghlContactId} onChange={(e) => setForm({ ...form, ghlContactId: e.target.value })} placeholder="Override calendar ID for multi-leader calendars" />
-                <p className="text-xs text-muted-foreground">
-                  Leave blank if the calendar name contains the leader's name (e.g. "Intro - Anna Lindgren - Stockholm").
-                  Set this for shared calendars like "Fascia Academy Sollentuna".
-                </p>
-              </div>
+              <>
+                <div className="space-y-1.5">
+                  <Label>GHL Calendar ID (optional)</Label>
+                  <Input value={form.ghlContactId} onChange={(e) => setForm({ ...form, ghlContactId: e.target.value })} placeholder="Override calendar ID for multi-leader calendars" />
+                  <p className="text-xs text-muted-foreground">
+                    Leave blank if the calendar name contains the leader's name (e.g. "Intro - Anna Lindgren - Stockholm").
+                    Set this for shared calendars like "Fascia Academy Sollentuna".
+                  </p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Profile URL (optional)</Label>
+                  <Input
+                    type="url"
+                    value={form.profileUrl}
+                    onChange={(e) => setForm({ ...form, profileUrl: e.target.value })}
+                    placeholder="https://fasciaacademy.com/kursledare/anna-lindgren"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Link to the course leader's profile page on fasciaacademy.com. Shown as "Om kursledaren" on the public booking page.
+                  </p>
+                </div>
+              </>
             )}
             {form.role === "affiliate" && (
               <div className="space-y-1.5">

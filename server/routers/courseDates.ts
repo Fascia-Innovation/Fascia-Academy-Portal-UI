@@ -8,7 +8,7 @@ import { z } from "zod";
 import { eq, gte, and, asc } from "drizzle-orm";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { courseDates } from "../../drizzle/schema";
+import { courseDates, dashboardUsers } from "../../drizzle/schema";
 import type { DashboardUser } from "../../drizzle/schema";
 import { parse as parseCookies } from "cookie";
 import { getSessionUser } from "../dashboardAuth";
@@ -153,9 +153,16 @@ export const courseDatesRouter = router({
       const ghlUsers = await getGhlUsers();
       const userMap = new Map(ghlUsers.map((u) => [u.id, u]));
 
+      // Enrich with profileUrl from dashboard_users (matched by courseLeaderName)
+      const dashUsers = await db.select().from(dashboardUsers);
+      const profileUrlByName = new Map<string, string | null>(
+        dashUsers.map((u) => [u.name.toLowerCase(), u.profileUrl ?? null])
+      );
+
       return filtered.map((row) => ({
         ...row,
         profilePhoto: row.ghlUserId ? (userMap.get(row.ghlUserId)?.profilePhoto ?? null) : null,
+        profileUrl: profileUrlByName.get(row.courseLeaderName.toLowerCase()) ?? null,
       }));
     }),
 
@@ -177,21 +184,31 @@ export const courseDatesRouter = router({
         const primaryMember = c.teamMembers?.find((m) => m.isPrimary) ?? c.teamMembers?.[0];
         const user = primaryMember ? userMap.get(primaryMember.userId) : null;
         // Parse meetingLocation for address/city auto-fill
+        // GHL format: "Street\tPostalCode\tCity" (tab-separated, 3 parts)
         const rawLocation = primaryMember?.meetingLocation ?? "";
-        // meetingLocation is often "Venue Name\tAddress, City" or "Address, City"
         const parts = rawLocation.split(/\t/).map((s: string) => s.trim()).filter(Boolean);
         let autoVenueName: string | null = null;
         let autoAddress: string | null = null;
         let autoCity: string | null = null;
-        if (parts.length >= 2) {
-          autoVenueName = parts[0];
-          const addrParts = parts[1].split(",").map((s: string) => s.trim());
-          autoCity = addrParts[addrParts.length - 1] ?? null;
-          autoAddress = parts[1];
-        } else if (parts.length === 1) {
+        if (parts.length >= 3) {
+          // "Berga allé 1\t25452\tHelsingborg" → street, zip, city
+          const street = parts[0];
+          const zip = parts[1];
+          const city = parts[2];
+          autoCity = city;
+          // Format zip nicely: "25452" → "254 52" if 5 digits
+          const formattedZip = /^\d{5}$/.test(zip) ? `${zip.slice(0, 3)} ${zip.slice(3)}` : zip;
+          autoAddress = `${street}, ${formattedZip} ${city}`;
+          autoVenueName = null; // Venue Name is always manual
+        } else if (parts.length === 2) {
+          // "Street\tCity"
+          autoAddress = `${parts[0]}, ${parts[1]}`;
+          autoCity = parts[1];
+        } else if (parts.length === 1 && parts[0] && !parts[0].includes("ÄNDRA") && !parts[0].includes("Varies")) {
+          autoAddress = parts[0];
+          // Try to extract city from last comma-separated part
           const addrParts = parts[0].split(",").map((s: string) => s.trim());
           autoCity = addrParts[addrParts.length - 1] ?? null;
-          autoAddress = parts[0];
         }
         return {
           id: c.id,
@@ -249,6 +266,8 @@ export const courseDatesRouter = router({
         maxSeats: z.number().int().min(1).max(500).default(12),
         notes: z.string().optional(),
         published: z.boolean().default(true),
+        additionalDays: z.string().optional(), // JSON string of [{date, startTime, endTime}]
+        bookingInfo: z.string().optional(), // Extra booking info (directions, parking, etc.)
       })
     )
     .mutation(async ({ input }) => {
@@ -271,6 +290,8 @@ export const courseDatesRouter = router({
         maxSeats: input.maxSeats,
         notes: input.notes ?? null,
         published: input.published,
+        additionalDays: input.additionalDays ?? null,
+        bookingInfo: input.bookingInfo ?? null,
       });
 
       return { success: true };
@@ -296,6 +317,8 @@ export const courseDatesRouter = router({
         maxSeats: z.number().int().min(1).max(500).optional(),
         notes: z.string().optional().nullable(),
         published: z.boolean().optional(),
+        additionalDays: z.string().optional().nullable(),
+        bookingInfo: z.string().optional().nullable(),
       })
     )
     .mutation(async ({ input }) => {

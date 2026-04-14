@@ -29,6 +29,13 @@
       "when": 1776165136073,
       "tag": "0003_secret_stick",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1776170450103,
+      "tag": "0004_careful_night_thrasher",
+      "breakpoints": true
     }
   ]
 }

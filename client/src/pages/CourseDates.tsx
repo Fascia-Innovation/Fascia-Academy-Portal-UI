@@ -442,6 +442,12 @@ function defaultEndDate(): string {
   return format(d, "yyyy-MM-dd'T'HH:mm");
 }
 
+type AdditionalDay = {
+  date: string;       // "yyyy-MM-dd"
+  startTime: string;  // "HH:mm"
+  endTime: string;    // "HH:mm"
+};
+
 type FormData = {
   ghlCalendarId: string;
   courseLeaderName: string;
@@ -457,6 +463,8 @@ type FormData = {
   endDate: string;
   maxSeats: string;
   notes: string;
+  bookingInfo: string; // optional: directions, parking, extra info shown on booking page
+  additionalDays: AdditionalDay[]; // extra course days beyond day 1
   published: boolean;
   customDescription: string; // editable template override
 };
@@ -476,6 +484,8 @@ const emptyForm = (): FormData => ({
   endDate: defaultEndDate(),
   maxSeats: "12",
   notes: "",
+  bookingInfo: "",
+  additionalDays: [],
   published: true,
   customDescription: "",
 });
@@ -591,6 +601,12 @@ export default function CourseDates() {
 
   function openEdit(row: (typeof courseDates)[0]) {
     setEditingId(row.id);
+    // Parse additionalDays from JSON string if stored
+    let parsedAdditionalDays: AdditionalDay[] = [];
+    try {
+      const raw = (row as any).additionalDays;
+      if (raw) parsedAdditionalDays = JSON.parse(raw);
+    } catch {}
     setForm({
       ghlCalendarId: row.ghlCalendarId,
       courseLeaderName: row.courseLeaderName,
@@ -606,6 +622,8 @@ export default function CourseDates() {
       endDate: format(new Date(row.endDate), "yyyy-MM-dd'T'HH:mm"),
       maxSeats: String(row.maxSeats),
       notes: row.notes ?? "",
+      bookingInfo: (row as any).bookingInfo ?? "",
+      additionalDays: parsedAdditionalDays,
       published: row.published,
       customDescription: "",
     });
@@ -631,6 +649,10 @@ export default function CourseDates() {
       endDate: new Date(form.endDate).toISOString(),
       maxSeats: parseInt(form.maxSeats, 10) || 12,
       notes: form.notes || undefined,
+      bookingInfo: form.bookingInfo || undefined,
+      additionalDays: form.additionalDays.length > 0
+        ? JSON.stringify(form.additionalDays)
+        : undefined,
       published: form.published,
     };
 
@@ -1074,13 +1096,107 @@ export default function CourseDates() {
               </div>
             </div>
 
+            {/* ── Additional Course Days ── */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="flex items-center gap-1.5">
+                  <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                  Ytterligare kursdagar
+                  <span className="text-muted-foreground font-normal text-xs">(för flerdagarskurser)</span>
+                </Label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    // Default next day at same time as day 1
+                    const d1 = form.startDate ? new Date(form.startDate) : new Date();
+                    d1.setDate(d1.getDate() + (form.additionalDays.length + 1));
+                    const nextDate = format(d1, "yyyy-MM-dd");
+                    setForm((f) => ({
+                      ...f,
+                      additionalDays: [
+                        ...f.additionalDays,
+                        { date: nextDate, startTime: "10:00", endTime: "17:00" },
+                      ],
+                    }));
+                  }}
+                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Lägg till dag
+                </button>
+              </div>
+              {form.additionalDays.length === 0 ? (
+                <p className="text-xs text-muted-foreground">Inga ytterligare kursdagar. Klicka "Lägg till dag" för flerdagarskurser.</p>
+              ) : (
+                <div className="space-y-2">
+                  {form.additionalDays.map((day, idx) => (
+                    <div key={idx} className="flex items-center gap-2 p-2 rounded-lg border bg-muted/20">
+                      <span className="text-xs font-medium text-muted-foreground w-12 shrink-0">Dag {idx + 2}</span>
+                      <Input
+                        type="date"
+                        value={day.date}
+                        onChange={(e) => setForm((f) => {
+                          const days = [...f.additionalDays];
+                          days[idx] = { ...days[idx], date: e.target.value };
+                          return { ...f, additionalDays: days };
+                        })}
+                        className="h-8 text-sm"
+                      />
+                      <Input
+                        type="time"
+                        value={day.startTime}
+                        onChange={(e) => setForm((f) => {
+                          const days = [...f.additionalDays];
+                          days[idx] = { ...days[idx], startTime: e.target.value };
+                          return { ...f, additionalDays: days };
+                        })}
+                        className="h-8 text-sm w-28"
+                      />
+                      <span className="text-xs text-muted-foreground">–</span>
+                      <Input
+                        type="time"
+                        value={day.endTime}
+                        onChange={(e) => setForm((f) => {
+                          const days = [...f.additionalDays];
+                          days[idx] = { ...days[idx], endTime: e.target.value };
+                          return { ...f, additionalDays: days };
+                        })}
+                        className="h-8 text-sm w-28"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setForm((f) => ({
+                          ...f,
+                          additionalDays: f.additionalDays.filter((_, i) => i !== idx),
+                        }))}
+                        className="text-muted-foreground hover:text-destructive transition-colors ml-auto"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* ── Booking Info (shown publicly on booking page) ── */}
+            <div className="space-y-1.5">
+              <Label>Övrig bokningsinformation <span className="text-muted-foreground font-normal">(valfri — visas på bokningssidan)</span></Label>
+              <Textarea
+                value={form.bookingInfo}
+                onChange={(e) => setForm((f) => ({ ...f, bookingInfo: e.target.value }))}
+                placeholder="t.ex. Parkering finns på gatan, ring på dörren 'Fascia Academy', ta hiss till våning 3..."
+                rows={2}
+              />
+            </div>
+
             {/* ── Internal Notes ── */}
             <div className="space-y-1.5">
-              <Label>Internal Notes <span className="text-muted-foreground font-normal">(optional — not shown publicly)</span></Label>
+              <Label>Interna anteckningar <span className="text-muted-foreground font-normal">(valfri — visas ej publikt)</span></Label>
               <Textarea
                 value={form.notes}
                 onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-                placeholder="e.g. Day 2 is 9:00–16:00, special venue instructions..."
+                placeholder="t.ex. Dag 2 är 9:00–16:00, speciella lokalinstruktioner..."
                 rows={2}
               />
             </div>

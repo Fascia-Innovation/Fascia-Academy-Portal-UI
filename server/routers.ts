@@ -174,6 +174,7 @@ export const appRouter = router({
         role: z.enum(["admin", "course_leader", "affiliate"]),
         ghlContactId: z.string().optional(),
         affiliateCode: z.string().optional(),
+        profileUrl: z.string().url().optional(),
       }))
       .mutation(async ({ input }) => createDashboardUser(input)),
 
@@ -185,6 +186,7 @@ export const appRouter = router({
         role: z.enum(["admin", "course_leader", "affiliate"]).optional(),
         ghlContactId: z.string().optional(),
         affiliateCode: z.string().optional(),
+        profileUrl: z.string().url().optional().nullable(),
         active: z.boolean().optional(),
         password: z.string().min(6).optional(),
       }))

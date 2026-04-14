@@ -40,6 +40,7 @@ export const dashboardUsers = mysqlTable("dashboard_users", {
   ghlContactId: varchar("ghlContactId", { length: 64 }),
   affiliateCode: varchar("affiliateCode", { length: 64 }),
   phone: varchar("phone", { length: 32 }), // course leader phone for booking info
+  profileUrl: varchar("profileUrl", { length: 512 }), // link to course leader's profile page
   active: boolean("active").default(true).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
@@ -83,7 +84,9 @@ export const courseDates = mysqlTable("course_dates", {
   venueName: varchar("venueName", { length: 255 }), // e.g. "Fasciaklinikerna Helsingborg"
   address: varchar("address", { length: 512 }), // full street address
   courseLeaderPhone: varchar("courseLeaderPhone", { length: 32 }), // auto-filled from GHL or overridden
-  notes: text("notes"), // optional internal notes
+  additionalDays: text("additionalDays"), // JSON array: [{date, startTime, endTime}] for multi-day courses
+  bookingInfo: text("bookingInfo"), // optional: vägbeskrivning, parking, extra info shown on booking page
+  notes: text("notes"), // optional internal notes (admin only, not shown publicly)
   published: boolean("published").default(true).notNull(), // false = hidden from public page
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
