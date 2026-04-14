@@ -65,7 +65,7 @@ async function fetchMonthData(year: number, month: number) {
 
 // ─── Payout calculation helper ────────────────────────────────────────────────
 async function buildParticipantBreakdown(
-  appt: { contactId: string; calendarId: string },
+  appt: { contactId: string; calendarId: string; customFields?: Array<{ id: string; value: string | number | string[] }> },
   calMap: Map<string, { id: string; name: string }>
 ) {
   const cal = calMap.get(appt.calendarId);
@@ -75,7 +75,9 @@ async function buildParticipantBreakdown(
   const contact = await getContact(appt.contactId);
   const contactName = [contact?.firstName, contact?.lastName].filter(Boolean).join(" ") || "Unknown";
 
-  const paidField = contact?.customFields?.find(
+  // Check appointment-level customFields first (mock data), then contact-level
+  const allFields = [...(appt.customFields ?? []), ...(contact?.customFields ?? [])];
+  const paidField = allFields.find(
     (f) => f.id.toLowerCase().includes("paid_amount") || f.id.toLowerCase().includes("paidamount")
   );
   let paidAmount = paidField ? Number(paidField.value) : 0;
@@ -86,7 +88,7 @@ async function buildParticipantBreakdown(
     else paidAmount = currency === "SEK" ? 3500 : 350;
   }
 
-  const affiliateField = contact?.customFields?.find(
+  const affiliateField = allFields.find(
     (f) => f.id.toLowerCase().includes("affiliate_code") || f.id.toLowerCase().includes("affiliatecode")
   );
   const affiliateCode = affiliateField?.value ? String(affiliateField.value) : null;
@@ -337,9 +339,15 @@ export const appRouter = router({
         const { showed, calMap } = await fetchMonthData(input.year, input.month);
         const myName = dashUser.name;
 
-        const myCals = Array.from(calMap.values()).filter(
-          (c) => extractCourseLeaderName(c.name).toLowerCase().trim() === myName.toLowerCase().trim()
-        );
+        // Match calendars by:
+        // 1. Name extracted from calendar title ("Intro - Victor Forsell - Stockholm" → "Victor Forsell")
+        // 2. Exact calendar name match (for multi-leader calendars like "Fascia Academy Sollentuna")
+        //    stored as ghlContactId field (we repurpose it for calendar ID override)
+        const calendarIdOverride = dashUser.ghlContactId; // admin can set this to a specific calendarId
+        const myCals = Array.from(calMap.values()).filter((c) => {
+          if (calendarIdOverride && c.id === calendarIdOverride) return true;
+          return extractCourseLeaderName(c.name).toLowerCase().trim() === myName.toLowerCase().trim();
+        });
         const myCalIds = new Set(myCals.map((c) => c.id));
         const myAppts = showed.filter((a) => myCalIds.has(a.calendarId));
 

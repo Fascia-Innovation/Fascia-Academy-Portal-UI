@@ -33,8 +33,20 @@
 - [x] GHL_LOCATION_ID stored as secret
 - [ ] SMTP credentials (future — email sending for settlement reports)
 
+## Bugs / Fixes
+- [x] Fix GHL API 422 error: /calendars/events requires calendarId or userId parameter (now fetches per-calendar)
+- [x] Fix all appointment-fetching calls to use correct GHL API endpoints
+
 ## Low Priority / Future
 - [ ] Email settlement reports (monthly automation)
 - [ ] Custom domain emails (fornamn.efternamn@fasciaacademy.com)
 - [ ] Export to PDF/Excel
 - [ ] Shopify integration when migrating
+
+## Test Setup
+- [x] Create user: Victor Forsell (course_leader) — calendar: "Introduktionskurs Fascia - Victor Forsell - Test"
+- [x] Create user: Victor Forsell (affiliate) — affiliateCode: VICTOR
+- [x] Create user: Fredrik Kjellberg (course_leader) — calendar: "Introduktionskurs Fascia - Fredrik Kjellberg - Helsingborg"
+- [x] Create user: Ivar Bohlin (course_leader) — calendar: "Fascia Academy Sollentuna" (multi-leader)
+- [x] Seed mock appointment data for all three course leaders across 2 months
+- [x] Fix Fascia Academy Sollentuna calendar matching (multi-leader — use ghlContactId field as calendar ID override in User Management)

@@ -1,7 +1,9 @@
 /**
  * GoHighLevel API service layer
  * Wraps all GHL v2 API calls used by the Fascia Academy Dashboard.
+ * Supports mock data mode (reads from ghl_cache table when mock:enabled = "true").
  */
+import { getDb } from "./db";
 
 const GHL_BASE = "https://services.leadconnectorhq.com";
 const API_KEY = process.env.GHL_API_KEY ?? "";
@@ -52,6 +54,35 @@ async function ghlGet<T>(path: string, params: Record<string, string> = {}): Pro
   return res.json() as Promise<T>;
 }
 
+// ─── Mock data helpers ────────────────────────────────────────────────────────
+async function isMockEnabled(): Promise<boolean> {
+  try {
+    const db = await getDb();
+    if (!db) return false;
+    const rows = await db.execute(
+      "SELECT cache_value FROM ghl_cache WHERE cache_key = 'mock:enabled' AND expires_at > NOW() LIMIT 1"
+    ) as unknown as [Array<{ cache_value: string }>];
+    return rows[0]?.[0]?.cache_value === "true";
+  } catch {
+    return false;
+  }
+}
+
+async function getMockCache<T>(key: string): Promise<T | null> {
+  try {
+    const db = await getDb();
+    if (!db) return null;
+    const rows = await db.execute(
+      `SELECT cache_value FROM ghl_cache WHERE cache_key = '${key.replace(/'/g, "''")}' AND expires_at > NOW() LIMIT 1`
+    ) as unknown as [Array<{ cache_value: string }>];
+    const row = rows[0]?.[0];
+    if (!row) return null;
+    return JSON.parse(row.cache_value) as T;
+  } catch {
+    return null;
+  }
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 export interface GHLCalendar {
   id: string;
@@ -66,8 +97,10 @@ export interface GHLAppointment {
   contactId: string;
   title: string;
   status: string;
+  appointmentStatus?: string;
   startTime: string;
   endTime: string;
+  customFields?: Array<{ id: string; value: string | number | string[] }>;
   contact?: {
     id: string;
     firstName?: string;
@@ -90,6 +123,10 @@ export interface GHLContact {
 
 // ─── Calendars ────────────────────────────────────────────────────────────────
 export async function getCalendars(): Promise<GHLCalendar[]> {
+  if (await isMockEnabled()) {
+    const mock = await getMockCache<GHLCalendar[]>("mock:calendars");
+    if (mock) return mock;
+  }
   const data = await ghlGet<{ calendars: GHLCalendar[] }>("/calendars/", {
     locationId: LOCATION_ID,
   });
@@ -99,38 +136,63 @@ export async function getCalendars(): Promise<GHLCalendar[]> {
 // ─── Appointments ─────────────────────────────────────────────────────────────
 export async function getAppointmentsByCalendar(
   calendarId: string,
-  startDate: string, // ISO date string
+  startDate: string,
   endDate: string
 ): Promise<GHLAppointment[]> {
-  const data = await ghlGet<{ appointments: GHLAppointment[] }>(
-    `/calendars/events`,
-    {
-      calendarId,
-      locationId: LOCATION_ID,
-      startTime: startDate,
-      endTime: endDate,
+  if (await isMockEnabled()) {
+    const all = await getMockCache<GHLAppointment[]>("mock:appointments");
+    if (all) {
+      return all.filter((a) => {
+        if (a.calendarId !== calendarId) return false;
+        const t = new Date(a.startTime).getTime();
+        return t >= new Date(startDate).getTime() && t <= new Date(endDate).getTime();
+      });
     }
+  }
+  const data = await ghlGet<{ events: GHLAppointment[] }>(
+    `/calendars/events`,
+    { calendarId, locationId: LOCATION_ID, startTime: startDate, endTime: endDate }
   );
-  return data.appointments ?? [];
+  return data.events ?? [];
 }
 
 export async function getAllAppointments(
   startDate: string,
   endDate: string
 ): Promise<GHLAppointment[]> {
-  const data = await ghlGet<{ events: GHLAppointment[] }>(
-    `/calendars/events`,
-    {
-      locationId: LOCATION_ID,
-      startTime: startDate,
-      endTime: endDate,
+  if (await isMockEnabled()) {
+    const all = await getMockCache<GHLAppointment[]>("mock:appointments");
+    if (all) {
+      return all.filter((a) => {
+        const t = new Date(a.startTime).getTime();
+        return t >= new Date(startDate).getTime() && t <= new Date(endDate).getTime();
+      });
     }
-  );
-  return data.events ?? [];
+  }
+
+  // Real GHL: must fetch per-calendar since the API requires calendarId
+  const calendars = await getCalendars();
+  const results: GHLAppointment[] = [];
+  for (const cal of calendars) {
+    try {
+      const data = await ghlGet<{ events: GHLAppointment[] }>(
+        `/calendars/events`,
+        { calendarId: cal.id, locationId: LOCATION_ID, startTime: startDate, endTime: endDate }
+      );
+      results.push(...(data.events ?? []));
+    } catch {
+      // Skip calendars that fail
+    }
+  }
+  return results;
 }
 
 // ─── Contacts ─────────────────────────────────────────────────────────────────
 export async function getContact(contactId: string): Promise<GHLContact | null> {
+  if (await isMockEnabled()) {
+    const contact = await getMockCache<GHLContact>(`mock:contact:${contactId}`);
+    if (contact) return contact;
+  }
   try {
     const data = await ghlGet<{ contact: GHLContact }>(`/contacts/${contactId}`);
     return data.contact ?? null;
@@ -145,12 +207,7 @@ export async function getContactsByTag(tag: string): Promise<GHLContact[]> {
   while (true) {
     const data = await ghlGet<{ contacts: GHLContact[]; meta?: { total: number } }>(
       `/contacts/`,
-      {
-        locationId: LOCATION_ID,
-        tags: tag,
-        limit: "100",
-        page: String(page),
-      }
+      { locationId: LOCATION_ID, tags: tag, limit: "100", page: String(page) }
     );
     const contacts = data.contacts ?? [];
     results.push(...contacts);
@@ -161,19 +218,15 @@ export async function getContactsByTag(tag: string): Promise<GHLContact[]> {
 }
 
 // ─── Custom field helpers ─────────────────────────────────────────────────────
-export function getCustomField(
-  contact: GHLContact,
-  fieldId: string
-): string | null {
+export function getCustomField(contact: GHLContact, fieldId: string): string | null {
   const field = contact.customFields?.find((f) => f.id === fieldId);
   if (!field) return null;
   if (Array.isArray(field.value)) return field.value[0] ?? null;
   return String(field.value ?? "");
 }
 
-// Known custom field IDs
 export const FIELD_IDS = {
-  paidAmountSEK: "settlement_paid_amount_sek",   // will be resolved dynamically
+  paidAmountSEK: "settlement_paid_amount_sek",
   paidAmountEUR: "settlement_paid_amount_eur",
   affiliateCode: "settlement_affiliate_code",
   affiliateName: "settlement_affiliate_name",
@@ -206,14 +259,9 @@ export function calculateBreakdown(
   const vatAmount = paidAmountInclVAT - paidAmountExclVAT;
   const transactionFee = paidAmountInclVAT * TRANSACTION_FEE_RATE;
   const margin = currency === "SEK" ? FA_MARGIN[courseType].sek : FA_MARGIN[courseType].eur;
-  const affiliateCommission = affiliateCode
-    ? paidAmountExclVAT * AFFILIATE_COMMISSION_RATE
-    : 0;
-  const affiliateDiscount = affiliateCode
-    ? paidAmountInclVAT * AFFILIATE_DISCOUNT_RATE
-    : 0;
-  const courseLeaderPayout =
-    paidAmountExclVAT - transactionFee - margin - affiliateCommission;
+  const affiliateCommission = affiliateCode ? paidAmountExclVAT * AFFILIATE_COMMISSION_RATE : 0;
+  const affiliateDiscount = affiliateCode ? paidAmountInclVAT * AFFILIATE_DISCOUNT_RATE : 0;
+  const courseLeaderPayout = paidAmountExclVAT - transactionFee - margin - affiliateCommission;
 
   return {
     paidAmountInclVAT,
@@ -230,8 +278,8 @@ export function calculateBreakdown(
 
 // ─── Course name extraction ───────────────────────────────────────────────────
 export function extractCourseLeaderName(calendarName: string): string {
-  // Pattern: "Introduktionskurs Fascia – Anna Lindgren – Stockholm"
-  const parts = calendarName.split("–").map((p) => p.trim());
+  // Pattern: "Introduktionskurs Fascia - Anna Lindgren - Stockholm"
+  const parts = calendarName.split("-").map((p) => p.trim());
   if (parts.length >= 2) return parts[1];
   return calendarName;
 }
@@ -240,10 +288,7 @@ export function extractCourseLeaderName(calendarName: string): string {
 export function getMonthRange(year: number, month: number): { start: string; end: string } {
   const start = new Date(year, month - 1, 1);
   const end = new Date(year, month, 0, 23, 59, 59);
-  return {
-    start: start.toISOString(),
-    end: end.toISOString(),
-  };
+  return { start: start.toISOString(), end: end.toISOString() };
 }
 
 export function getPreviousMonths(count: number): Array<{ year: number; month: number; label: string }> {
