@@ -163,6 +163,7 @@ export const courseDatesRouter = router({
         ...row,
         profilePhoto: row.ghlUserId ? (userMap.get(row.ghlUserId)?.profilePhoto ?? null) : null,
         profileUrl: profileUrlByName.get(row.courseLeaderName.toLowerCase()) ?? null,
+        bookedSeats: row.bookedSeats ?? 0,
       }));
     }),
 
@@ -343,6 +344,7 @@ export const courseDatesRouter = router({
         startDate: z.string().optional(),
         endDate: z.string().optional(),
         maxSeats: z.number().int().min(1).max(500).optional(),
+        bookedSeats: z.number().int().min(0).optional(),
         notes: z.string().optional().nullable(),
         published: z.boolean().optional(),
         additionalDays: z.string().optional().nullable(),

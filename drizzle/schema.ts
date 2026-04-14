@@ -83,6 +83,7 @@ export const courseDates = mysqlTable("course_dates", {
   startDate: timestamp("startDate").notNull(),
   endDate: timestamp("endDate").notNull(),
   maxSeats: int("maxSeats").notNull().default(12),
+  bookedSeats: int("bookedSeats").notNull().default(0), // updated by admin or webhook
   venueName: varchar("venueName", { length: 255 }), // e.g. "Fasciaklinikerna Helsingborg"
   address: varchar("address", { length: 512 }), // full street address
   courseLeaderPhone: varchar("courseLeaderPhone", { length: 32 }), // auto-filled from GHL or overridden
@@ -172,3 +173,17 @@ export const settlementAdjustments = mysqlTable("settlement_adjustments", {
 
 export type SettlementAdjustment = typeof settlementAdjustments.$inferSelect;
 export type InsertSettlementAdjustment = typeof settlementAdjustments.$inferInsert;
+
+/**
+ * Password reset tokens — one-time tokens for resetting dashboard user passwords.
+ * Expires after 1 hour. Deleted after use.
+ */
+export const passwordResetTokens = mysqlTable("password_reset_tokens", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  token: varchar("token", { length: 64 }).notNull().unique(),
+  expiresAt: timestamp("expiresAt").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type PasswordResetToken = typeof passwordResetTokens.$inferSelect;

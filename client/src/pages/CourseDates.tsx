@@ -61,10 +61,10 @@ import {
 import { format } from "date-fns";
 
 const COURSE_TYPE_LABELS: Record<string, string> = {
-  intro: "Intro",
-  diplo: "Diplo",
-  cert: "Cert",
-  vidare: "Vidare",
+  intro: "Introduktionskurs Fascia",
+  diplo: "Diplomerad Fasciaspecialist",
+  cert: "Certifierad Fasciaspecialist",
+  vidare: "Vidareutbildning Fasciaspecialist",
 };
 
 const COURSE_TYPE_COLORS: Record<string, string> = {
@@ -462,6 +462,7 @@ type FormData = {
   startDate: string;
   endDate: string;
   maxSeats: string;
+  bookedSeats: string;
   notes: string;
   bookingInfo: string; // optional: directions, parking, extra info shown on booking page
   additionalDays: AdditionalDay[]; // extra course days beyond day 1
@@ -483,6 +484,7 @@ const emptyForm = (): FormData => ({
   startDate: defaultStartDate(),
   endDate: defaultEndDate(),
   maxSeats: "12",
+  bookedSeats: "0",
   notes: "",
   bookingInfo: "",
   additionalDays: [],
@@ -621,6 +623,7 @@ export default function CourseDates() {
       startDate: format(new Date(row.startDate), "yyyy-MM-dd'T'HH:mm"),
       endDate: format(new Date(row.endDate), "yyyy-MM-dd'T'HH:mm"),
       maxSeats: String(row.maxSeats),
+      bookedSeats: String((row as any).bookedSeats ?? 0),
       notes: row.notes ?? "",
       bookingInfo: (row as any).bookingInfo ?? "",
       additionalDays: parsedAdditionalDays,
@@ -648,6 +651,7 @@ export default function CourseDates() {
       startDate: new Date(form.startDate).toISOString(),
       endDate: new Date(form.endDate).toISOString(),
       maxSeats: parseInt(form.maxSeats, 10) || 12,
+      bookedSeats: parseInt(form.bookedSeats, 10) || 0,
       notes: form.notes || undefined,
       bookingInfo: form.bookingInfo || undefined,
       additionalDays: form.additionalDays.length > 0
@@ -779,7 +783,7 @@ export default function CourseDates() {
                 <th className="text-left px-4 py-3 font-medium text-muted-foreground">Type</th>
                 <th className="text-left px-4 py-3 font-medium text-muted-foreground">Date & Time</th>
                 <th className="text-left px-4 py-3 font-medium text-muted-foreground">Location</th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Seats</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Booked/Max</th>
                 <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
                 <th className="px-4 py-3"></th>
               </tr>
@@ -841,7 +845,10 @@ export default function CourseDates() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-center font-medium">{row.maxSeats}</td>
+                    <td className="px-4 py-3 text-center">
+                      <span className="font-medium">{(row as any).bookedSeats ?? 0}</span>
+                      <span className="text-muted-foreground text-xs">/{row.maxSeats}</span>
+                    </td>
                     <td className="px-4 py-3">
                       {row.published ? (
                         <span className="inline-flex items-center gap-1 text-xs text-green-700 bg-green-50 px-2 py-0.5 rounded-full">
@@ -1092,6 +1099,16 @@ export default function CourseDates() {
                   max={500}
                   value={form.maxSeats}
                   onChange={(e) => setForm((f) => ({ ...f, maxSeats: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Booked Seats <span className="text-muted-foreground font-normal text-xs">(uppdateras manuellt)</span></Label>
+                <Input
+                  type="number"
+                  min={0}
+                  max={500}
+                  value={form.bookedSeats}
+                  onChange={(e) => setForm((f) => ({ ...f, bookedSeats: e.target.value }))}
                 />
               </div>
             </div>

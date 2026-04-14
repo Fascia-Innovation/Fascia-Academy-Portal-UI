@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { CheckCircle, AlertCircle, Clock, ChevronRight, Plus, RefreshCw, Edit, Download } from "lucide-react";
+import { useDashAuth } from "@/contexts/DashAuthContext";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Settlement {
@@ -341,6 +342,8 @@ function GenerateDialog({ onClose, onGenerated }: { onClose: () => void; onGener
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function Settlements() {
   const utils = trpc.useUtils();
+  const { user } = useDashAuth();
+  const isAdmin = user?.role === "admin";
 
   const [filterStatus, setFilterStatus] = useState<"pending" | "approved" | "amended" | undefined>(undefined);
   const [selectedId, setSelectedId]     = useState<number | null>(null);
@@ -367,9 +370,11 @@ export default function Settlements() {
           <h1 className="text-2xl font-bold">Settlements</h1>
           <p className="text-muted-foreground text-sm">Monthly payout settlements for course leaders and affiliates</p>
         </div>
-        <Button onClick={() => setShowGenerate(true)}>
-          <Plus className="w-4 h-4 mr-2" />Generate
-        </Button>
+        {isAdmin && (
+          <Button onClick={() => setShowGenerate(true)}>
+            <Plus className="w-4 h-4 mr-2" />Generate
+          </Button>
+        )}
       </div>
 
       {/* Filters */}
@@ -392,7 +397,7 @@ export default function Settlements() {
       ) : sortedPeriods.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
           <p className="text-lg font-medium mb-2">No settlements found</p>
-          <p className="text-sm">Click "Generate" to create settlements for a month.</p>
+          <p className="text-sm">{isAdmin ? 'Click "Generate" to create settlements for a month.' : 'No settlements have been sent to you yet. Contact your administrator.'}</p>
         </div>
       ) : (
         <div className="space-y-6">

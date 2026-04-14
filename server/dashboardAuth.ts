@@ -4,7 +4,7 @@
 import { eq, and, gt } from "drizzle-orm";
 import { createHash, randomBytes } from "crypto";
 import { getDb } from "./db";
-import { dashboardUsers, dashboardSessions, type DashboardUser } from "../drizzle/schema";
+import { dashboardUsers, dashboardSessions, passwordResetTokens, type DashboardUser } from "../drizzle/schema";
 
 // ─── Password hashing (SHA-256 + salt, no bcrypt to avoid native deps) ────────
 function hashPassword(password: string, salt: string): string {
@@ -125,4 +125,53 @@ export async function updateDashboardUser(
   const db = await getDb();
   if (!db) return;
   await db.update(dashboardUsers).set(updates).where(eq(dashboardUsers.id, id));
+}
+
+// ─── Password reset ───────────────────────────────────────────────────────────
+export async function createPasswordResetToken(email: string): Promise<{ token: string; userName: string } | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db
+    .select()
+    .from(dashboardUsers)
+    .where(and(eq(dashboardUsers.email, email.toLowerCase()), eq(dashboardUsers.active, true)))
+    .limit(1);
+  const user = rows[0];
+  if (!user) return null;
+  // Invalidate any existing tokens for this user
+  await db.delete(passwordResetTokens).where(eq(passwordResetTokens.userId, user.id));
+  const token = randomBytes(32).toString("hex");
+  const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+  await db.insert(passwordResetTokens).values({ userId: user.id, token, expiresAt });
+  return { token, userName: user.name };
+}
+
+export async function resetPasswordWithToken(token: string, newPassword: string): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  const now = new Date();
+  const rows = await db
+    .select()
+    .from(passwordResetTokens)
+    .where(and(eq(passwordResetTokens.token, token), gt(passwordResetTokens.expiresAt, now)))
+    .limit(1);
+  const resetToken = rows[0];
+  if (!resetToken) return false;
+  const passwordHash = hashNewPassword(newPassword);
+  await db.update(dashboardUsers).set({ passwordHash }).where(eq(dashboardUsers.id, resetToken.userId));
+  await db.delete(passwordResetTokens).where(eq(passwordResetTokens.id, resetToken.id));
+  return true;
+}
+
+export async function getUserByResetToken(token: string): Promise<DashboardUser | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const now = new Date();
+  const rows = await db
+    .select({ user: dashboardUsers })
+    .from(passwordResetTokens)
+    .innerJoin(dashboardUsers, eq(passwordResetTokens.userId, dashboardUsers.id))
+    .where(and(eq(passwordResetTokens.token, token), gt(passwordResetTokens.expiresAt, now)))
+    .limit(1);
+  return rows[0]?.user ?? null;
 }

@@ -5,10 +5,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
 const COURSE_TYPE_LABELS: Record<string, string> = {
-  intro: "Intro",
-  diplo: "Diploma",
-  cert: "Certification",
-  vidare: "Advanced Training",
+  intro: "Introduktionskurs Fascia",
+  diplo: "Diplomerad Fasciaspecialist",
+  cert: "Certifierad Fasciaspecialist",
+  vidare: "Vidareutbildning Fasciaspecialist",
 };
 
 const COURSE_TYPE_COLORS: Record<string, string> = {

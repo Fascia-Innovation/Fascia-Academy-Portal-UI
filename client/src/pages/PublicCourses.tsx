@@ -217,6 +217,7 @@ type CourseEntry = {
   startDate: Date;
   endDate: Date;
   maxSeats: number;
+  bookedSeats: number;
   ghlCalendarId: string;
   language: Lang;
   bookingInfo: string | null;
@@ -453,10 +454,25 @@ function MoreInfoModal({
               )}
 
               {/* Seats */}
-              <div className="flex items-center gap-2 text-sm text-gray-500">
-                <Users className="h-4 w-4 text-gray-400" />
-                {date.maxSeats} {t.seats}
-              </div>
+              {(() => {
+                const booked = date.bookedSeats ?? 0;
+                const max = date.maxSeats;
+                const remaining = max - booked;
+                const isFull = remaining <= 0;
+                const isLow = remaining <= 3 && remaining > 0;
+                return (
+                  <div className={`flex items-center gap-2 text-sm font-medium ${
+                    isFull ? "text-red-600" : isLow ? "text-orange-500" : "text-gray-500"
+                  }`}>
+                    <Users className="h-4 w-4" />
+                    {isFull
+                      ? (lang === "sv" ? "Fullbokad" : "Fully booked")
+                      : `${booked}/${max} ${t.seats}`
+                    }
+                    {isLow && !isFull && <span className="ml-0.5">⚡ {lang === "sv" ? "Få platser kvar!" : "Few spots left!"}</span>}
+                  </div>
+                );
+              })()}
 
               {/* Book button */}
               <button
@@ -557,6 +573,9 @@ function CalendarView({
                     <div className="text-xs text-gray-400 uppercase mt-0.5">
                       {format(date.startDate, "MMM", { locale })}
                     </div>
+                    <div className="text-xs text-gray-400 mt-0.5">
+                      {format(date.startDate, "yyyy")}
+                    </div>
                   </div>
                   {/* Color bar */}
                   <div
@@ -574,6 +593,11 @@ function CalendarView({
                           {date.additionalDays.length + 1} {lang === "sv" ? "dagar" : "days"}
                         </span>
                       )}
+                      {date.courseType === "intro" && (
+                        <span className="text-xs bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded border border-blue-100 font-medium">
+                          {lang === "sv" ? "1 dag" : "1 day"}
+                        </span>
+                      )}
                     </div>
                     <div className="flex items-center gap-3 mt-1 text-xs text-gray-500 flex-wrap">
                       <span className="flex items-center gap-1">
@@ -586,15 +610,31 @@ function CalendarView({
                       </span>
                       <span className="flex items-center gap-1">
                         <Clock className="h-3 w-3" />
-                        {isMultiDay
-                          ? `${t.startDate}: ${format(date.startDate, "HH:mm")}`
-                          : `${format(date.startDate, "HH:mm")}–${format(date.endDate, "HH:mm")}`
-                        }
+                        {format(date.startDate, "HH:mm")}–{format(date.endDate, "HH:mm")}
                       </span>
-                      <span className="flex items-center gap-1">
-                        <Users className="h-3 w-3" />
-                        {date.maxSeats} {t.seats}
-                      </span>
+                      {/* Seats with FOMO */}
+                      {(() => {
+                        const booked = date.bookedSeats ?? 0;
+                        const max = date.maxSeats;
+                        const remaining = max - booked;
+                        const pct = booked / max;
+                        const isLow = remaining <= 3 && remaining > 0;
+                        const isFull = remaining <= 0;
+                        return (
+                          <span className={`flex items-center gap-1 font-medium ${
+                            isFull ? "text-red-600" : isLow ? "text-orange-600" : "text-gray-500"
+                          }`}>
+                            <Users className="h-3 w-3" />
+                            {isFull
+                              ? (lang === "sv" ? "Fullbokad" : "Fully booked")
+                              : `${booked}/${max} ${t.seats}`
+                            }
+                            {isLow && !isFull && (
+                              <span className="ml-0.5 text-orange-500">⚡</span>
+                            )}
+                          </span>
+                        );
+                      })()}
                     </div>
                     {/* Price */}
                     <div className="mt-1 text-xs font-medium text-gray-600">
@@ -602,17 +642,17 @@ function CalendarView({
                     </div>
                   </div>
                   {/* Actions */}
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0">
                     <button
                       onClick={() => onMoreInfo(date)}
-                      className="px-3 py-1.5 border border-gray-200 text-gray-600 text-xs font-medium rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-1"
+                      className="px-5 py-2.5 border border-gray-200 text-gray-700 text-sm font-semibold rounded-xl hover:bg-gray-50 transition-colors flex items-center gap-2"
                     >
-                      <Info className="h-3 w-3" />
+                      <Info className="h-4 w-4" />
                       {t.moreInfo}
                     </button>
                     <button
                       onClick={() => onBook(date)}
-                      className="px-3.5 py-1.5 bg-gray-900 text-white text-xs font-medium rounded-lg hover:bg-gray-700 transition-colors"
+                      className="px-5 py-2.5 bg-gray-900 text-white text-sm font-bold rounded-xl hover:bg-gray-700 transition-colors"
                     >
                       {t.book}
                     </button>
@@ -819,26 +859,16 @@ function CourseLeaderCard({
               <MapPin className="h-3 w-3 shrink-0" />
               <span className="truncate">{cities.join(", ")}</span>
             </div>
-            {/* Course type badges */}
-            <div className="flex flex-wrap gap-1 mt-2">
-              {courseTypes.map((ct) => (
-                <span
-                  key={ct}
-                  className={`text-xs px-2 py-0.5 rounded-full border font-medium ${COURSE_TYPE_COLORS[ct]}`}
-                >
-                  {(t.courseTypesShort as Record<string, string>)[ct]}
-                </span>
-              ))}
-            </div>
-            {/* Profile link */}
+            {/* Profile link — now as a button */}
             {profileUrl && (
               <a
                 href={profileUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 mt-2 text-xs text-blue-600 hover:text-blue-800 transition-colors"
+                className="inline-flex items-center gap-1 mt-2 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-medium rounded-lg transition-colors"
               >
-                {t.aboutLeader}
+                <User className="h-3 w-3" />
+                {lang === "sv" ? "Mer info om kursledaren" : "More about the course leader"}
                 <ExternalLink className="h-3 w-3" />
               </a>
             )}
@@ -868,18 +898,14 @@ function CourseLeaderCard({
                       style={{ backgroundColor: COURSE_TYPE_ACCENT[date.courseType] }}
                     />
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-medium text-xs text-gray-900">
-                          {isMultiDay ? `${t.startDate}: ` : ""}
-                          {format(date.startDate, "d MMMM yyyy", { locale })}
-                        </span>
-                        <span className="text-xs text-gray-400">
-                          {format(date.startDate, "HH:mm")}–{format(date.endDate, "HH:mm")}
-                        </span>
+                      {/* Full course name */}
+                      <div className="font-medium text-xs text-gray-900">
+                        {(t.courseTypes as Record<string, string>)[date.courseType]}
                       </div>
                       <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                        <span className={`text-xs px-1.5 py-0.5 rounded border font-medium ${COURSE_TYPE_COLORS[date.courseType]}`}>
-                          {(t.courseTypesShort as Record<string, string>)[date.courseType]}
+                        <span className="text-xs text-gray-600 flex items-center gap-1">
+                          <CalendarDays className="h-3 w-3" />
+                          {format(date.startDate, "d MMMM yyyy", { locale })}
                         </span>
                         <span className="text-xs text-gray-400 flex items-center gap-1">
                           <MapPin className="h-3 w-3" />
@@ -893,14 +919,14 @@ function CourseLeaderCard({
                     <div className="flex items-center gap-1.5 shrink-0">
                       <button
                         onClick={() => onMoreInfo(date)}
-                        className="p-1.5 border border-gray-200 text-gray-500 rounded-lg hover:bg-gray-50 transition-colors"
-                        title={t.moreInfo}
+                        className="px-3 py-1.5 border border-gray-200 text-gray-600 text-xs font-medium rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-1"
                       >
-                        <Info className="h-3.5 w-3.5" />
+                        <Info className="h-3 w-3" />
+                        {lang === "sv" ? "Mer info om kursen" : "More info about course"}
                       </button>
                       <button
                         onClick={() => onBook(date)}
-                        className="px-3 py-1.5 bg-gray-900 text-white text-xs font-medium rounded-lg hover:bg-gray-700 transition-colors"
+                        className="px-3.5 py-1.5 bg-gray-900 text-white text-xs font-semibold rounded-lg hover:bg-gray-700 transition-colors"
                       >
                         {t.book}
                       </button>
@@ -917,42 +943,107 @@ function CourseLeaderCard({
 }
 
 // ─── More About Courses Section ───────────────────────────────────────────────
+const COURSE_STEPS: Record<Lang, Record<CourseType, { step: string; description: string }>> = {
+  sv: {
+    intro: {
+      step: "Steg 1 — 1 dag",
+      description: "Inga f\u00f6rkunskaper kr\u00e4vs. En dag d\u00e4r du f\u00e5r en praktisk och teoretisk f\u00f6rst\u00e5else f\u00f6r fascia och fasciabehandling. \u00d6ppet f\u00f6r alla.",
+    },
+    diplo: {
+      step: "Steg 2",
+      description: "F\u00f6r dig som genomf\u00f6rt Introduktionskursen. F\u00f6rdjupa dina kunskaper och l\u00e4r dig avancerade tekniker. Avslutas med examination.",
+    },
+    cert: {
+      step: "Steg 3",
+      description: "Den h\u00f6gsta niv\u00e5n. F\u00f6r dig som \u00e4r Diplomerad Fasciaspecialist. Komplett professionell kompetens. Avslutas med examination.",
+    },
+    vidare: {
+      step: "Fortbildning",
+      description: "Exklusivt f\u00f6r Certifierade Fasciaspecialister. F\u00f6rdjupa och bredda dina kunskaper inom specifika omr\u00e5den.",
+    },
+  },
+  en: {
+    intro: {
+      step: "Step 1 \u2014 1 day",
+      description: "No prior knowledge required. One day of practical and theoretical understanding of fascia and fascia treatment. Open to everyone.",
+    },
+    diplo: {
+      step: "Step 2",
+      description: "For those who completed the Introduction Course. Deepen your knowledge and learn advanced techniques. Ends with examination.",
+    },
+    cert: {
+      step: "Step 3",
+      description: "The highest level. For Qualified Fascia Specialists. Complete professional competence. Ends with examination.",
+    },
+    vidare: {
+      step: "Continuing Education",
+      description: "Exclusively for Certified Fascia Specialists. Deepen and broaden your knowledge in specific areas.",
+    },
+  },
+};
+
 function MoreAboutCourses({ lang, t }: { lang: Lang; t: (typeof T)[Lang] }) {
   const courseTypes: CourseType[] = ["intro", "diplo", "cert", "vidare"];
 
   return (
-    <div className="mt-16 border-t pt-12">
-      <h2 className="text-2xl font-bold text-gray-900 mb-2">{t.moreAboutCourses}</h2>
-      <p className="text-gray-500 mb-8">
-        {lang === "sv"
-          ? "Läs mer om varje kurstyp på fasciaacademy.com"
-          : "Learn more about each course type at fasciaacademy.com"}
-      </p>
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {courseTypes.map((ct) => (
+    <div className="mt-12 border-t pt-10">
+      <div className="flex items-start justify-between gap-4 mb-6">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-1">{t.moreAboutCourses}</h2>
           <a
-            key={ct}
-            href={COURSE_INFO_URLS[ct]}
+            href="https://www.fasciaacademy.com"
             target="_blank"
             rel="noopener noreferrer"
-            className="group block p-5 bg-white rounded-xl border border-gray-100 hover:shadow-md transition-all hover:border-gray-200"
+            className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 transition-colors"
           >
-            <div
-              className="h-1 w-12 rounded-full mb-4"
-              style={{ backgroundColor: COURSE_TYPE_ACCENT[ct] }}
-            />
-            <h3 className="font-semibold text-gray-900 text-sm mb-1 leading-snug">
-              {(t.courseTypes as Record<string, string>)[ct]}
-            </h3>
-            <div className="text-xs font-semibold text-gray-500 mb-3">
-              {(t.prices as Record<string, string>)[ct]}
-            </div>
-            <div className="flex items-center gap-1 text-xs text-blue-600 group-hover:text-blue-800 transition-colors">
-              {t.learnMore}
-              <ExternalLink className="h-3 w-3" />
-            </div>
+            {lang === "sv" ? "L\u00e4s mer om varje kurstyp p\u00e5 fasciaacademy.com" : "Learn more about each course type at fasciaacademy.com"}
+            <ExternalLink className="h-3.5 w-3.5" />
           </a>
-        ))}
+        </div>
+      </div>
+      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {courseTypes.map((ct, idx) => {
+          const stepInfo = COURSE_STEPS[lang][ct];
+          return (
+            <a
+              key={ct}
+              href={COURSE_INFO_URLS[ct]}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group block p-5 bg-white rounded-xl border border-gray-100 hover:shadow-md transition-all hover:border-gray-200 relative"
+            >
+              {/* Step number */}
+              {ct !== "vidare" && (
+                <div
+                  className="absolute -top-3 left-5 w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm"
+                  style={{ backgroundColor: COURSE_TYPE_ACCENT[ct] }}
+                >
+                  {idx + 1}
+                </div>
+              )}
+              <div
+                className="h-1 w-12 rounded-full mb-4 mt-1"
+                style={{ backgroundColor: COURSE_TYPE_ACCENT[ct] }}
+              />
+              <div className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: COURSE_TYPE_ACCENT[ct] }}>
+                {stepInfo.step}
+              </div>
+              <h3 className="font-semibold text-gray-900 text-sm mb-2 leading-snug">
+                {(t.courseTypes as Record<string, string>)[ct]}
+              </h3>
+              <p className="text-xs text-gray-500 leading-relaxed mb-3">
+                {stepInfo.description}
+              </p>
+              <div className="text-xs font-semibold text-gray-600 mb-3">
+                {(t.prices as Record<string, string>)[ct]}
+              </div>
+              <div className="flex items-center gap-1 text-xs text-blue-600 group-hover:text-blue-800 transition-colors">
+                {t.learnMore}
+                <ExternalLink className="h-3 w-3" />
+              </div>
+            </a>
+          );
+        })}
       </div>
     </div>
   );
@@ -999,6 +1090,7 @@ export default function PublicCourses() {
           courseLeaderPhone: (d as any).courseLeaderPhone as string | null,
           bookingInfo: (d as any).bookingInfo as string | null,
           profileUrl: (d as any).profileUrl as string | null,
+          bookedSeats: (d as any).bookedSeats as number ?? 0,
           additionalDays,
         };
       }) as CourseEntry[],
@@ -1152,6 +1244,11 @@ export default function PublicCourses() {
 
       {/* Content */}
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+        {/* More about courses section — shown above the course list */}
+        <div className="mb-10">
+          <MoreAboutCourses lang={lang} t={t} />
+        </div>
+
         {isLoading ? (
           <div className="flex items-center justify-center py-20">
             <Loader2 className="h-8 w-8 animate-spin text-gray-300" />
@@ -1196,8 +1293,6 @@ export default function PublicCourses() {
           </div>
         )}
 
-        {/* More about courses section */}
-        <MoreAboutCourses lang={lang} t={t} />
       </div>
 
       {/* Footer */}

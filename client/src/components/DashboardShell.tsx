@@ -42,6 +42,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Settlements", href: "/settlements", icon: FileText, roles: ["admin"] },
   { label: "My Courses", href: "/my-courses", icon: BookOpen, roles: ["course_leader"] },
   { label: "My Settlements", href: "/my-settlements", icon: FileText, roles: ["course_leader", "affiliate"] },
+  { label: "Quick Links", href: "/leader-links", icon: Zap, roles: ["course_leader"] },
   { label: "My Commissions", href: "/my-commissions", icon: TrendingUp, roles: ["affiliate"] },
 ];
 

@@ -13,6 +13,9 @@ import {
   getAllDashboardUsers,
   updateDashboardUser,
   hashNewPassword,
+  createPasswordResetToken,
+  resetPasswordWithToken,
+  getUserByResetToken,
 } from "./dashboardAuth";
 import {
   getCalendars,
@@ -165,8 +168,47 @@ export const appRouter = router({
         role: user.role,
         affiliateCode: user.affiliateCode,
         ghlContactId: user.ghlContactId,
+        isAffiliate: user.isAffiliate,
       };
     }),
+
+    // Forgot password: creates a reset token and returns the reset URL
+    // Admin is responsible for forwarding the link to the user
+    requestPasswordReset: publicProcedure
+      .input(z.object({ email: z.string().email() }))
+      .mutation(async ({ input, ctx }) => {
+        const result = await createPasswordResetToken(input.email);
+        // Always return success to avoid email enumeration
+        if (!result) return { success: true };
+        const origin = (ctx.req.headers.origin as string) || "https://fascidash-9qucsw5g.manus.space";
+        const resetUrl = `${origin}/reset-password?token=${result.token}`;
+        // Notify admin so they can forward the link
+        try {
+          const { notifyOwner } = await import("./_core/notification");
+          await notifyOwner({
+            title: `Password reset requested: ${result.userName}`,
+            content: `${result.userName} requested a password reset.\n\nReset link (expires in 1 hour):\n${resetUrl}\n\nForward this link to the user.`,
+          });
+        } catch (_) { /* non-critical */ }
+        return { success: true };
+      }),
+
+    // Verify a reset token is valid
+    verifyResetToken: publicProcedure
+      .input(z.object({ token: z.string() }))
+      .query(async ({ input }) => {
+        const user = await getUserByResetToken(input.token);
+        return { valid: !!user, name: user?.name ?? null };
+      }),
+
+    // Reset password using a valid token
+    resetPassword: publicProcedure
+      .input(z.object({ token: z.string(), newPassword: z.string().min(6) }))
+      .mutation(async ({ input }) => {
+        const success = await resetPasswordWithToken(input.token, input.newPassword);
+        if (!success) throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid or expired reset link" });
+        return { success: true };
+      }),
   }),
 
   // ── Admin procedures ───────────────────────────────────────────────────────

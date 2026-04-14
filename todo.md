@@ -161,3 +161,37 @@
 - [x] Frontend: Sidebar shows both "My Dashboard" and "My Commissions" when isAffiliate=true
 - [x] Frontend: Role badge shows "Course Leader & Affiliate" for dual-role users
 - [x] Frontend: Affiliate Code field shown when isAffiliate toggle is on
+
+## Round 7: Fixes & Improvements
+- [ ] User Management: fix dual-role badge (show "Course Leader & Affiliate" badge when isAffiliate=true)
+- [ ] User Management: clarify GHL Calendar ID tooltip/label (explain it's the calendar name, not an ID)
+- [ ] Quick Links: add course leader version of the page with their specific links (forms, FasciaVibes, handbook, contact)
+- [ ] Upcoming Bookings: investigate why Fredrik Kjellberg and Ivar Bohlin don't appear (GHL calendar ID mismatch?)
+- [ ] Course Calendar: use full course names (e.g. "Introduktionskurs Fascia by Fascia Academy") instead of abbreviations
+- [ ] Course Dates admin: use full course names in the course type display
+- [ ] Course Calendar: rename info button to "Mer info om kursen"
+- [ ] Settlements: hide Generate button from course leader view (admin only)
+- [ ] Public page: fix start date placement (show next to date, not as separate label)
+- [ ] Public page: seats display as "X/Y" format (e.g. "8/20") with FOMO text ("X platser kvar")
+- [ ] Public page: make "Mer info" and "Boka" buttons larger and more prominent
+- [ ] Public page: use full course names in calendar and leader card views
+- [ ] Public page: leader section - remove course type badges, add "Mer info om kursledaren" button instead
+- [ ] Public page: course journey section - add numbered steps (1-2-3) with short descriptions, mark intro as 1 day
+- [ ] Public page: move "Mer om kurserna" section higher up
+- [ ] Forgot password: add forgot password link on login page that sends reset email to course leader
+
+## Round 7: Completed Fixes
+- [x] User Management: fix dual-role badge (show "+ Affiliate" badge when isAffiliate=true for any role)
+- [x] User Management: clarify GHL Contact ID column header (was "GHL Calendar Name")
+- [x] Quick Links: course leader version of the page with their specific links (forms, FasciaVibes, handbook, contact) — already existed at /leader-links
+- [x] Settlements: hide Generate button from course leader view (admin only) — gated with isAdmin check
+- [x] Forgot password: add forgot password link on login page + reset password page + backend procedures
+- [x] Course Calendar: use full Swedish course names in COURSE_TYPE_LABELS
+- [x] Course Dates admin: use full Swedish course names in COURSE_TYPE_LABELS
+- [x] Course Dates admin: add bookedSeats field (manual update) + show booked/max in table
+- [x] Public page: seats display as "X/Y platser" format with FOMO (⚡ Få platser kvar!) + Fullbokad
+- [x] Public page: make "Mer info" and "Boka" buttons larger (px-5 py-2.5, font-bold)
+- [x] Public page: leader section - full course names in date rows, "Mer info om kursen" button text
+- [x] Public page: course journey section - numbered steps (1-2-3) with short descriptions, intro marked as 1 dag
+- [x] Public page: "Mer om kurserna" section moved above the course list
+- [x] Public page: bookedSeats included in MoreInfoModal seats display

@@ -20,6 +20,8 @@ import CourseDates from "./pages/CourseDates";
 import PublicCourses from "./pages/PublicCourses";
 import QuickLinks from "./pages/QuickLinks";
 import Settlements from "./pages/Settlements";
+import CourseLeaderLinks from "./pages/CourseLeaderLinks";
+import ResetPassword from "./pages/ResetPassword";
 import { Loader2 } from "lucide-react";
 
 function AppRoutes() {
@@ -37,6 +39,10 @@ function AppRoutes() {
   // Public routes — no auth required
   if (location === "/courses" || location.startsWith("/courses?")) {
     return <PublicCourses />;
+  }
+
+  if (location === "/reset-password" || location.startsWith("/reset-password?")) {
+    return <ResetPassword />;
   }
 
   if (location === "/login") {
@@ -67,6 +73,7 @@ function AppRoutes() {
         {user.role === "admin" && <Route path="/quick-links" component={QuickLinks} />}
         {user.role === "admin" && <Route path="/settlements" component={Settlements} />}
         {(user.role === "course_leader" || user.role === "affiliate") && <Route path="/my-settlements" component={Settlements} />}
+        {user.role === "course_leader" && <Route path="/leader-links" component={CourseLeaderLinks} />}
         {(user.role === "admin" || user.role === "course_leader") && <Route path="/my-courses" component={MyCourses} />}
         {(user.role === "admin" || user.role === "affiliate") && <Route path="/my-commissions" component={MyCommissions} />}
         <Route component={NotFound} />

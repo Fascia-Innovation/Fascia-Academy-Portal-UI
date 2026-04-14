@@ -45,6 +45,8 @@ const ROLE_COLORS: Record<string, string> = {
   admin: "bg-purple-100 text-purple-700",
   course_leader: "bg-blue-100 text-blue-700",
   affiliate: "bg-amber-100 text-amber-700",
+  // fallback
+  default: "bg-gray-100 text-gray-700",
 };
 
 export default function UserManagement() {
@@ -213,7 +215,7 @@ export default function UserManagement() {
                   <th className="text-xs font-medium text-muted-foreground uppercase tracking-wider py-3 px-4 text-left">Name</th>
                   <th className="text-xs font-medium text-muted-foreground uppercase tracking-wider py-3 px-4 text-left">Email</th>
                   <th className="text-xs font-medium text-muted-foreground uppercase tracking-wider py-3 px-4 text-left">Role</th>
-                  <th className="text-xs font-medium text-muted-foreground uppercase tracking-wider py-3 px-4 text-left">GHL Calendar ID</th>
+                  <th className="text-xs font-medium text-muted-foreground uppercase tracking-wider py-3 px-4 text-left" title="GHL Contact ID — the user/contact ID in GoHighLevel for this person. Used to match GHL profile photos and bookings.">GHL Contact ID</th>
                   <th className="text-xs font-medium text-muted-foreground uppercase tracking-wider py-3 px-4 text-left">Affiliate Code</th>
                   <th className="text-xs font-medium text-muted-foreground uppercase tracking-wider py-3 px-4 text-left">Status</th>
                   <th className="text-xs font-medium text-muted-foreground uppercase tracking-wider py-3 px-4 text-right">Actions</th>
@@ -225,9 +227,16 @@ export default function UserManagement() {
                     <td className="py-3 px-4 text-sm font-medium text-foreground">{user.name}</td>
                     <td className="py-3 px-4 text-sm text-muted-foreground">{user.email}</td>
                     <td className="py-3 px-4">
-                      <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${ROLE_COLORS[user.role] ?? "bg-gray-100 text-gray-700"}`}>
-                        {ROLE_LABELS[user.role] ?? user.role}
-                      </span>
+                      <div className="flex flex-wrap gap-1">
+                        <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${ROLE_COLORS[user.role] ?? ROLE_COLORS.default}`}>
+                          {ROLE_LABELS[user.role] ?? user.role}
+                        </span>
+                        {(user as any).isAffiliate && (
+                          <span className="text-xs px-2.5 py-0.5 rounded-full font-medium bg-amber-100 text-amber-700">
+                            + Affiliate
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="py-3 px-4 text-xs font-mono text-muted-foreground">{user.ghlContactId ?? "—"}</td>
                     <td className="py-3 px-4 text-sm font-mono text-muted-foreground">{user.affiliateCode ?? "—"}</td>
