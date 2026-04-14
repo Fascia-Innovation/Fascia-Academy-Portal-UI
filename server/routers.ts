@@ -1,28 +1,393 @@
+import { z } from "zod";
+import { TRPCError } from "@trpc/server";
+import { parse as parseCookies } from "cookie";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
+import {
+  loginUser,
+  getSessionUser,
+  deleteSession,
+  createDashboardUser,
+  getAllDashboardUsers,
+  updateDashboardUser,
+  hashNewPassword,
+} from "./dashboardAuth";
+import {
+  getCalendars,
+  getAllAppointments,
+  getContact,
+  getMonthRange,
+  getPreviousMonths,
+  detectCourseType,
+  detectCurrency,
+  extractCourseLeaderName,
+  calculateBreakdown,
+} from "./ghl";
+import type { DashboardUser } from "../drizzle/schema";
 
+// ─── Session cookie name for dashboard ───────────────────────────────────────
+const DASH_SESSION = "fa_dash_session";
+
+function getDashCookie(req: { headers: { cookie?: string } }): string | undefined {
+  const cookies = parseCookies(req.headers.cookie ?? "");
+  return cookies[DASH_SESSION];
+}
+
+// ─── Middleware: require dashboard session ────────────────────────────────────
+const dashboardProcedure = publicProcedure.use(async ({ ctx, next }) => {
+  const sessionId = getDashCookie(ctx.req);
+  if (!sessionId) throw new TRPCError({ code: "UNAUTHORIZED", message: "Not logged in" });
+  const user = await getSessionUser(sessionId);
+  if (!user) throw new TRPCError({ code: "UNAUTHORIZED", message: "Session expired" });
+  return next({ ctx: { ...ctx, dashUser: user as DashboardUser } });
+});
+
+const adminProcedure = dashboardProcedure.use(({ ctx, next }) => {
+  if ((ctx as { dashUser: DashboardUser }).dashUser.role !== "admin") {
+    throw new TRPCError({ code: "FORBIDDEN" });
+  }
+  return next({ ctx });
+});
+
+// ─── Shared data fetcher ──────────────────────────────────────────────────────
+async function fetchMonthData(year: number, month: number) {
+  const { start, end } = getMonthRange(year, month);
+  const [calendars, appointments] = await Promise.all([
+    getCalendars(),
+    getAllAppointments(start, end),
+  ]);
+  const calMap = new Map(calendars.map((c) => [c.id, c]));
+  const showed = appointments.filter((a) => a.status === "showed");
+  return { calendars, calMap, showed };
+}
+
+// ─── Payout calculation helper ────────────────────────────────────────────────
+async function buildParticipantBreakdown(
+  appt: { contactId: string; calendarId: string },
+  calMap: Map<string, { id: string; name: string }>
+) {
+  const cal = calMap.get(appt.calendarId);
+  if (!cal) return null;
+  const currency = detectCurrency(cal.name);
+  const courseType = detectCourseType(cal.name);
+  const contact = await getContact(appt.contactId);
+  const contactName = [contact?.firstName, contact?.lastName].filter(Boolean).join(" ") || "Unknown";
+
+  const paidField = contact?.customFields?.find(
+    (f) => f.id.toLowerCase().includes("paid_amount") || f.id.toLowerCase().includes("paidamount")
+  );
+  let paidAmount = paidField ? Number(paidField.value) : 0;
+  if (!paidAmount || isNaN(paidAmount)) {
+    if (courseType === "intro") paidAmount = currency === "SEK" ? 3500 : 350;
+    else if (courseType === "diplo") paidAmount = currency === "SEK" ? 15000 : 1500;
+    else if (courseType === "cert") paidAmount = currency === "SEK" ? 50000 : 5000;
+    else paidAmount = currency === "SEK" ? 3500 : 350;
+  }
+
+  const affiliateField = contact?.customFields?.find(
+    (f) => f.id.toLowerCase().includes("affiliate_code") || f.id.toLowerCase().includes("affiliatecode")
+  );
+  const affiliateCode = affiliateField?.value ? String(affiliateField.value) : null;
+  const b = calculateBreakdown(paidAmount, currency, courseType, affiliateCode);
+
+  const { currency: _c, ...rest } = b;
+  return { contactId: appt.contactId, contactName, affiliateCode, calendarName: cal.name, currency, courseType, ...rest };
+}
+
+// ─── Router ───────────────────────────────────────────────────────────────────
 export const appRouter = router({
-    // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
   system: systemRouter,
+
+  // ── Manus OAuth (framework compatibility) ─────────────────────────────────
   auth: router({
-    me: publicProcedure.query(opts => opts.ctx.user),
+    me: publicProcedure.query((opts) => opts.ctx.user),
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
-      return {
-        success: true,
-      } as const;
+      return { success: true } as const;
     }),
   }),
 
-  // TODO: add feature routers here, e.g.
-  // todo: router({
-  //   list: protectedProcedure.query(({ ctx }) =>
-  //     db.getUserTodos(ctx.user.id)
-  //   ),
-  // }),
+  // ── Dashboard auth ─────────────────────────────────────────────────────────
+  dashboard: router({
+    login: publicProcedure
+      .input(z.object({ email: z.string().email(), password: z.string().min(1) }))
+      .mutation(async ({ input, ctx }) => {
+        const result = await loginUser(input.email, input.password);
+        if (!result) throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid email or password" });
+        ctx.res.cookie(DASH_SESSION, result.sessionId, {
+          httpOnly: true,
+          secure: true,
+          sameSite: "none",
+          maxAge: 7 * 24 * 60 * 60 * 1000,
+          path: "/",
+        });
+        return {
+          id: result.user.id,
+          name: result.user.name,
+          email: result.user.email,
+          role: result.user.role,
+          affiliateCode: result.user.affiliateCode,
+          ghlContactId: result.user.ghlContactId,
+        };
+      }),
+
+    logout: publicProcedure.mutation(async ({ ctx }) => {
+      const sessionId = getDashCookie(ctx.req);
+      if (sessionId) await deleteSession(sessionId);
+      ctx.res.clearCookie(DASH_SESSION, { path: "/" });
+      return { success: true };
+    }),
+
+    me: publicProcedure.query(async ({ ctx }) => {
+      const sessionId = getDashCookie(ctx.req);
+      if (!sessionId) return null;
+      const user = await getSessionUser(sessionId);
+      if (!user) return null;
+      return {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        affiliateCode: user.affiliateCode,
+        ghlContactId: user.ghlContactId,
+      };
+    }),
+  }),
+
+  // ── Admin procedures ───────────────────────────────────────────────────────
+  admin: router({
+    listUsers: adminProcedure.query(async () => getAllDashboardUsers()),
+
+    createUser: adminProcedure
+      .input(z.object({
+        email: z.string().email(),
+        password: z.string().min(6),
+        name: z.string().min(1),
+        role: z.enum(["admin", "course_leader", "affiliate"]),
+        ghlContactId: z.string().optional(),
+        affiliateCode: z.string().optional(),
+      }))
+      .mutation(async ({ input }) => createDashboardUser(input)),
+
+    updateUser: adminProcedure
+      .input(z.object({
+        id: z.number(),
+        name: z.string().optional(),
+        email: z.string().email().optional(),
+        role: z.enum(["admin", "course_leader", "affiliate"]).optional(),
+        ghlContactId: z.string().optional(),
+        affiliateCode: z.string().optional(),
+        active: z.boolean().optional(),
+        password: z.string().min(6).optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const { id, password, ...updates } = input;
+        const finalUpdates: Record<string, unknown> = { ...updates };
+        if (password) finalUpdates.passwordHash = hashNewPassword(password);
+        await updateDashboardUser(id, finalUpdates as Parameters<typeof updateDashboardUser>[1]);
+        return { success: true };
+      }),
+
+    overview: adminProcedure
+      .input(z.object({ year: z.number(), month: z.number() }))
+      .query(async ({ input }) => {
+        const { showed, calMap } = await fetchMonthData(input.year, input.month);
+        let totalRevSEK = 0, totalRevEUR = 0;
+        let totalVATSEK = 0, totalVATEUR = 0;
+        let totalTxSEK = 0, totalTxEUR = 0;
+        let totalMarginSEK = 0, totalMarginEUR = 0;
+        let totalAffSEK = 0, totalAffEUR = 0;
+        let totalPaySEK = 0, totalPayEUR = 0;
+        let count = 0;
+
+        for (const appt of showed) {
+          const b = await buildParticipantBreakdown(appt, calMap);
+          if (!b) continue;
+          count++;
+          if (b.currency === "SEK") {
+            totalRevSEK += b.paidAmountInclVAT;
+            totalVATSEK += b.vatAmount;
+            totalTxSEK += b.transactionFee;
+            totalMarginSEK += b.faMargin;
+            totalAffSEK += b.affiliateCommission;
+            totalPaySEK += b.courseLeaderPayout;
+          } else {
+            totalRevEUR += b.paidAmountInclVAT;
+            totalVATEUR += b.vatAmount;
+            totalTxEUR += b.transactionFee;
+            totalMarginEUR += b.faMargin;
+            totalAffEUR += b.affiliateCommission;
+            totalPayEUR += b.courseLeaderPayout;
+          }
+        }
+
+        return {
+          participantCount: count,
+          revenue: { sek: totalRevSEK, eur: totalRevEUR },
+          vat: { sek: totalVATSEK, eur: totalVATEUR },
+          transactionFees: { sek: totalTxSEK, eur: totalTxEUR },
+          faMargin: { sek: totalMarginSEK, eur: totalMarginEUR },
+          affiliateCommissions: { sek: totalAffSEK, eur: totalAffEUR },
+          courseLeaderPayouts: { sek: totalPaySEK, eur: totalPayEUR },
+        };
+      }),
+
+    courseLeaderRanking: adminProcedure
+      .input(z.object({ year: z.number(), month: z.number() }))
+      .query(async ({ input }) => {
+        const { showed, calMap } = await fetchMonthData(input.year, input.month);
+        const leaderMap = new Map<string, { name: string; participants: number; revSEK: number; revEUR: number; payoutSEK: number; payoutEUR: number }>();
+
+        for (const appt of showed) {
+          const b = await buildParticipantBreakdown(appt, calMap);
+          if (!b) continue;
+          const cal = calMap.get(appt.calendarId)!;
+          const leaderName = extractCourseLeaderName(cal.name);
+          if (!leaderMap.has(leaderName)) {
+            leaderMap.set(leaderName, { name: leaderName, participants: 0, revSEK: 0, revEUR: 0, payoutSEK: 0, payoutEUR: 0 });
+          }
+          const e = leaderMap.get(leaderName)!;
+          e.participants++;
+          if (b.currency === "SEK") { e.revSEK += b.paidAmountInclVAT; e.payoutSEK += b.courseLeaderPayout; }
+          else { e.revEUR += b.paidAmountInclVAT; e.payoutEUR += b.courseLeaderPayout; }
+        }
+        return Array.from(leaderMap.values()).sort((a, b) => b.participants - a.participants);
+      }),
+
+    affiliateRanking: adminProcedure
+      .input(z.object({ year: z.number(), month: z.number() }))
+      .query(async ({ input }) => {
+        const { showed, calMap } = await fetchMonthData(input.year, input.month);
+        const affMap = new Map<string, { code: string; bookings: number; commSEK: number; commEUR: number }>();
+
+        for (const appt of showed) {
+          const b = await buildParticipantBreakdown(appt, calMap);
+          if (!b || !b.affiliateCode) continue;
+          const code = b.affiliateCode;
+          if (!affMap.has(code)) affMap.set(code, { code, bookings: 0, commSEK: 0, commEUR: 0 });
+          const e = affMap.get(code)!;
+          e.bookings++;
+          if (b.currency === "SEK") e.commSEK += b.affiliateCommission;
+          else e.commEUR += b.affiliateCommission;
+        }
+        return Array.from(affMap.values()).sort((a, b) => b.bookings - a.bookings);
+      }),
+
+    monthlyHistory: adminProcedure
+      .input(z.object({ months: z.number().min(1).max(24).default(12) }))
+      .query(async ({ input }) => {
+        const periods = getPreviousMonths(input.months);
+        const results = [];
+        for (const period of periods) {
+          const { showed, calMap } = await fetchMonthData(period.year, period.month);
+          let revSEK = 0, revEUR = 0, payoutSEK = 0, payoutEUR = 0, commSEK = 0, commEUR = 0, count = 0;
+          for (const appt of showed) {
+            const b = await buildParticipantBreakdown(appt, calMap);
+            if (!b) continue;
+            count++;
+            if (b.currency === "SEK") { revSEK += b.paidAmountInclVAT; payoutSEK += b.courseLeaderPayout; commSEK += b.affiliateCommission; }
+            else { revEUR += b.paidAmountInclVAT; payoutEUR += b.courseLeaderPayout; commEUR += b.affiliateCommission; }
+          }
+          results.push({ label: period.label, year: period.year, month: period.month, participants: count, revenueSEK: revSEK, revenueEUR: revEUR, payoutSEK, payoutEUR, commissionSEK: commSEK, commissionEUR: commEUR });
+        }
+        return results;
+      }),
+
+    upcomingCourses: adminProcedure.query(async () => {
+      const now = new Date();
+      const end = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
+      const [calendars, appointments] = await Promise.all([
+        getCalendars(),
+        getAllAppointments(now.toISOString(), end.toISOString()),
+      ]);
+      const calMap = new Map(calendars.map((c) => [c.id, c]));
+      const grouped = new Map<string, { calendarId: string; calendarName: string; courseLeader: string; courseType: string; currency: string; appointments: Array<{ id: string; startTime: string; status: string }> }>();
+
+      for (const appt of appointments) {
+        const cal = calMap.get(appt.calendarId);
+        if (!cal) continue;
+        if (!grouped.has(appt.calendarId)) {
+          grouped.set(appt.calendarId, {
+            calendarId: appt.calendarId,
+            calendarName: cal.name,
+            courseLeader: extractCourseLeaderName(cal.name),
+            courseType: detectCourseType(cal.name),
+            currency: detectCurrency(cal.name),
+            appointments: [],
+          });
+        }
+        grouped.get(appt.calendarId)!.appointments.push({ id: appt.id, startTime: appt.startTime, status: appt.status });
+      }
+      return Array.from(grouped.values()).sort((a, b) => (a.appointments[0]?.startTime ?? "").localeCompare(b.appointments[0]?.startTime ?? ""));
+    }),
+  }),
+
+  // ── Course Leader ──────────────────────────────────────────────────────────
+  courseLeader: router({
+    myData: dashboardProcedure
+      .input(z.object({ year: z.number(), month: z.number() }))
+      .query(async ({ input, ctx }) => {
+        const dashUser = (ctx as { dashUser: DashboardUser }).dashUser;
+        if (dashUser.role !== "admin" && dashUser.role !== "course_leader") {
+          throw new TRPCError({ code: "FORBIDDEN" });
+        }
+        const { showed, calMap } = await fetchMonthData(input.year, input.month);
+        const myName = dashUser.name;
+
+        const myCals = Array.from(calMap.values()).filter(
+          (c) => extractCourseLeaderName(c.name).toLowerCase().trim() === myName.toLowerCase().trim()
+        );
+        const myCalIds = new Set(myCals.map((c) => c.id));
+        const myAppts = showed.filter((a) => myCalIds.has(a.calendarId));
+
+        const courseMap = new Map<string, { calendarName: string; courseType: string; currency: "SEK" | "EUR"; participants: Array<{ contactId: string; contactName: string; paidAmountInclVAT: number; paidAmountExclVAT: number; vatAmount: number; transactionFee: number; faMargin: number; affiliateCommission: number; affiliateCode: string | null; courseLeaderPayout: number; currency: "SEK" | "EUR" }>; totalPayout: number }>();
+
+        for (const appt of myAppts) {
+          const b = await buildParticipantBreakdown(appt, calMap);
+          if (!b) continue;
+          if (!courseMap.has(appt.calendarId)) {
+            courseMap.set(appt.calendarId, { calendarName: b.calendarName, courseType: b.courseType, currency: b.currency, participants: [], totalPayout: 0 });
+          }
+          const entry = courseMap.get(appt.calendarId)!;
+          entry.participants.push({ contactId: b.contactId, contactName: b.contactName, paidAmountInclVAT: b.paidAmountInclVAT, paidAmountExclVAT: b.paidAmountExclVAT, vatAmount: b.vatAmount, transactionFee: b.transactionFee, faMargin: b.faMargin, affiliateCommission: b.affiliateCommission, affiliateCode: b.affiliateCode, courseLeaderPayout: b.courseLeaderPayout, currency: b.currency });
+          entry.totalPayout += b.courseLeaderPayout;
+        }
+
+        return { courseLeaderName: myName, courses: Array.from(courseMap.values()) };
+      }),
+  }),
+
+  // ── Affiliate ──────────────────────────────────────────────────────────────
+  affiliate: router({
+    myData: dashboardProcedure
+      .input(z.object({ year: z.number(), month: z.number() }))
+      .query(async ({ input, ctx }) => {
+        const dashUser = (ctx as { dashUser: DashboardUser }).dashUser;
+        if (dashUser.role !== "admin" && dashUser.role !== "affiliate") {
+          throw new TRPCError({ code: "FORBIDDEN" });
+        }
+        const myCode = dashUser.affiliateCode;
+        if (!myCode) return { affiliateCode: null, bookings: [], totalSEK: 0, totalEUR: 0 };
+
+        const { showed, calMap } = await fetchMonthData(input.year, input.month);
+        const bookings = [];
+        let totalSEK = 0, totalEUR = 0;
+
+        for (const appt of showed) {
+          const b = await buildParticipantBreakdown(appt, calMap);
+          if (!b || b.affiliateCode !== myCode) continue;
+          const cal = calMap.get(appt.calendarId)!;
+          bookings.push({ contactId: b.contactId, contactName: b.contactName, courseName: cal.name, courseType: b.courseType, paidAmountInclVAT: b.paidAmountInclVAT, paidAmountExclVAT: b.paidAmountExclVAT, commission: b.affiliateCommission, currency: b.currency });
+          if (b.currency === "SEK") totalSEK += b.affiliateCommission;
+          else totalEUR += b.affiliateCommission;
+        }
+
+        return { affiliateCode: myCode, bookings, totalSEK, totalEUR };
+      }),
+  }),
 });
 
 export type AppRouter = typeof appRouter;
