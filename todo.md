@@ -50,3 +50,6 @@
 - [x] Create user: Ivar Bohlin (course_leader) — calendar: "Fascia Academy Sollentuna" (multi-leader)
 - [x] Seed mock appointment data for all three course leaders across 2 months
 - [x] Fix Fascia Academy Sollentuna calendar matching (multi-leader — use ghlContactId field as calendar ID override in User Management)
+
+## Features in Progress
+- [x] Admin "View as user" impersonation — click any user in User Management to preview their dashboard view

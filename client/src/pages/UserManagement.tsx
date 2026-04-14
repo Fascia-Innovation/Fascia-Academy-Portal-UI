@@ -1,7 +1,9 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
+import { useDashAuth } from "@/contexts/DashAuthContext";
 import { toast } from "sonner";
-import { Loader2, Plus, Pencil, UserCheck, UserX } from "lucide-react";
+import { Loader2, Plus, Pencil, UserCheck, UserX, Eye, ArrowLeftCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -42,7 +44,9 @@ export default function UserManagement() {
   const [showCreate, setShowCreate] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
   const [form, setForm] = useState<UserForm>(EMPTY_FORM);
+  const [, setLocation] = useLocation();
   const utils = trpc.useUtils();
+  const { isImpersonating, refetch } = useDashAuth();
 
   const { data: users, isLoading } = trpc.admin.listUsers.useQuery();
 
@@ -61,6 +65,35 @@ export default function UserManagement() {
       toast.success("User updated");
       setEditId(null);
       utils.admin.listUsers.invalidate();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const impersonateMutation = trpc.admin.impersonate.useMutation({
+    onSuccess: (data) => {
+      toast.success(`Viewing as ${data.impersonating.name}`);
+      utils.dashboard.me.invalidate();
+      utils.admin.checkImpersonation.invalidate();
+      refetch();
+      // Navigate to the appropriate home page for the role
+      if (data.impersonating.role === "course_leader") {
+        setLocation("/my-courses");
+      } else if (data.impersonating.role === "affiliate") {
+        setLocation("/my-commissions");
+      } else {
+        setLocation("/");
+      }
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const stopImpersonationMutation = trpc.admin.stopImpersonation.useMutation({
+    onSuccess: () => {
+      toast.success("Returned to admin view");
+      utils.dashboard.me.invalidate();
+      utils.admin.checkImpersonation.invalidate();
+      refetch();
+      setLocation("/users");
     },
     onError: (e) => toast.error(e.message),
   });
@@ -111,6 +144,30 @@ export default function UserManagement() {
 
   return (
     <div className="p-8 max-w-6xl mx-auto">
+      {/* Impersonation banner */}
+      {isImpersonating && (
+        <div className="mb-6 flex items-center justify-between bg-amber-50 border border-amber-300 text-amber-800 rounded-lg px-4 py-3">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <Eye className="h-4 w-4" />
+            You are currently viewing the dashboard as another user.
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            className="border-amber-400 text-amber-800 hover:bg-amber-100"
+            onClick={() => stopImpersonationMutation.mutate()}
+            disabled={stopImpersonationMutation.isPending}
+          >
+            {stopImpersonationMutation.isPending ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+            ) : (
+              <ArrowLeftCircle className="h-3.5 w-3.5 mr-1" />
+            )}
+            Return to Admin View
+          </Button>
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-foreground" style={{ fontFamily: "'Playfair Display', serif" }}>
@@ -140,7 +197,7 @@ export default function UserManagement() {
                   <th className="text-xs font-medium text-muted-foreground uppercase tracking-wider py-3 px-4 text-left">Name</th>
                   <th className="text-xs font-medium text-muted-foreground uppercase tracking-wider py-3 px-4 text-left">Email</th>
                   <th className="text-xs font-medium text-muted-foreground uppercase tracking-wider py-3 px-4 text-left">Role</th>
-                  <th className="text-xs font-medium text-muted-foreground uppercase tracking-wider py-3 px-4 text-left">GHL Contact ID</th>
+                  <th className="text-xs font-medium text-muted-foreground uppercase tracking-wider py-3 px-4 text-left">GHL Calendar ID</th>
                   <th className="text-xs font-medium text-muted-foreground uppercase tracking-wider py-3 px-4 text-left">Affiliate Code</th>
                   <th className="text-xs font-medium text-muted-foreground uppercase tracking-wider py-3 px-4 text-left">Status</th>
                   <th className="text-xs font-medium text-muted-foreground uppercase tracking-wider py-3 px-4 text-right">Actions</th>
@@ -165,6 +222,24 @@ export default function UserManagement() {
                     </td>
                     <td className="py-3 px-4 text-right">
                       <div className="flex items-center justify-end gap-2">
+                        {/* View As button — only for non-admin users */}
+                        {user.role !== "admin" && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                            onClick={() => impersonateMutation.mutate({ userId: user.id })}
+                            disabled={impersonateMutation.isPending}
+                            title={`View dashboard as ${user.name}`}
+                          >
+                            {impersonateMutation.isPending ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <Eye className="h-3.5 w-3.5 mr-1" />
+                            )}
+                            View as
+                          </Button>
+                        )}
                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(user)}>
                           <Pencil className="h-3.5 w-3.5" />
                         </Button>
@@ -221,9 +296,12 @@ export default function UserManagement() {
             </div>
             {form.role === "course_leader" && (
               <div className="space-y-1.5">
-                <Label>GHL Contact ID (optional)</Label>
-                <Input value={form.ghlContactId} onChange={(e) => setForm({ ...form, ghlContactId: e.target.value })} placeholder="GHL contact ID for this leader" />
-                <p className="text-xs text-muted-foreground">The name in this account must exactly match the name in the GHL calendar.</p>
+                <Label>GHL Calendar ID (optional)</Label>
+                <Input value={form.ghlContactId} onChange={(e) => setForm({ ...form, ghlContactId: e.target.value })} placeholder="Override calendar ID for multi-leader calendars" />
+                <p className="text-xs text-muted-foreground">
+                  Leave blank if the calendar name contains the leader's name (e.g. "Intro - Anna Lindgren - Stockholm").
+                  Set this for shared calendars like "Fascia Academy Sollentuna".
+                </p>
               </div>
             )}
             {form.role === "affiliate" && (

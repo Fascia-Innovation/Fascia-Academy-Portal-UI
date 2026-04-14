@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, type ReactNode } from "react";
 import { trpc } from "@/lib/trpc";
 
 export type DashUser = {
@@ -13,12 +13,14 @@ export type DashUser = {
 type DashAuthContextType = {
   user: DashUser | null;
   loading: boolean;
+  isImpersonating: boolean;
   refetch: () => void;
 };
 
 const DashAuthContext = createContext<DashAuthContextType>({
   user: null,
   loading: true,
+  isImpersonating: false,
   refetch: () => {},
 });
 
@@ -28,11 +30,19 @@ export function DashAuthProvider({ children }: { children: ReactNode }) {
     staleTime: 5 * 60 * 1000,
   });
 
+  // Check if we're in impersonation mode by looking for the admin restore cookie
+  // We detect this via a dedicated query that checks the server-side cookie
+  const { data: impersonationData } = trpc.admin.checkImpersonation.useQuery(undefined, {
+    retry: false,
+    staleTime: 0,
+  });
+
   return (
     <DashAuthContext.Provider
       value={{
         user: data ?? null,
         loading: isLoading,
+        isImpersonating: impersonationData?.isImpersonating ?? false,
         refetch,
       }}
     >

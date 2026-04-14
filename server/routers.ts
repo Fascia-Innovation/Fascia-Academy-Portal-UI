@@ -193,6 +193,80 @@ export const appRouter = router({
         return { success: true };
       }),
 
+    // Impersonate: create a short-lived session for another user and return the session ID
+    impersonate: adminProcedure
+      .input(z.object({ userId: z.number() }))
+      .mutation(async ({ input, ctx }) => {
+        const adminUser = (ctx as { dashUser: DashboardUser }).dashUser;
+        // Store original admin session so we can restore it
+        const originalSessionId = getDashCookie(ctx.req);
+        // Create a new short-lived session (1 hour) for the target user
+        const db = await import("./db").then((m) => m.getDb());
+        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+        const { dashboardUsers: duTable } = await import("../drizzle/schema");
+        const { eq: eqOp } = await import("drizzle-orm");
+        const rows = await db.select().from(duTable).where(eqOp(duTable.id, input.userId)).limit(1);
+        const targetUser = rows[0];
+        if (!targetUser) throw new TRPCError({ code: "NOT_FOUND", message: "User not found" });
+        const { dashboardSessions: dsTable } = await import("../drizzle/schema");
+        const { generateSessionId } = await import("./dashboardAuth");
+        const sessionId = generateSessionId();
+        const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+        await db.insert(dsTable).values({ id: sessionId, userId: input.userId, expiresAt });
+        // Set the impersonation cookie
+        ctx.res.cookie(DASH_SESSION, sessionId, {
+          httpOnly: true,
+          secure: true,
+          sameSite: "none",
+          maxAge: 60 * 60 * 1000,
+          path: "/",
+        });
+        // Also store original session in a separate cookie so admin can restore
+        if (originalSessionId) {
+          ctx.res.cookie("fa_dash_admin_session", originalSessionId, {
+            httpOnly: true,
+            secure: true,
+            sameSite: "none",
+            maxAge: 60 * 60 * 1000,
+            path: "/",
+          });
+        }
+        return {
+          impersonating: { id: targetUser.id, name: targetUser.name, role: targetUser.role },
+          adminName: adminUser.name,
+        };
+      }),
+
+    // Check if currently impersonating (for frontend banner)
+    checkImpersonation: publicProcedure.query(({ ctx }) => {
+      const cookies = parseCookies(ctx.req.headers.cookie ?? "");
+      const isImpersonating = !!cookies["fa_dash_admin_session"];
+      return { isImpersonating };
+    }),
+
+    // Stop impersonating — restore the original admin session
+    stopImpersonation: publicProcedure.mutation(async ({ ctx }) => {
+      const cookies = parseCookies(ctx.req.headers.cookie ?? "");
+      const adminSessionId = cookies["fa_dash_admin_session"];
+      // Clear the impersonation session
+      const impersonationSessionId = getDashCookie(ctx.req);
+      if (impersonationSessionId) await deleteSession(impersonationSessionId);
+      if (adminSessionId) {
+        // Restore admin session
+        ctx.res.cookie(DASH_SESSION, adminSessionId, {
+          httpOnly: true,
+          secure: true,
+          sameSite: "none",
+          maxAge: 7 * 24 * 60 * 60 * 1000,
+          path: "/",
+        });
+        ctx.res.clearCookie("fa_dash_admin_session", { path: "/" });
+        return { restored: true };
+      }
+      ctx.res.clearCookie(DASH_SESSION, { path: "/" });
+      return { restored: false };
+    }),
+
     overview: adminProcedure
       .input(z.object({ year: z.number(), month: z.number() }))
       .query(async ({ input }) => {

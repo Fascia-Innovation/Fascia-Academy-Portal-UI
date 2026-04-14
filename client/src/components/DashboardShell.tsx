@@ -13,6 +13,9 @@ import {
   LogOut,
   ChevronRight,
   Settings,
+  Eye,
+  ArrowLeftCircle,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
@@ -56,9 +59,20 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
 }
 
 export default function DashboardShell({ children }: { children: ReactNode }) {
-  const [location] = useLocation();
-  const { user } = useDashAuth();
+  const [location, setLocation] = useLocation();
+  const { user, isImpersonating, refetch } = useDashAuth();
   const utils = trpc.useUtils();
+
+  const stopImpersonationMutation = trpc.admin.stopImpersonation.useMutation({
+    onSuccess: () => {
+      toast.success("Returned to admin view");
+      utils.dashboard.me.invalidate();
+      utils.admin.checkImpersonation.invalidate();
+      refetch();
+      setLocation("/users");
+    },
+    onError: () => toast.error("Failed to restore admin session"),
+  });
 
   const logoutMutation = trpc.dashboard.logout.useMutation({
     onSuccess: () => {
@@ -123,8 +137,31 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 overflow-y-auto">
-        {children}
+      <main className="flex-1 overflow-y-auto flex flex-col">
+        {/* Impersonation banner */}
+        {isImpersonating && (
+          <div className="flex items-center justify-between bg-amber-50 border-b border-amber-300 text-amber-800 px-6 py-2.5 shrink-0">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <Eye className="h-4 w-4" />
+              <span>Viewing as <strong>{user?.name}</strong> ({user?.role?.replace("_", " ")})</span>
+            </div>
+            <button
+              onClick={() => stopImpersonationMutation.mutate()}
+              disabled={stopImpersonationMutation.isPending}
+              className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded border border-amber-400 hover:bg-amber-100 transition-colors"
+            >
+              {stopImpersonationMutation.isPending ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <ArrowLeftCircle className="h-3.5 w-3.5" />
+              )}
+              Return to Admin View
+            </button>
+          </div>
+        )}
+        <div className="flex-1">
+          {children}
+        </div>
       </main>
     </div>
   );
