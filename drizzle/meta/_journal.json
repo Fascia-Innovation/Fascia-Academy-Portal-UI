@@ -22,6 +22,13 @@
       "when": 1776163453134,
       "tag": "0002_dapper_vin_gonzales",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1776165136073,
+      "tag": "0003_secret_stick",
+      "breakpoints": true
     }
   ]
 }

@@ -3,11 +3,10 @@
  * Allows admin to add/edit/delete manually registered course dates.
  * These feed the public booking page (/courses).
  */
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -27,6 +26,19 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
   Plus,
   Pencil,
   Trash2,
@@ -36,6 +48,13 @@ import {
   User,
   ExternalLink,
   Loader2,
+  ChevronsUpDown,
+  Check,
+  Phone,
+  Building2,
+  Eye,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -53,6 +72,357 @@ const COURSE_TYPE_COLORS: Record<string, string> = {
   vidare: "bg-green-100 text-green-800",
 };
 
+// ─── Course description templates ────────────────────────────────────────────
+// Template text per course type + language.
+// Dynamic placeholders: {leaderName}, {phone}, {date}, {time}, {venueName}, {address}, {city}
+const DESCRIPTION_TEMPLATES: Record<string, Record<string, string>> = {
+  sv: {
+    intro: `**{title}**
+*1 dag (10.00–17.00) + digitalt material*
+
+**Om kursen**
+Introduktionskurs Fascia ger en grundläggande och praktisk förståelse för vad fascia är, hur den fungerar och hur fasciabehandling används. Kursen kombinerar teori med praktisk behandling.
+
+Genom att både arbeta med och uppleva behandling får du en konkret förståelse för hur fasciabehandling fungerar och hur den påverkar kroppen.
+
+**Första steget i Fascia Academys utbildningssystem**
+Introduktionskursen är det första steget i Fascia Academys sammanhållna utbildningssystem.
+Efter genomförd kurs har du:
+- En grundläggande förståelse för fascia och dess roll i kroppen
+- En praktisk introduktion till fasciabehandling
+- Möjlighet att fortsätta utbildning till Diplomerad och Certifierad Fasciaspecialist
+
+Kursen är fristående men utgör också den gemensamma grund som används vidare i Fascia Academys utbildningsresa.
+
+**För vem**
+Kursen är öppen för alla som vill lära sig mer om fascia – både privat och professionellt.
+Du behöver inga förkunskaper eller tidigare utbildning.
+Kursen passar dig som:
+- Är nyfiken på hur fascia påverkar kroppen
+- Vill förstå kroppen ur ett mer helhetsbaserat perspektiv
+- Arbetar inom hälsa, vård, friskvård, träning eller kroppsterapi och vill bredda din kompetens
+- Vill uppleva fasciabehandling i praktiken
+- Överväger vidare utbildning inom Fascia Academy
+
+**Upplägg för dagen**
+10.00–12.00 — Teoretisk introduktion: fascia, kroppen och grundläggande begrepp
+12.00–13.00 — Lunchpaus (lunch ingår ej)
+13.00–17.00 — Praktisk del: grundläggande fasciabehandling med maskin
+
+**Praktiskt genomförande**
+All fasciabehandling under kursen utförs utanpå kläder.
+Du behöver inte ta med någon egen utrustning till kursen. Allt som används under kursdagen finns på plats.
+
+**Digitalt kursmaterial**
+Det digitala materialet ingår i kursen och finns tillgängligt direkt vid köp. Materialet används både som förberedelse inför kursdagen och som repetition efteråt.
+
+**Detta ingår**
+- Digitalt kursmaterial för förberedelse och repetition
+- Tillgång till FasciaVibes Open (kostnadsfritt), med inspelade webinar, digitala kurser och material
+- Löpande information inför kursstart
+- Fysisk kursdag enligt kursplan
+- Digitalt deltagarintyg efter genomförd kurs
+
+**Pris och villkor**
+Pris: 2 800 kr exkl. moms (3 500 kr inkl. moms)
+Betalning sker i samband med anmälan.
+Digitalt material ingår och tillgängliggörs direkt vid köp.
+
+**Villkor för anmälan**
+- Anmälan är bindande
+- Ombokning till annat datum kan göras kostnadsfritt fram till 5 dagar innan kursstart
+- För ombokning: kontakta info@fasciaacademy.com
+- Eftersom digitalt material ges direkt vid köp är återbetalning inte möjlig
+- Vid uteblivet deltagande utan ombokning återbetalas inte kursavgiften
+
+**Inför kursen**
+Du får ett mail med praktisk information inför kursstart.
+
+**Har du frågor om kursen är du välkommen att kontakta kursledaren:**
+Kursledare: {leaderName}
+Telefonnummer: {phone}
+Du kan också ställa dina frågor direkt i kommentarsfältet för eventet nedan.
+
+**Plats**
+{venueName}
+{address}
+{city}`,
+
+    diplo: `**{title}**
+*3 dagar + digitalt material*
+
+**Om kursen**
+Diplomerad Fasciaspecialist är nästa steg i Fascia Academys utbildningssystem och ger dig en fördjupad förståelse för fascians roll i kroppen samt praktiska färdigheter i avancerad fasciabehandling.
+
+**Förutsättningar**
+Genomförd Introduktionskurs Fascia krävs för deltagande.
+
+**Detta ingår**
+- Fördjupat digitalt kursmaterial
+- 3 dagars intensiv utbildning med teori och praktik
+- Tillgång till FasciaVibes Open
+- Digitalt diplombevis efter genomförd kurs och godkänt prov
+
+**Pris och villkor**
+Pris: 12 000 kr exkl. moms (15 000 kr inkl. moms)
+Betalning sker i samband med anmälan.
+
+**Villkor för anmälan**
+- Anmälan är bindande
+- Ombokning kan göras kostnadsfritt fram till 5 dagar innan kursstart
+- För ombokning: kontakta info@fasciaacademy.com
+
+**Har du frågor om kursen är du välkommen att kontakta kursledaren:**
+Kursledare: {leaderName}
+Telefonnummer: {phone}
+
+**Plats**
+{venueName}
+{address}
+{city}`,
+
+    cert: `**{title}**
+*5 dagar + digitalt material*
+
+**Om kursen**
+Certifierad Fasciaspecialist är det avancerade steget i Fascia Academys utbildningssystem. Kursen ger dig djupgående kunskaper och certifiering som Fasciaspecialist.
+
+**Förutsättningar**
+Genomförd Diplomerad Fasciaspecialist krävs för deltagande.
+
+**Detta ingår**
+- Avancerat digitalt kursmaterial
+- 5 dagars intensiv utbildning
+- Certifieringsprov
+- Digitalt certifikat efter godkänt prov
+
+**Pris och villkor**
+Pris: 40 000 kr exkl. moms (50 000 kr inkl. moms)
+Betalning sker i samband med anmälan.
+
+**Har du frågor om kursen är du välkommen att kontakta kursledaren:**
+Kursledare: {leaderName}
+Telefonnummer: {phone}
+
+**Plats**
+{venueName}
+{address}
+{city}`,
+
+    vidare: `**{title}**
+*Vidareutbildning + digitalt material*
+
+**Om kursen**
+Vidareutbildning Fasciaspecialist är en fördjupningskurs för dig som redan är certifierad och vill bredda din kompetens ytterligare.
+
+**Förutsättningar**
+Genomförd Certifierad Fasciaspecialist krävs för deltagande.
+
+**Har du frågor om kursen är du välkommen att kontakta kursledaren:**
+Kursledare: {leaderName}
+Telefonnummer: {phone}
+
+**Plats**
+{venueName}
+{address}
+{city}`,
+  },
+  en: {
+    intro: `**{title}**
+*1 day (10:00–17:00) + digital material*
+
+**About the course**
+Introduction Course Fascia provides a fundamental and practical understanding of what fascia is, how it works, and how fascia treatment is applied. The course combines theory with hands-on treatment.
+
+By both working with and experiencing treatment, you gain a concrete understanding of how fascia treatment works and how it affects the body.
+
+**First step in Fascia Academy's training system**
+The Introduction Course is the first step in Fascia Academy's comprehensive training system.
+After completing the course, you will have:
+- A fundamental understanding of fascia and its role in the body
+- A practical introduction to fascia treatment
+- The opportunity to continue training as a Qualified and Certified Fascia Specialist
+
+**Who is it for?**
+The course is open to everyone who wants to learn more about fascia – both privately and professionally.
+No prior knowledge or training is required.
+The course is suitable for you who:
+- Are curious about how fascia affects the body
+- Want to understand the body from a more holistic perspective
+- Work in health, care, wellness, fitness, or body therapy and want to expand your skills
+- Want to experience fascia treatment in practice
+- Are considering further training within Fascia Academy
+
+**Schedule for the day**
+10:00–12:00 — Theoretical introduction: fascia, the body, and basic concepts
+12:00–13:00 — Lunch break (lunch not included)
+13:00–17:00 — Practical session: basic fascia treatment with machine
+
+**Practical information**
+All fascia treatment during the course is performed over clothing.
+You do not need to bring any equipment. Everything needed is provided on-site.
+
+**This is included**
+- Digital course material for preparation and review
+- Access to FasciaVibes Open (free), with recorded webinars, digital courses, and material
+- Ongoing information before the course starts
+- Physical course day according to the course plan
+- Digital certificate of participation after completing the course
+
+**Price and terms**
+Price: 350 EUR (incl. VAT) / 3 500 SEK (incl. VAT)
+Payment is made at the time of registration.
+Digital material is included and made available immediately upon purchase.
+
+**Registration terms**
+- Registration is binding
+- Rebooking to another date is free of charge up to 5 days before the course starts
+- For rebooking: contact info@fasciaacademy.com
+- Since digital material is provided immediately upon purchase, refunds are not possible
+- No refund is given for non-attendance without rebooking
+
+**Before the course**
+You will receive an email with practical information before the course starts.
+
+**If you have questions about the course, please contact the course leader:**
+Course leader: {leaderName}
+Phone: {phone}
+
+**Location**
+{venueName}
+{address}
+{city}`,
+
+    diplo: `**{title}**
+*3 days + digital material*
+
+**About the course**
+Qualified Fascia Specialist is the next step in Fascia Academy's training system, providing you with an in-depth understanding of fascia's role in the body and practical skills in advanced fascia treatment.
+
+**Prerequisites**
+Completed Introduction Course Fascia is required.
+
+**This is included**
+- In-depth digital course material
+- 3 days of intensive training with theory and practice
+- Access to FasciaVibes Open
+- Digital diploma after completing the course and passing the exam
+
+**Price and terms**
+Price: 1 500 EUR (incl. VAT) / 15 000 SEK (incl. VAT)
+Payment is made at the time of registration.
+
+**If you have questions, please contact the course leader:**
+Course leader: {leaderName}
+Phone: {phone}
+
+**Location**
+{venueName}
+{address}
+{city}`,
+
+    cert: `**{title}**
+*5 days + digital material*
+
+**About the course**
+Certified Fascia Specialist is the advanced step in Fascia Academy's training system. The course provides deep knowledge and certification as a Fascia Specialist.
+
+**Prerequisites**
+Completed Qualified Fascia Specialist is required.
+
+**This is included**
+- Advanced digital course material
+- 5 days of intensive training
+- Certification exam
+- Digital certificate after passing the exam
+
+**Price and terms**
+Price: 5 000 EUR (incl. VAT) / 50 000 SEK (incl. VAT)
+
+**If you have questions, please contact the course leader:**
+Course leader: {leaderName}
+Phone: {phone}
+
+**Location**
+{venueName}
+{address}
+{city}`,
+
+    vidare: `**{title}**
+*Advanced training + digital material*
+
+**About the course**
+Advanced Fascia Specialist is a continuing education course for those who are already certified and want to further expand their expertise.
+
+**Prerequisites**
+Completed Certified Fascia Specialist is required.
+
+**If you have questions, please contact the course leader:**
+Course leader: {leaderName}
+Phone: {phone}
+
+**Location**
+{venueName}
+{address}
+{city}`,
+  },
+};
+
+// Course titles per type + language
+const COURSE_TITLES: Record<string, Record<string, string>> = {
+  sv: {
+    intro: "Introduktionskurs Fascia by Fascia Academy",
+    diplo: "Diplomerad Fasciaspecialist by Fascia Academy",
+    cert: "Certifierad Fasciaspecialist by Fascia Academy",
+    vidare: "Vidareutbildning Fasciaspecialist by Fascia Academy",
+  },
+  en: {
+    intro: "Introduction Course Fascia by Fascia Academy",
+    diplo: "Qualified Fascia Specialist by Fascia Academy",
+    cert: "Certified Fascia Specialist by Fascia Academy",
+    vidare: "Advanced Fascia Specialist by Fascia Academy",
+  },
+};
+
+function generateDescription(
+  courseType: string,
+  language: string,
+  leaderName: string,
+  phone: string,
+  venueName: string,
+  address: string,
+  city: string,
+  startDate: string
+): string {
+  const lang = language === "en" ? "en" : "sv";
+  const template = DESCRIPTION_TEMPLATES[lang]?.[courseType] ?? "";
+  const title = COURSE_TITLES[lang]?.[courseType] ?? "";
+
+  // Format date for display
+  let dateStr = "";
+  let timeStr = "";
+  if (startDate) {
+    try {
+      const d = new Date(startDate);
+      dateStr = format(d, lang === "sv" ? "d MMMM yyyy" : "MMMM d, yyyy");
+      timeStr = format(d, "HH:mm");
+    } catch {}
+  }
+
+  // Add location prefix to title if city is known
+  const fullTitle = city ? `(${city}) ${title} – Kursledare: ${leaderName}` : `${title} – Kursledare: ${leaderName}`;
+
+  return template
+    .replace(/{title}/g, fullTitle)
+    .replace(/{leaderName}/g, leaderName || "[Kursledarens namn]")
+    .replace(/{phone}/g, phone || "[Telefonnummer]")
+    .replace(/{venueName}/g, venueName || "[Lokal]")
+    .replace(/{address}/g, address || "[Adress]")
+    .replace(/{city}/g, city || "[Stad]")
+    .replace(/{date}/g, dateStr || "[Datum]")
+    .replace(/{time}/g, timeStr || "[Tid]");
+}
+
 type FormData = {
   ghlCalendarId: string;
   courseLeaderName: string;
@@ -61,6 +431,9 @@ type FormData = {
   language: "sv" | "en";
   city: string;
   country: string;
+  venueName: string;
+  address: string;
+  courseLeaderPhone: string;
   startDate: string;
   endDate: string;
   maxSeats: string;
@@ -76,6 +449,9 @@ const emptyForm = (): FormData => ({
   language: "sv",
   city: "",
   country: "Sweden",
+  venueName: "",
+  address: "",
+  courseLeaderPhone: "",
   startDate: "",
   endDate: "",
   maxSeats: "12",
@@ -89,6 +465,8 @@ export default function CourseDates() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<FormData>(emptyForm());
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
+  const [calPickerOpen, setCalPickerOpen] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
 
   const { data: courseDates = [], isLoading } = trpc.courseDates.listAdmin.useQuery();
   const { data: ghlCalendars = [], isLoading: calendarsLoading } = trpc.courseDates.getCalendars.useQuery();
@@ -132,6 +510,7 @@ export default function CourseDates() {
   function handleCalendarSelect(calId: string) {
     const cal = calendarMap.get(calId);
     if (!cal) return;
+    setCalPickerOpen(false);
     setForm((f) => ({
       ...f,
       ghlCalendarId: calId,
@@ -145,6 +524,7 @@ export default function CourseDates() {
   function openCreate() {
     setEditingId(null);
     setForm(emptyForm());
+    setShowPreview(false);
     setDialogOpen(true);
   }
 
@@ -158,12 +538,16 @@ export default function CourseDates() {
       language: row.language,
       city: row.city,
       country: row.country,
+      venueName: (row as any).venueName ?? "",
+      address: (row as any).address ?? "",
+      courseLeaderPhone: (row as any).courseLeaderPhone ?? "",
       startDate: format(new Date(row.startDate), "yyyy-MM-dd'T'HH:mm"),
       endDate: format(new Date(row.endDate), "yyyy-MM-dd'T'HH:mm"),
       maxSeats: String(row.maxSeats),
       notes: row.notes ?? "",
       published: row.published,
     });
+    setShowPreview(false);
     setDialogOpen(true);
   }
 
@@ -176,6 +560,9 @@ export default function CourseDates() {
       language: form.language,
       city: form.city,
       country: form.country,
+      venueName: form.venueName || undefined,
+      address: form.address || undefined,
+      courseLeaderPhone: form.courseLeaderPhone || undefined,
       startDate: new Date(form.startDate).toISOString(),
       endDate: new Date(form.endDate).toISOString(),
       maxSeats: parseInt(form.maxSeats, 10) || 12,
@@ -191,6 +578,28 @@ export default function CourseDates() {
   }
 
   const isSaving = createMutation.isPending || updateMutation.isPending;
+
+  // Generated description preview
+  const descriptionPreview = useMemo(
+    () =>
+      generateDescription(
+        form.courseType,
+        form.language,
+        form.courseLeaderName,
+        form.courseLeaderPhone,
+        form.venueName,
+        form.address,
+        form.city,
+        form.startDate
+      ),
+    [form.courseType, form.language, form.courseLeaderName, form.courseLeaderPhone, form.venueName, form.address, form.city, form.startDate]
+  );
+
+  // Selected calendar display name
+  const selectedCalendarName = useMemo(
+    () => ghlCalendars.find((c) => c.id === form.ghlCalendarId)?.name ?? "",
+    [ghlCalendars, form.ghlCalendarId]
+  );
 
   // Group by upcoming vs past
   const now = new Date();
@@ -275,7 +684,7 @@ export default function CourseDates() {
               </tr>
             </thead>
             <tbody>
-              {[...upcoming, ...past].map((row, idx) => {
+              {[...upcoming, ...past].map((row) => {
                 const isPast = new Date(row.startDate) < now;
                 return (
                   <tr
@@ -295,7 +704,15 @@ export default function CourseDates() {
                             <User className="h-3.5 w-3.5 text-muted-foreground" />
                           </div>
                         )}
-                        <span className="font-medium">{row.courseLeaderName}</span>
+                        <div>
+                          <div className="font-medium">{row.courseLeaderName}</div>
+                          {(row as any).courseLeaderPhone && (
+                            <div className="text-xs text-muted-foreground flex items-center gap-1">
+                              <Phone className="h-3 w-3" />
+                              {(row as any).courseLeaderPhone}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </td>
                     <td className="px-4 py-3">
@@ -313,9 +730,14 @@ export default function CourseDates() {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-1.5">
-                        <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
-                        <span>{row.city}, {row.country}</span>
+                      <div className="flex items-start gap-1.5">
+                        <MapPin className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
+                        <div>
+                          {(row as any).venueName && (
+                            <div className="font-medium text-xs">{(row as any).venueName}</div>
+                          )}
+                          <div className="text-xs text-muted-foreground">{row.city}, {row.country}</div>
+                        </div>
                       </div>
                     </td>
                     <td className="px-4 py-3 text-center font-medium">{row.maxSeats}</td>
@@ -368,7 +790,7 @@ export default function CourseDates() {
           </DialogHeader>
 
           <div className="grid gap-4 py-2">
-            {/* Calendar selector (auto-fills most fields) */}
+            {/* ── Searchable calendar picker ── */}
             <div className="space-y-1.5">
               <Label>GHL Calendar</Label>
               {calendarsLoading ? (
@@ -376,29 +798,62 @@ export default function CourseDates() {
                   <Loader2 className="h-4 w-4 animate-spin" /> Loading calendars...
                 </div>
               ) : (
-                <Select
-                  value={form.ghlCalendarId}
-                  onValueChange={handleCalendarSelect}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a GHL calendar..." />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-64">
-                    {ghlCalendars.map((cal) => (
-                      <SelectItem key={cal.id} value={cal.id}>
-                        <span className="font-medium">{cal.name}</span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover open={calPickerOpen} onOpenChange={setCalPickerOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={calPickerOpen}
+                      className="w-full justify-between font-normal"
+                    >
+                      <span className="truncate text-left">
+                        {selectedCalendarName || "Select a GHL calendar..."}
+                      </span>
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 text-muted-foreground" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[500px] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Search calendar by name or course leader..." />
+                      <CommandList className="max-h-72">
+                        <CommandEmpty>No calendars found.</CommandEmpty>
+                        <CommandGroup>
+                          {ghlCalendars.map((cal) => (
+                            <CommandItem
+                              key={cal.id}
+                              value={`${cal.name} ${cal.primaryUserName ?? ""}`}
+                              onSelect={() => handleCalendarSelect(cal.id)}
+                              className="flex items-center gap-2 cursor-pointer"
+                            >
+                              <Check
+                                className={`h-4 w-4 shrink-0 ${form.ghlCalendarId === cal.id ? "opacity-100" : "opacity-0"}`}
+                              />
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium text-sm truncate">{cal.name}</div>
+                                {cal.primaryUserName && (
+                                  <div className="text-xs text-muted-foreground">{cal.primaryUserName}</div>
+                                )}
+                              </div>
+                              {cal.courseType && (
+                                <span className={`text-xs px-1.5 py-0.5 rounded shrink-0 ${COURSE_TYPE_COLORS[cal.courseType]}`}>
+                                  {COURSE_TYPE_LABELS[cal.courseType]}
+                                </span>
+                              )}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               )}
               <p className="text-xs text-muted-foreground">
                 Selecting a calendar auto-fills course type, language, and course leader.
               </p>
             </div>
 
+            {/* ── Course Leader + Phone ── */}
             <div className="grid grid-cols-2 gap-4">
-              {/* Course Leader Name */}
               <div className="space-y-1.5">
                 <Label>Course Leader Name</Label>
                 <Input
@@ -407,19 +862,21 @@ export default function CourseDates() {
                   placeholder="e.g. Fredrik Kjellberg"
                 />
               </div>
-              {/* GHL User ID */}
               <div className="space-y-1.5">
-                <Label>GHL User ID <span className="text-muted-foreground">(for profile photo)</span></Label>
+                <Label className="flex items-center gap-1.5">
+                  <Phone className="h-3.5 w-3.5 text-muted-foreground" />
+                  Phone <span className="text-muted-foreground font-normal">(for booking text)</span>
+                </Label>
                 <Input
-                  value={form.ghlUserId}
-                  onChange={(e) => setForm((f) => ({ ...f, ghlUserId: e.target.value }))}
-                  placeholder="auto-filled from calendar"
+                  value={form.courseLeaderPhone}
+                  onChange={(e) => setForm((f) => ({ ...f, courseLeaderPhone: e.target.value }))}
+                  placeholder="e.g. 073-056 62 75"
                 />
               </div>
             </div>
 
+            {/* ── Course Type + Language ── */}
             <div className="grid grid-cols-2 gap-4">
-              {/* Course Type */}
               <div className="space-y-1.5">
                 <Label>Course Type</Label>
                 <Select
@@ -437,7 +894,6 @@ export default function CourseDates() {
                   </SelectContent>
                 </Select>
               </div>
-              {/* Language */}
               <div className="space-y-1.5">
                 <Label>Language</Label>
                 <Select
@@ -455,8 +911,8 @@ export default function CourseDates() {
               </div>
             </div>
 
+            {/* ── Start + End Date ── */}
             <div className="grid grid-cols-2 gap-4">
-              {/* Start Date */}
               <div className="space-y-1.5">
                 <Label>Start Date & Time</Label>
                 <Input
@@ -465,9 +921,8 @@ export default function CourseDates() {
                   onChange={(e) => setForm((f) => ({ ...f, startDate: e.target.value }))}
                 />
               </div>
-              {/* End Date */}
               <div className="space-y-1.5">
-                <Label>End Date & Time</Label>
+                <Label>End Date & Time <span className="text-muted-foreground font-normal text-xs">(first day)</span></Label>
                 <Input
                   type="datetime-local"
                   value={form.endDate}
@@ -476,8 +931,32 @@ export default function CourseDates() {
               </div>
             </div>
 
+            {/* ── Venue + City + Seats ── */}
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1.5">
+                <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
+                Venue Name <span className="text-muted-foreground font-normal">(optional)</span>
+              </Label>
+              <Input
+                value={form.venueName}
+                onChange={(e) => setForm((f) => ({ ...f, venueName: e.target.value }))}
+                placeholder="e.g. Fasciaklinikerna Helsingborg"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1.5">
+                <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+                Address <span className="text-muted-foreground font-normal">(optional)</span>
+              </Label>
+              <Input
+                value={form.address}
+                onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
+                placeholder="e.g. Berga allé 1, 254 52 Helsingborg"
+              />
+            </div>
+
             <div className="grid grid-cols-3 gap-4">
-              {/* City */}
               <div className="space-y-1.5 col-span-2">
                 <Label>City</Label>
                 <Input
@@ -486,7 +965,6 @@ export default function CourseDates() {
                   placeholder="e.g. Helsingborg"
                 />
               </div>
-              {/* Max Seats */}
               <div className="space-y-1.5">
                 <Label>Max Seats</Label>
                 <Input
@@ -499,28 +977,18 @@ export default function CourseDates() {
               </div>
             </div>
 
-            {/* Country */}
+            {/* ── Internal Notes ── */}
             <div className="space-y-1.5">
-              <Label>Country</Label>
-              <Input
-                value={form.country}
-                onChange={(e) => setForm((f) => ({ ...f, country: e.target.value }))}
-                placeholder="Sweden"
-              />
-            </div>
-
-            {/* Notes */}
-            <div className="space-y-1.5">
-              <Label>Internal Notes <span className="text-muted-foreground">(optional)</span></Label>
+              <Label>Internal Notes <span className="text-muted-foreground font-normal">(optional — not shown publicly)</span></Label>
               <Textarea
                 value={form.notes}
                 onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-                placeholder="Any internal notes..."
+                placeholder="e.g. Day 2 is 9:00–16:00, special venue instructions..."
                 rows={2}
               />
             </div>
 
-            {/* Published toggle */}
+            {/* ── Published toggle ── */}
             <div className="flex items-center justify-between rounded-lg border p-3">
               <div>
                 <div className="font-medium text-sm">Published</div>
@@ -530,6 +998,32 @@ export default function CourseDates() {
                 checked={form.published}
                 onCheckedChange={(v) => setForm((f) => ({ ...f, published: v }))}
               />
+            </div>
+
+            {/* ── Course Description Preview ── */}
+            <div className="rounded-lg border overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setShowPreview((v) => !v)}
+                className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium hover:bg-muted/30 transition-colors"
+              >
+                <span className="flex items-center gap-2">
+                  <Eye className="h-4 w-4 text-muted-foreground" />
+                  Preview course description
+                  <span className="text-xs text-muted-foreground font-normal">(auto-generated from template)</span>
+                </span>
+                {showPreview ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </button>
+              {showPreview && (
+                <div className="border-t bg-muted/20 p-4">
+                  <pre className="text-xs whitespace-pre-wrap font-mono text-foreground/80 leading-relaxed max-h-64 overflow-y-auto">
+                    {descriptionPreview}
+                  </pre>
+                  <p className="text-xs text-muted-foreground mt-3">
+                    Copy this text into your booking platform (e.g. Circle). Fill in phone, address, and venue name above to personalise it.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 

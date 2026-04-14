@@ -89,3 +89,12 @@
 
 ## Medium Priority
 - [ ] GHL: Byt bokningsformulärspråk för svenska kalendrar (First Name → Förnamn osv) — görs direkt i GHL Calendar Settings
+
+## Course Dates Admin UX Improvements
+- [x] DB: Add `phone` field to local_users (course leaders), add `address` + `venue_name` + `courseLeaderPhone` fields to course_dates
+- [x] Admin form: Replace calendar dropdown with searchable combobox (type to filter)
+- [x] Admin form: Add address / venue name field per course date
+- [x] Admin form: Phone number field per course date (for booking text)
+- [x] Admin form: Live preview of auto-generated course description (template + dynamic fields)
+- [x] Course description templates: one per course type (intro/diplo/cert/vidare), SE + EN variants
+- [ ] Public /courses: Show venue name + address on course cards and booking modal
