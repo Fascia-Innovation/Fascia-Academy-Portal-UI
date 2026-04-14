@@ -29,6 +29,7 @@ import {
 } from "./ghl";
 import type { DashboardUser } from "../drizzle/schema";
 import { courseDatesRouter } from "./routers/courseDates";
+import { settlementsRouter } from "./routers/settlements";
 
 // ─── Session cookie name for dashboard ───────────────────────────────────────
 const DASH_SESSION = "fa_dash_session";
@@ -83,13 +84,19 @@ async function buildParticipantBreakdown(
   const paidField = allFields.find(
     (f) => f.id.toLowerCase().includes("paid_amount") || f.id.toLowerCase().includes("paidamount")
   );
-  let paidAmount = paidField ? Number(paidField.value) : 0;
-  if (!paidAmount || isNaN(paidAmount)) {
+  // 0 kr = intentional free booking (100% discount) — do NOT fall back to standard price
+  // Only use standard price if the field is completely missing/null (unknown amount)
+  const rawPaidValue = paidField?.value;
+  const isMissingField = rawPaidValue === undefined || rawPaidValue === null || rawPaidValue === "";
+  let paidAmount = isMissingField ? NaN : Number(rawPaidValue);
+  if (isMissingField || isNaN(paidAmount)) {
+    // Field missing — use standard price as fallback (data entry issue, not a free booking)
     if (courseType === "intro") paidAmount = currency === "SEK" ? 3500 : 350;
     else if (courseType === "diplo") paidAmount = currency === "SEK" ? 15000 : 1500;
     else if (courseType === "cert") paidAmount = currency === "SEK" ? 50000 : 5000;
     else paidAmount = currency === "SEK" ? 3500 : 350;
   }
+  // If paidAmount is exactly 0 (free booking), keep it as 0 — FA margin still applies
 
   const affiliateField = allFields.find(
     (f) => f.id.toLowerCase().includes("affiliate_code") || f.id.toLowerCase().includes("affiliatecode")
@@ -175,6 +182,7 @@ export const appRouter = router({
         ghlContactId: z.string().optional(),
         affiliateCode: z.string().optional(),
         profileUrl: z.string().url().optional(),
+        invoiceReference: z.string().optional(),
       }))
       .mutation(async ({ input }) => createDashboardUser(input)),
 
@@ -187,6 +195,7 @@ export const appRouter = router({
         ghlContactId: z.string().optional(),
         affiliateCode: z.string().optional(),
         profileUrl: z.string().url().optional().nullable(),
+        invoiceReference: z.string().optional().nullable(),
         active: z.boolean().optional(),
         password: z.string().min(6).optional(),
       }))
@@ -505,6 +514,7 @@ export const appRouter = router({
       }),
   }),
   courseDates: courseDatesRouter,
+  settlements: settlementsRouter,
 });
 
 export type AppRouter = typeof appRouter;

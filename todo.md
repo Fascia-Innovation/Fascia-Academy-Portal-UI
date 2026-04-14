@@ -139,3 +139,17 @@
 - [x] Add "Quick Links" page (Snabblänkar) for admin: shortcuts to add new course date, add new user, view public page, etc.
 - [ ] Remove "vidare" course type from public page filters (not in use currently)
 - [ ] Prices: confirm "vidare" price (placeholder 9375 kr) — skip for now since not in use
+
+## Round 5: In-Portal Settlement System
+- [x] DB schema: settlements, settlement_lines, settlement_adjustments tables
+- [x] DB schema: add invoiceReference field to dashboard_users
+- [x] Backend: settlement calculation engine (same formula as Python script, handles 0 kr correctly, flags empty paidAmount)
+- [x] Backend: tRPC procedures — generate, list, get, approve, addAdjustment, amend, recalculate
+- [x] Backend: email notification to course leader/affiliate on approval
+- [x] Admin UI: Settlements list page (all users, filter by status/period)
+- [x] Admin UI: Settlement detail page (lines, adjustments, approve button, amend button, recalculate)
+- [x] Course leader UI: My Settlements page (pending + approved)
+- [x] Affiliate UI: My Settlements page (same component)
+- [x] Fix 0 kr paidAmount fallback bug (0 kr = free booking, FA margin still applies)
+- [x] Add invoiceReference field to User Management form
+- [x] FA company details shown on settlement detail page

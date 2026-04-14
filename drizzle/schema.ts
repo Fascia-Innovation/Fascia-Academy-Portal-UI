@@ -1,4 +1,4 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, boolean } from "drizzle-orm/mysql-core";
+import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, boolean, decimal } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
@@ -41,6 +41,7 @@ export const dashboardUsers = mysqlTable("dashboard_users", {
   affiliateCode: varchar("affiliateCode", { length: 64 }),
   phone: varchar("phone", { length: 32 }), // course leader phone for booking info
   profileUrl: varchar("profileUrl", { length: 512 }), // link to course leader's profile page
+  invoiceReference: varchar("invoiceReference", { length: 128 }), // unique payment reference for invoices (e.g. FK-001)
   active: boolean("active").default(true).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
@@ -94,3 +95,79 @@ export const courseDates = mysqlTable("course_dates", {
 
 export type CourseDate = typeof courseDates.$inferSelect;
 export type InsertCourseDate = typeof courseDates.$inferInsert;
+
+/**
+ * Settlements — one row per course leader/affiliate per month.
+ * status: pending (awaiting admin review) | approved (finalised) | amended (superseded by a newer version)
+ * userType: course_leader | affiliate
+ * amendedFromId: if this is an amendment, points to the original settlement it replaces
+ */
+export const settlements = mysqlTable("settlements", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),           // references dashboard_users.id
+  userType: mysqlEnum("userType", ["course_leader", "affiliate"]).notNull(),
+  periodYear: int("periodYear").notNull(),   // e.g. 2026
+  periodMonth: int("periodMonth").notNull(), // 1-12
+  currency: mysqlEnum("currency", ["SEK", "EUR"]).notNull(),
+  status: mysqlEnum("status", ["pending", "approved", "amended"]).notNull().default("pending"),
+  totalPaidInclVat: decimal("totalPaidInclVat", { precision: 12, scale: 2 }).notNull().default("0"),
+  totalNetExclVat: decimal("totalNetExclVat", { precision: 12, scale: 2 }).notNull().default("0"),
+  totalTransactionFee: decimal("totalTransactionFee", { precision: 12, scale: 2 }).notNull().default("0"),
+  totalFaMargin: decimal("totalFaMargin", { precision: 12, scale: 2 }).notNull().default("0"),
+  totalAffiliateDeduction: decimal("totalAffiliateDeduction", { precision: 12, scale: 2 }).notNull().default("0"),
+  totalAdjustments: decimal("totalAdjustments", { precision: 12, scale: 2 }).notNull().default("0"),
+  totalPayout: decimal("totalPayout", { precision: 12, scale: 2 }).notNull().default("0"),
+  participantCount: int("participantCount").notNull().default(0),
+  amendedFromId: int("amendedFromId"),       // null unless this is an amendment
+  approvedAt: timestamp("approvedAt"),
+  approvedBy: int("approvedBy"),             // admin userId who approved
+  notificationSentAt: timestamp("notificationSentAt"), // when email was sent to user
+  generatedAt: timestamp("generatedAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Settlement = typeof settlements.$inferSelect;
+export type InsertSettlement = typeof settlements.$inferInsert;
+
+/**
+ * Settlement lines — one row per participant in a settlement.
+ * Stores the full breakdown so the settlement is self-contained (not re-fetched from GHL).
+ */
+export const settlementLines = mysqlTable("settlement_lines", {
+  id: int("id").autoincrement().primaryKey(),
+  settlementId: int("settlementId").notNull(),
+  participantName: varchar("participantName", { length: 255 }).notNull(),
+  participantEmail: varchar("participantEmail", { length: 320 }),
+  calendarName: varchar("calendarName", { length: 255 }).notNull(),
+  courseType: mysqlEnum("courseType", ["intro", "diplo", "cert", "vidare"]).notNull(),
+  courseDate: varchar("courseDate", { length: 10 }), // YYYY-MM-DD
+  affiliateCode: varchar("affiliateCode", { length: 64 }),
+  paidInclVat: decimal("paidInclVat", { precision: 12, scale: 2 }).notNull().default("0"),
+  netExclVat: decimal("netExclVat", { precision: 12, scale: 2 }).notNull().default("0"),
+  transactionFee: decimal("transactionFee", { precision: 12, scale: 2 }).notNull().default("0"),
+  faMargin: decimal("faMargin", { precision: 12, scale: 2 }).notNull().default("0"),
+  affiliateDeduction: decimal("affiliateDeduction", { precision: 12, scale: 2 }).notNull().default("0"),
+  payout: decimal("payout", { precision: 12, scale: 2 }).notNull().default("0"),
+  missingAmount: boolean("missingAmount").default(false).notNull(), // true if paidAmount was missing in GHL
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type SettlementLine = typeof settlementLines.$inferSelect;
+export type InsertSettlementLine = typeof settlementLines.$inferInsert;
+
+/**
+ * Settlement adjustments — manual +/- rows added by admin.
+ * These are included in the totalPayout calculation.
+ */
+export const settlementAdjustments = mysqlTable("settlement_adjustments", {
+  id: int("id").autoincrement().primaryKey(),
+  settlementId: int("settlementId").notNull(),
+  amount: decimal("amount", { precision: 12, scale: 2 }).notNull(), // positive = add, negative = deduct
+  currency: mysqlEnum("currency", ["SEK", "EUR"]).notNull(),
+  comment: text("comment").notNull(),
+  createdBy: int("createdBy").notNull(),     // admin userId
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type SettlementAdjustment = typeof settlementAdjustments.$inferSelect;
+export type InsertSettlementAdjustment = typeof settlementAdjustments.$inferInsert;

@@ -18,6 +18,7 @@ type UserForm = {
   ghlContactId: string;
   affiliateCode: string;
   profileUrl: string; // link to course leader's profile page on fasciaacademy.com
+  invoiceReference: string; // unique payment reference for settlements (e.g. "FK-001")
 };
 
 const EMPTY_FORM: UserForm = {
@@ -28,6 +29,7 @@ const EMPTY_FORM: UserForm = {
   ghlContactId: "",
   affiliateCode: "",
   profileUrl: "",
+  invoiceReference: "",
 };
 
 const ROLE_LABELS: Record<string, string> = {
@@ -109,6 +111,7 @@ export default function UserManagement() {
       ghlContactId: user.ghlContactId ?? "",
       affiliateCode: user.affiliateCode ?? "",
       profileUrl: (user as any).profileUrl ?? "",
+      invoiceReference: (user as any).invoiceReference ?? "",
     });
     setEditId(user.id);
   };
@@ -127,6 +130,7 @@ export default function UserManagement() {
         ghlContactId: form.ghlContactId || undefined,
         affiliateCode: form.affiliateCode || undefined,
         profileUrl: form.profileUrl || undefined,
+        invoiceReference: form.invoiceReference || undefined,
         ...(form.password ? { password: form.password } : {}),
       });
     } else {
@@ -139,6 +143,7 @@ export default function UserManagement() {
         ghlContactId: form.ghlContactId || undefined,
         affiliateCode: form.affiliateCode || undefined,
         profileUrl: form.profileUrl || undefined,
+        invoiceReference: form.invoiceReference || undefined,
       });
     }
   };
@@ -322,6 +327,19 @@ export default function UserManagement() {
                   </p>
                 </div>
               </>
+            )}
+            {(form.role === "course_leader" || form.role === "affiliate") && (
+              <div className="space-y-1.5">
+                <Label>Invoice Reference (optional)</Label>
+                <Input
+                  value={form.invoiceReference}
+                  onChange={(e) => setForm({ ...form, invoiceReference: e.target.value })}
+                  placeholder="e.g. FK-001 or Victor Forsell"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Unique payment reference shown on settlements. Used to identify the invoice from this person.
+                </p>
+              </div>
             )}
             {form.role === "affiliate" && (
               <div className="space-y-1.5">

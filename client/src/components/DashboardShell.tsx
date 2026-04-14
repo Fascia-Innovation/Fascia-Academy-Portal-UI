@@ -17,6 +17,7 @@ import {
   ArrowLeftCircle,
   Loader2,
   Zap,
+  FileText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
@@ -38,7 +39,9 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Course Dates", href: "/course-dates", icon: Calendar, roles: ["admin"] },
   { label: "User Management", href: "/users", icon: Settings, roles: ["admin"] },
   { label: "Quick Links", href: "/quick-links", icon: Zap, roles: ["admin"] },
+  { label: "Settlements", href: "/settlements", icon: FileText, roles: ["admin"] },
   { label: "My Courses", href: "/my-courses", icon: BookOpen, roles: ["course_leader"] },
+  { label: "My Settlements", href: "/my-settlements", icon: FileText, roles: ["course_leader", "affiliate"] },
   { label: "My Commissions", href: "/my-commissions", icon: TrendingUp, roles: ["affiliate"] },
 ];
 

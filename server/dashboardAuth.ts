@@ -87,6 +87,7 @@ export async function createDashboardUser(params: {
   ghlContactId?: string;
   affiliateCode?: string;
   profileUrl?: string;
+  invoiceReference?: string;
 }): Promise<DashboardUser> {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
@@ -99,6 +100,7 @@ export async function createDashboardUser(params: {
     ghlContactId: params.ghlContactId ?? null,
     affiliateCode: params.affiliateCode ?? null,
     profileUrl: params.profileUrl ?? null,
+    invoiceReference: params.invoiceReference ?? null,
   });
   const rows = await db
     .select()
@@ -116,7 +118,7 @@ export async function getAllDashboardUsers(): Promise<DashboardUser[]> {
 
 export async function updateDashboardUser(
   id: number,
-  updates: Partial<Pick<DashboardUser, "name" | "email" | "role" | "ghlContactId" | "affiliateCode" | "active" | "profileUrl">>
+  updates: Partial<Pick<DashboardUser, "name" | "email" | "role" | "ghlContactId" | "affiliateCode" | "active" | "profileUrl" | "invoiceReference">>
 ): Promise<void> {
   const db = await getDb();
   if (!db) return;
