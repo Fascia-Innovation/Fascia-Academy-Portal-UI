@@ -11,6 +11,7 @@ import CourseLeaderRanking from "./pages/CourseLeaderRanking";
 import AffiliateRanking from "./pages/AffiliateRanking";
 import MonthlyHistory from "./pages/MonthlyHistory";
 import UpcomingCourses from "./pages/UpcomingCourses";
+import CourseCalendar from "./pages/CourseCalendar";
 import UserManagement from "./pages/UserManagement";
 import MyCourses from "./pages/MyCourses";
 import MyCommissions from "./pages/MyCommissions";
@@ -51,6 +52,7 @@ function AppRoutes() {
         {user.role === "admin" && <Route path="/affiliates" component={AffiliateRanking} />}
         {user.role === "admin" && <Route path="/history" component={MonthlyHistory} />}
         {user.role === "admin" && <Route path="/upcoming" component={UpcomingCourses} />}
+        {user.role === "admin" && <Route path="/course-calendar" component={CourseCalendar} />}
         {user.role === "admin" && <Route path="/users" component={UserManagement} />}
         {(user.role === "admin" || user.role === "course_leader") && <Route path="/my-courses" component={MyCourses} />}
         {(user.role === "admin" || user.role === "affiliate") && <Route path="/my-commissions" component={MyCommissions} />}

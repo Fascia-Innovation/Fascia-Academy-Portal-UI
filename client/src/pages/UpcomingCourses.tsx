@@ -34,9 +34,9 @@ export default function UpcomingCourses() {
     <div className="p-8 max-w-7xl mx-auto">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-foreground" style={{ fontFamily: "'Playfair Display', serif" }}>
-          Upcoming Courses
+          Upcoming Bookings
         </h1>
-        <p className="text-muted-foreground text-sm mt-1">Booked appointments across all calendars — next 90 days</p>
+        <p className="text-muted-foreground text-sm mt-1">Confirmed bookings across all calendars — next 90 days</p>
       </div>
 
       {isLoading ? (

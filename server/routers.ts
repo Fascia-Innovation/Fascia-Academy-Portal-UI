@@ -24,6 +24,8 @@ import {
   detectCurrency,
   extractCourseLeaderName,
   calculateBreakdown,
+  getCourseCalendar,
+  getCalendarGroups,
 } from "./ghl";
 import type { DashboardUser } from "../drizzle/schema";
 
@@ -382,7 +384,11 @@ export const appRouter = router({
       const calMap = new Map(calendars.map((c) => [c.id, c]));
       const grouped = new Map<string, { calendarId: string; calendarName: string; courseLeader: string; courseType: string; currency: string; appointments: Array<{ id: string; startTime: string; status: string }> }>();
 
+      // Exclude only hard-cancelled or no-show statuses; show confirmed, showed, booked, new etc.
+      const EXCLUDE_STATUSES = new Set(["cancelled", "no_show", "noshow", "invalid"]);
       for (const appt of appointments) {
+        const status = (appt.appointmentStatus ?? appt.status ?? "").toLowerCase();
+        if (EXCLUDE_STATUSES.has(status)) continue;
         const cal = calMap.get(appt.calendarId);
         if (!cal) continue;
         if (!grouped.has(appt.calendarId)) {
@@ -399,6 +405,31 @@ export const appRouter = router({
       }
       return Array.from(grouped.values()).sort((a, b) => (a.appointments[0]?.startTime ?? "").localeCompare(b.appointments[0]?.startTime ?? ""));
     }),
+
+    courseCalendar: adminProcedure
+      .input(z.object({
+        startMs: z.number(),
+        endMs: z.number(),
+        courseType: z.string().optional(), // filter by course type
+        groupId: z.string().optional(),    // filter by calendar group
+      }))
+      .query(async ({ input }) => {
+        const [slots, groups] = await Promise.all([
+          getCourseCalendar(input.startMs, input.endMs),
+          getCalendarGroups(),
+        ]);
+        let filtered = slots;
+        if (input.courseType) {
+          filtered = filtered.filter(s => detectCourseType(s.calendarName) === input.courseType);
+        }
+        if (input.groupId) {
+          // We need calendar groupId — enrich from calendars
+          const cals = await getCalendars();
+          const calGroupMap = new Map(cals.map(c => [c.id, c.groupId ?? ""]));
+          filtered = filtered.filter(s => calGroupMap.get(s.calendarId) === input.groupId);
+        }
+        return { slots: filtered, groups };
+      }),
   }),
 
   // ── Course Leader ──────────────────────────────────────────────────────────

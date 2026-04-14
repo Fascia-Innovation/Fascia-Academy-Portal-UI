@@ -53,3 +53,19 @@
 
 ## Features in Progress
 - [x] Admin "View as user" impersonation — click any user in User Management to preview their dashboard view
+
+## Python Scripts
+- [x] Fix formula order in course_leader_settlement.py (align with dashboard: paid/1.25 - txFee - margin - affiliate)
+- [x] Add Sollentuna calendar override handling in course_leader_settlement.py
+- [x] Fix affiliate_settlement.py date filter (use CF_COURSE_DATE instead of dateAdded)
+- [x] Sync all fixes and save updated scripts
+
+## Active Bugs
+- [ ] Upcoming Courses shows empty even though GHL has real bookings for Victor, Fredrik, Ivar
+
+## High Priority
+- [ ] PUBLIC: Customer-facing course booking page (no login required) — all available dates by course type/language, filterable by city, click to book via GHL link
+
+## In Progress
+- [x] Rename "Upcoming Courses" to "Upcoming Bookings" in sidebar and page title
+- [x] New admin view: Course Calendar — all GHL availability grouped by course type + language, showing date/time/location/course leader/available seats/booked participants list

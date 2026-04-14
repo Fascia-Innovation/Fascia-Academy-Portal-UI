@@ -89,6 +89,31 @@ export interface GHLCalendar {
   name: string;
   description?: string;
   locationId: string;
+  groupId?: string;
+  appoinmentPerSlot?: number; // max seats per slot (note: GHL typo)
+  calendarType?: string;
+  teamMembers?: Array<{ userId: string; meetingLocation?: string; isPrimary?: boolean }>;
+  widgetSlug?: string;
+}
+
+export interface GHLCalendarGroup {
+  id: string;
+  name: string;
+  locationId: string;
+  isActive?: boolean;
+}
+
+export interface GHLFreeSlot {
+  date: string;        // YYYY-MM-DD
+  slotTime: string;   // ISO datetime string
+  calendarId: string;
+  calendarName: string;
+  courseLeader: string;
+  location: string;
+  maxSeats: number;
+  bookedSeats: number;
+  availableSeats: number;
+  participants: Array<{ id: string; name: string; email: string; status: string }>;
 }
 
 export interface GHLAppointment {
@@ -122,6 +147,137 @@ export interface GHLContact {
 }
 
 // ─── Calendars ────────────────────────────────────────────────────────────────
+export async function getCalendarGroups(): Promise<GHLCalendarGroup[]> {
+  const data = await ghlGet<{ groups: GHLCalendarGroup[] }>("/calendars/groups", {
+    locationId: LOCATION_ID,
+  });
+  return (data.groups ?? []).filter(g => !g.name.startsWith("."));
+}
+
+export async function getCalendarDetail(calendarId: string): Promise<GHLCalendar | null> {
+  try {
+    const data = await ghlGet<GHLCalendar>(`/calendars/${calendarId}`);
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Fetch free slots for a calendar within a date range.
+ * GHL limits the range to 31 days per request.
+ * Returns a map of date -> array of ISO slot strings.
+ */
+export async function getCalendarFreeSlots(
+  calendarId: string,
+  startMs: number,
+  endMs: number
+): Promise<Record<string, string[]>> {
+  // Clamp to 31 days max
+  const maxRange = 30 * 24 * 60 * 60 * 1000;
+  const clampedEnd = Math.min(endMs, startMs + maxRange);
+  try {
+    const data = await ghlGet<Record<string, { slots: string[] } | string>>(
+      `/calendars/${calendarId}/free-slots`,
+      {
+        startDate: String(startMs),
+        endDate: String(clampedEnd),
+        timezone: "Europe/Stockholm",
+      }
+    );
+    const result: Record<string, string[]> = {};
+    for (const [k, v] of Object.entries(data)) {
+      if (k === "traceId") continue;
+      if (typeof v === "object" && v !== null && "slots" in v) {
+        result[k] = (v as { slots: string[] }).slots;
+      }
+    }
+    return result;
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Build the full course calendar: for each calendar, fetch free slots and
+ * the booked appointments for those slots, then return enriched slot objects.
+ */
+export async function getCourseCalendar(
+  startMs: number,
+  endMs: number
+): Promise<GHLFreeSlot[]> {
+  const calendars = await getCalendars();
+  const activeCals = calendars.filter(c => !c.name.startsWith("Template"));
+
+  const results: GHLFreeSlot[] = [];
+
+  for (const cal of activeCals) {
+    // Fetch free slots
+    const slotsByDate = await getCalendarFreeSlots(cal.id, startMs, endMs);
+    const allSlotTimes = Object.values(slotsByDate).flat();
+    if (allSlotTimes.length === 0) continue;
+
+    // Fetch booked appointments for this calendar in the range
+    const startMs2 = String(startMs);
+    const endMs2 = String(Math.min(endMs, startMs + 30 * 24 * 60 * 60 * 1000));
+    let bookedAppts: GHLAppointment[] = [];
+    try {
+      const evData = await ghlGet<{ events: GHLAppointment[] }>(
+        `/calendars/events`,
+        { calendarId: cal.id, locationId: LOCATION_ID, startTime: startMs2, endTime: endMs2 }
+      );
+      bookedAppts = (evData.events ?? []).filter(e => {
+        const s = (e.appointmentStatus ?? e.status ?? "").toLowerCase();
+        return !["cancelled", "no_show", "noshow", "invalid"].includes(s);
+      });
+    } catch { /* skip */ }
+
+    // Determine location from team member
+    const primaryMember = cal.teamMembers?.find(m => m.isPrimary) ?? cal.teamMembers?.[0];
+    const rawLocation = primaryMember?.meetingLocation ?? "";
+    // Clean up location: take city part (last segment after tab/comma)
+    const locationParts = rawLocation.split(/\t|,/).map(s => s.trim()).filter(Boolean);
+    const location = locationParts[locationParts.length - 1] ?? rawLocation;
+
+    const maxSeats = cal.appoinmentPerSlot ?? 14;
+    const courseLeader = extractCourseLeaderName(cal.name);
+
+    for (const [date, slots] of Object.entries(slotsByDate)) {
+      for (const slotTime of slots) {
+        // Match booked appointments to this slot (within same hour)
+        const slotHour = new Date(slotTime).getTime();
+        const slotParticipants = bookedAppts
+          .filter(a => {
+            const aTime = new Date(a.startTime).getTime();
+            return Math.abs(aTime - slotHour) < 60 * 60 * 1000; // within 1 hour
+          })
+          .map(a => ({
+            id: a.contactId,
+            name: a.title ?? a.contactId,
+            email: a.contact?.email ?? "",
+            status: a.appointmentStatus ?? a.status ?? "",
+          }));
+
+        results.push({
+          date,
+          slotTime,
+          calendarId: cal.id,
+          calendarName: cal.name,
+          courseLeader,
+          location,
+          maxSeats,
+          bookedSeats: slotParticipants.length,
+          availableSeats: Math.max(0, maxSeats - slotParticipants.length),
+          participants: slotParticipants,
+        });
+      }
+    }
+  }
+
+  // Sort by date then time
+  return results.sort((a, b) => a.slotTime.localeCompare(b.slotTime));
+}
+
 export async function getCalendars(): Promise<GHLCalendar[]> {
   if (await isMockEnabled()) {
     const mock = await getMockCache<GHLCalendar[]>("mock:calendars");
@@ -149,9 +305,12 @@ export async function getAppointmentsByCalendar(
       });
     }
   }
+  // GHL API requires timestamps in milliseconds
+  const startMs = String(new Date(startDate).getTime());
+  const endMs = String(new Date(endDate).getTime());
   const data = await ghlGet<{ events: GHLAppointment[] }>(
     `/calendars/events`,
-    { calendarId, locationId: LOCATION_ID, startTime: startDate, endTime: endDate }
+    { calendarId, locationId: LOCATION_ID, startTime: startMs, endTime: endMs }
   );
   return data.events ?? [];
 }
@@ -175,9 +334,12 @@ export async function getAllAppointments(
   const results: GHLAppointment[] = [];
   for (const cal of calendars) {
     try {
+      // GHL API requires timestamps in milliseconds
+      const startMs = String(new Date(startDate).getTime());
+      const endMs = String(new Date(endDate).getTime());
       const data = await ghlGet<{ events: GHLAppointment[] }>(
         `/calendars/events`,
-        { calendarId: cal.id, locationId: LOCATION_ID, startTime: startDate, endTime: endDate }
+        { calendarId: cal.id, locationId: LOCATION_ID, startTime: startMs, endTime: endMs }
       );
       results.push(...(data.events ?? []));
     } catch {
