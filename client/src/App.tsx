@@ -16,6 +16,8 @@ import UserManagement from "./pages/UserManagement";
 import MyCourses from "./pages/MyCourses";
 import MyCommissions from "./pages/MyCommissions";
 import NotFound from "./pages/NotFound";
+import CourseDates from "./pages/CourseDates";
+import PublicCourses from "./pages/PublicCourses";
 import { Loader2 } from "lucide-react";
 
 function AppRoutes() {
@@ -28,6 +30,11 @@ function AppRoutes() {
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
+  }
+
+  // Public routes — no auth required
+  if (location === "/courses" || location.startsWith("/courses?")) {
+    return <PublicCourses />;
   }
 
   if (location === "/login") {
@@ -53,6 +60,7 @@ function AppRoutes() {
         {user.role === "admin" && <Route path="/history" component={MonthlyHistory} />}
         {user.role === "admin" && <Route path="/upcoming" component={UpcomingCourses} />}
         {user.role === "admin" && <Route path="/course-calendar" component={CourseCalendar} />}
+        {user.role === "admin" && <Route path="/course-dates" component={CourseDates} />}
         {user.role === "admin" && <Route path="/users" component={UserManagement} />}
         {(user.role === "admin" || user.role === "course_leader") && <Route path="/my-courses" component={MyCourses} />}
         {(user.role === "admin" || user.role === "affiliate") && <Route path="/my-commissions" component={MyCommissions} />}

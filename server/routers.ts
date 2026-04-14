@@ -28,6 +28,7 @@ import {
   getCalendarGroups,
 } from "./ghl";
 import type { DashboardUser } from "../drizzle/schema";
+import { courseDatesRouter } from "./routers/courseDates";
 
 // ─── Session cookie name for dashboard ───────────────────────────────────────
 const DASH_SESSION = "fa_dash_session";
@@ -501,6 +502,8 @@ export const appRouter = router({
         return { affiliateCode: myCode, bookings, totalSEK, totalEUR };
       }),
   }),
+  courseDates: courseDatesRouter,
 });
 
 export type AppRouter = typeof appRouter;
+

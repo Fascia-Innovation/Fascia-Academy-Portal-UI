@@ -63,6 +63,7 @@
 ## Active Bugs
 - [x] Upcoming Bookings: shows empty — fixed (mock mode was enabled, now disabled)
 - [x] Course Calendar: shows 0 slots — fixed (mock mode disabled, parallel fetching, 30-day limit enforced)
+- [ ] Course Calendar visar 1723 felaktiga slots (alla 30-min free-slots) — måste visa faktiska kursdatum (date-specific hours) istället
 
 ## High Priority
 - [ ] PUBLIC: Customer-facing course booking page (no login required) — all available dates by course type/language, filterable by city, click to book via GHL link
@@ -74,3 +75,17 @@
 ## In Progress
 - [x] Sätt Ivar Bohlins GHL-kalender-ID automatiskt i databasen
 - [x] Revert Swedish UI translations back to English (dashboard = English, chat = Swedish)
+
+## Public Booking Page + Course Calendar (High Priority)
+- [x] Admin: course_dates table i DB (calendar_id, date, start_time, end_time, city, course_type, language, max_seats, course_leader_id, booking_url)
+- [x] Admin: Course Date Management UI — lägg till/redigera/ta bort kursdatum (30 sek per entry)
+- [x] Public: /courses sida med kursledarvy (karta + profiler) och kalendervy
+- [x] Public: Språkstöd via URL-parameter (?lang=sv / ?lang=en), svenska som standard
+- [x] Public: Bokningsmodal (GHL-widget inbäddad, stannar på sidan)
+- [x] Public: Google Maps kartnålar per stad, popup med kursledarfoto + "Boka" + "Mer info"
+- [x] Public: Filtrera på språk / kurstyp / kursledare
+- [x] Public: Pre-select datum i GHL-bokningslänk (testa ?date= URL-parameter)
+- [x] GHL: Hämta kursledarnas profilbilder från GHL team members API (lämna tomt om ingen bild finns)
+
+## Medium Priority
+- [ ] GHL: Byt bokningsformulärspråk för svenska kalendrar (First Name → Förnamn osv) — görs direkt i GHL Calendar Settings

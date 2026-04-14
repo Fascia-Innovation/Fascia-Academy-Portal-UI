@@ -34,6 +34,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Monthly History", href: "/history", icon: BarChart3, roles: ["admin"] },
   { label: "Upcoming Bookings", href: "/upcoming", icon: Calendar, roles: ["admin"] },
   { label: "Course Calendar", href: "/course-calendar", icon: BookOpen, roles: ["admin"] },
+  { label: "Course Dates", href: "/course-dates", icon: Calendar, roles: ["admin"] },
   { label: "User Management", href: "/users", icon: Settings, roles: ["admin"] },
   { label: "My Courses", href: "/my-courses", icon: BookOpen, roles: ["course_leader"] },
   { label: "My Commissions", href: "/my-commissions", icon: TrendingUp, roles: ["affiliate"] },

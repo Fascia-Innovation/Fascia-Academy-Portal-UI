@@ -58,3 +58,32 @@ export const dashboardSessions = mysqlTable("dashboard_sessions", {
 });
 
 export type DashboardSession = typeof dashboardSessions.$inferSelect;
+
+/**
+ * Course dates — manually registered course instances for the public booking page.
+ * Each row = one specific course date taught by a specific course leader at a specific location.
+ * ghlCalendarId: links to the GHL calendar for this course leader + course type combination
+ * courseType: intro | diplo | cert | vidare
+ * language: sv | en
+ * bookingUrl: GHL booking widget URL (constructed from calendar ID)
+ */
+export const courseDates = mysqlTable("course_dates", {
+  id: int("id").autoincrement().primaryKey(),
+  ghlCalendarId: varchar("ghlCalendarId", { length: 64 }).notNull(),
+  courseLeaderName: varchar("courseLeaderName", { length: 255 }).notNull(),
+  ghlUserId: varchar("ghlUserId", { length: 64 }), // GHL user ID for profile photo lookup
+  courseType: mysqlEnum("courseType", ["intro", "diplo", "cert", "vidare"]).notNull(),
+  language: mysqlEnum("language", ["sv", "en"]).notNull().default("sv"),
+  city: varchar("city", { length: 255 }).notNull(),
+  country: varchar("country", { length: 64 }).notNull().default("Sweden"),
+  startDate: timestamp("startDate").notNull(),
+  endDate: timestamp("endDate").notNull(),
+  maxSeats: int("maxSeats").notNull().default(12),
+  notes: text("notes"), // optional internal notes
+  published: boolean("published").default(true).notNull(), // false = hidden from public page
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type CourseDate = typeof courseDates.$inferSelect;
+export type InsertCourseDate = typeof courseDates.$inferInsert;

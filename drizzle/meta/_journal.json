@@ -15,6 +15,13 @@
       "when": 1776137385428,
       "tag": "0001_goofy_mojo",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1776163453134,
+      "tag": "0002_dapper_vin_gonzales",
+      "breakpoints": true
     }
   ]
 }
