@@ -129,3 +129,13 @@
 - [ ] "Mer info" button in Map popup (next to Boka)
 - [ ] Map popup: show course type first, then course leader
 - [ ] Section "Mer om kurserna": one link/button per course type → fasciaacademy.com (with TODO note to update URLs)
+
+## Round 4: Course Leader Dashboard Improvements
+- [x] Rename "My Courses" page — remove "attendees" from subtitle, renamed to "My Dashboard"
+- [x] Course leader dashboard: add "Upcoming Courses" section (their own published course dates from course_dates table)
+- [x] Course leader dashboard: add "Course History" section (past course dates)
+- [x] Course leader dashboard: add link to their public booking page (/courses filtered by their name)
+- [x] Fix GHL attendees connection — investigated: empty = no "showed" status appointments in selected month (correct behavior)
+- [x] Add "Quick Links" page (Snabblänkar) for admin: shortcuts to add new course date, add new user, view public page, etc.
+- [ ] Remove "vidare" course type from public page filters (not in use currently)
+- [ ] Prices: confirm "vidare" price (placeholder 9375 kr) — skip for now since not in use

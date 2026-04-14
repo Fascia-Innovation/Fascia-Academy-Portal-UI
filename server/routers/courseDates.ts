@@ -5,7 +5,7 @@
  */
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { eq, gte, and, asc } from "drizzle-orm";
+import { eq, gte, lte, and, asc, desc } from "drizzle-orm";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import { courseDates, dashboardUsers } from "../../drizzle/schema";
@@ -165,6 +165,34 @@ export const courseDatesRouter = router({
         profileUrl: profileUrlByName.get(row.courseLeaderName.toLowerCase()) ?? null,
       }));
     }),
+
+  // ─── Course leader: get own upcoming + past course dates ──────────────────
+  myCourseSchedule: dashboardProcedure.query(async ({ ctx }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+    const dashUser = (ctx as { dashUser: DashboardUser }).dashUser;
+    const myName = dashUser.name.toLowerCase();
+    const now = new Date();
+
+    const allRows = await db
+      .select()
+      .from(courseDates)
+      .where(eq(courseDates.published, true))
+      .orderBy(asc(courseDates.startDate));
+
+    const mine = allRows.filter(
+      (r) => r.courseLeaderName.toLowerCase().trim() === myName.trim()
+    );
+
+    const upcoming = mine.filter((r) => r.startDate >= now);
+    const past = mine
+      .filter((r) => r.startDate < now)
+      .sort((a, b) => b.startDate.getTime() - a.startDate.getTime())
+      .slice(0, 20); // last 20
+
+    return { upcoming, past };
+  }),
 
   // ─── Public: get GHL team members with profile photos ───────────────────────
   getTeamMembers: publicProcedure.query(async () => {

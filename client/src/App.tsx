@@ -18,6 +18,7 @@ import MyCommissions from "./pages/MyCommissions";
 import NotFound from "./pages/NotFound";
 import CourseDates from "./pages/CourseDates";
 import PublicCourses from "./pages/PublicCourses";
+import QuickLinks from "./pages/QuickLinks";
 import { Loader2 } from "lucide-react";
 
 function AppRoutes() {
@@ -62,6 +63,7 @@ function AppRoutes() {
         {user.role === "admin" && <Route path="/course-calendar" component={CourseCalendar} />}
         {user.role === "admin" && <Route path="/course-dates" component={CourseDates} />}
         {user.role === "admin" && <Route path="/users" component={UserManagement} />}
+        {user.role === "admin" && <Route path="/quick-links" component={QuickLinks} />}
         {(user.role === "admin" || user.role === "course_leader") && <Route path="/my-courses" component={MyCourses} />}
         {(user.role === "admin" || user.role === "affiliate") && <Route path="/my-commissions" component={MyCommissions} />}
         <Route component={NotFound} />
