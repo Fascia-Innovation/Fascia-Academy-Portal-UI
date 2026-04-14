@@ -62,9 +62,9 @@ async function requireAdmin(ctx: { req: { headers: { cookie?: string } } }): Pro
 
 // ─── FA company details shown on settlements ──────────────────────────────────
 export const FA_COMPANY = {
-  name:         "Fascia Academy AB",
-  orgNr:        "559123-XXXX",          // TODO: update with real org nr
-  address:      "Sverige",
+  name:         "Fascia Innovation Sweden AB",
+  orgNr:        "5565838918",
+  address:      "Bokvägen 17, 19141 Sollentuna, Sverige",
   email:        "info@fasciaacademy.com",
   paymentTerms: "20 days",
 };
