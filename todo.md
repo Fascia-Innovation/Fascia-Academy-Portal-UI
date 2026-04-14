@@ -195,3 +195,15 @@
 - [x] Public page: course journey section - numbered steps (1-2-3) with short descriptions, intro marked as 1 dag
 - [x] Public page: "Mer om kurserna" section moved above the course list
 - [x] Public page: bookedSeats included in MoreInfoModal seats display
+
+## 🔴 HIGH PRIORITY: Intyg & Prov (Certificate & Exam Flow)
+- [ ] DB: Add `certificates` table (userId, courseType, issuedAt, certificateNumber, pdfUrl)
+- [ ] DB: Add `exams` table (userId, courseType, status: pending/passed/failed, score, examDate, notes)
+- [ ] Admin UI: Mark participant as "exam passed" on course date detail → triggers certificate generation
+- [ ] Backend: Auto-generate PDF certificate (name, course type, date, certificate number)
+- [ ] Backend: Store certificate PDF in S3, save URL in certificates table
+- [ ] Admin UI: Certificate list — view/download/resend per user
+- [ ] Course leader UI: Trigger "exam completed" tag per participant (sends to admin for approval)
+- [ ] Course leader UI: View which participants have passed/pending exam per course date
+- [ ] Email: Send certificate PDF to participant on approval (via info@fasciaacademy.com)
+- [ ] Public: Certificate verification page (/verify?cert=XXXXX) — enter cert number to verify authenticity

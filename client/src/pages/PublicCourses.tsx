@@ -50,6 +50,7 @@ const T = {
     book: "Boka",
     moreInfo: "Mer info",
     seats: "platser",
+    seatsLeft: "platser kvar",
     noResults: "Inga kurser hittades med dessa filter.",
     noResultsSub: "Prova att ändra filter eller välj ett annat språk.",
     noDates: "Inga kommande datum",
@@ -103,6 +104,7 @@ const T = {
     book: "Book",
     moreInfo: "More info",
     seats: "seats",
+    seatsLeft: "spots left",
     noResults: "No courses found with these filters.",
     noResultsSub: "Try adjusting the filters or selecting a different language.",
     noDates: "No upcoming dates",
@@ -467,7 +469,7 @@ function MoreInfoModal({
                     <Users className="h-4 w-4" />
                     {isFull
                       ? (lang === "sv" ? "Fullbokad" : "Fully booked")
-                      : `${booked}/${max} ${t.seats}`
+                      : `${remaining}/${max} ${t.seatsLeft}`
                     }
                     {isLow && !isFull && <span className="ml-0.5">⚡ {lang === "sv" ? "Få platser kvar!" : "Few spots left!"}</span>}
                   </div>
@@ -588,16 +590,13 @@ function CalendarView({
                       <span className="font-semibold text-gray-900 text-sm">
                         {(t.courseTypes as Record<string, string>)[date.courseType]}
                       </span>
-                      {isMultiDay && (
-                        <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">
-                          {date.additionalDays.length + 1} {lang === "sv" ? "dagar" : "days"}
-                        </span>
-                      )}
-                      {date.courseType === "intro" && (
-                        <span className="text-xs bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded border border-blue-100 font-medium">
-                          {lang === "sv" ? "1 dag" : "1 day"}
-                        </span>
-                      )}
+                      {/* Day count badge — unified neutral style */}
+                      <span className="text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded font-medium">
+                        {isMultiDay
+                          ? `${date.additionalDays.length + 1} ${lang === "sv" ? "dagar" : "days"}`
+                          : `1 ${lang === "sv" ? "dag" : "day"}`
+                        }
+                      </span>
                     </div>
                     <div className="flex items-center gap-3 mt-1 text-xs text-gray-500 flex-wrap">
                       <span className="flex items-center gap-1">
@@ -617,7 +616,6 @@ function CalendarView({
                         const booked = date.bookedSeats ?? 0;
                         const max = date.maxSeats;
                         const remaining = max - booked;
-                        const pct = booked / max;
                         const isLow = remaining <= 3 && remaining > 0;
                         const isFull = remaining <= 0;
                         return (
@@ -627,7 +625,7 @@ function CalendarView({
                             <Users className="h-3 w-3" />
                             {isFull
                               ? (lang === "sv" ? "Fullbokad" : "Fully booked")
-                              : `${booked}/${max} ${t.seats}`
+                              : `${remaining}/${max} ${t.seatsLeft}`
                             }
                             {isLow && !isFull && (
                               <span className="ml-0.5 text-orange-500">⚡</span>
