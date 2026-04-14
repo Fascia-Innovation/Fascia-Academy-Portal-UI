@@ -42,6 +42,7 @@ export const dashboardUsers = mysqlTable("dashboard_users", {
   phone: varchar("phone", { length: 32 }), // course leader phone for booking info
   profileUrl: varchar("profileUrl", { length: 512 }), // link to course leader's profile page
   invoiceReference: varchar("invoiceReference", { length: 128 }), // unique payment reference for invoices (e.g. FK-001)
+  isAffiliate: boolean("isAffiliate").default(false).notNull(), // true = also acts as affiliate (dual-role)
   active: boolean("active").default(true).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),

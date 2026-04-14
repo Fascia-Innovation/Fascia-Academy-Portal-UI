@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 
 type UserForm = {
   email: string;
@@ -19,6 +20,7 @@ type UserForm = {
   affiliateCode: string;
   profileUrl: string; // link to course leader's profile page on fasciaacademy.com
   invoiceReference: string; // unique payment reference for settlements (e.g. "FK-001")
+  isAffiliate: boolean; // true = also acts as affiliate (dual-role)
 };
 
 const EMPTY_FORM: UserForm = {
@@ -30,6 +32,7 @@ const EMPTY_FORM: UserForm = {
   affiliateCode: "",
   profileUrl: "",
   invoiceReference: "",
+  isAffiliate: false,
 };
 
 const ROLE_LABELS: Record<string, string> = {
@@ -112,6 +115,7 @@ export default function UserManagement() {
       affiliateCode: user.affiliateCode ?? "",
       profileUrl: (user as any).profileUrl ?? "",
       invoiceReference: (user as any).invoiceReference ?? "",
+      isAffiliate: (user as any).isAffiliate ?? false,
     });
     setEditId(user.id);
   };
@@ -131,6 +135,7 @@ export default function UserManagement() {
         affiliateCode: form.affiliateCode || undefined,
         profileUrl: form.profileUrl || undefined,
         invoiceReference: form.invoiceReference || undefined,
+        isAffiliate: form.isAffiliate,
         ...(form.password ? { password: form.password } : {}),
       });
     } else {
@@ -144,6 +149,7 @@ export default function UserManagement() {
         affiliateCode: form.affiliateCode || undefined,
         profileUrl: form.profileUrl || undefined,
         invoiceReference: form.invoiceReference || undefined,
+        isAffiliate: form.isAffiliate,
       });
     }
   };
@@ -341,7 +347,21 @@ export default function UserManagement() {
                 </p>
               </div>
             )}
-            {form.role === "affiliate" && (
+            {form.role === "course_leader" && (
+              <div className="flex items-center justify-between rounded-lg border p-3">
+                <div className="space-y-0.5">
+                  <Label className="text-sm font-medium">Also an Affiliate</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Enable if this course leader also earns affiliate commissions. They will see both dashboards.
+                  </p>
+                </div>
+                <Switch
+                  checked={form.isAffiliate}
+                  onCheckedChange={(checked) => setForm({ ...form, isAffiliate: checked })}
+                />
+              </div>
+            )}
+            {(form.role === "affiliate" || (form.role === "course_leader" && form.isAffiliate)) && (
               <div className="space-y-1.5">
                 <Label>Affiliate Code</Label>
                 <Input value={form.affiliateCode} onChange={(e) => setForm({ ...form, affiliateCode: e.target.value })} placeholder="e.g. VICTOR10" />

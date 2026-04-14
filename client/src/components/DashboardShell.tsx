@@ -89,11 +89,19 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
     onError: () => toast.error("Sign out failed"),
   });
 
-  const visibleItems = NAV_ITEMS.filter(
-    (item) => user && item.roles.includes(user.role)
-  );
+  // For dual-role users (course_leader with isAffiliate=true), show affiliate nav items too
+  const visibleItems = NAV_ITEMS.filter((item) => {
+    if (!user) return false;
+    if (item.roles.includes(user.role)) return true;
+    // Show affiliate nav items if course_leader is also an affiliate
+    if (user.role === "course_leader" && (user as any).isAffiliate && item.roles.includes("affiliate")) return true;
+    return false;
+  });
 
-  const roleLabel = user?.role === "admin" ? "Administrator" : user?.role === "course_leader" ? "Course Leader" : "Affiliate";
+  const roleLabel = user?.role === "admin" ? "Administrator" 
+    : user?.role === "course_leader" && (user as any).isAffiliate ? "Course Leader & Affiliate"
+    : user?.role === "course_leader" ? "Course Leader" 
+    : "Affiliate";
   const roleBadgeColor = user?.role === "admin" ? "bg-[oklch(0.72_0.12_75)] text-[oklch(0.17_0.04_255)]" : user?.role === "course_leader" ? "bg-blue-500/20 text-blue-200" : "bg-emerald-500/20 text-emerald-200";
 
   return (

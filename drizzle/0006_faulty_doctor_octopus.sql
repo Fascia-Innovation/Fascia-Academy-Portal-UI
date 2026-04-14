@@ -1,0 +1,1 @@
+ALTER TABLE `dashboard_users` ADD `isAffiliate` boolean DEFAULT false NOT NULL;

@@ -153,3 +153,11 @@
 - [x] Fix 0 kr paidAmount fallback bug (0 kr = free booking, FA margin still applies)
 - [x] Add invoiceReference field to User Management form
 - [x] FA company details shown on settlement detail page
+
+## Round 6: Dual-Role Support (Course Leader + Affiliate)
+- [x] DB: Add `isAffiliate` boolean column to dashboard_users (default false)
+- [x] Backend: Update DashboardUser type, dashboardAuth create/update, routers schema
+- [x] Frontend: Add "Also an Affiliate" toggle in User Management form (shown for course_leader role)
+- [x] Frontend: Sidebar shows both "My Dashboard" and "My Commissions" when isAffiliate=true
+- [x] Frontend: Role badge shows "Course Leader & Affiliate" for dual-role users
+- [x] Frontend: Affiliate Code field shown when isAffiliate toggle is on

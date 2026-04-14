@@ -183,6 +183,7 @@ export const appRouter = router({
         affiliateCode: z.string().optional(),
         profileUrl: z.string().url().optional(),
         invoiceReference: z.string().optional(),
+        isAffiliate: z.boolean().optional(),
       }))
       .mutation(async ({ input }) => createDashboardUser(input)),
 
@@ -196,6 +197,7 @@ export const appRouter = router({
         affiliateCode: z.string().optional(),
         profileUrl: z.string().url().optional().nullable(),
         invoiceReference: z.string().optional().nullable(),
+        isAffiliate: z.boolean().optional(),
         active: z.boolean().optional(),
         password: z.string().min(6).optional(),
       }))
