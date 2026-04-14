@@ -207,3 +207,19 @@
 - [ ] Course leader UI: View which participants have passed/pending exam per course date
 - [ ] Email: Send certificate PDF to participant on approval (via info@fasciaacademy.com)
 - [ ] Public: Certificate verification page (/verify?cert=XXXXX) — enter cert number to verify authenticity
+
+## Round 8: Exam & Certificate Flow
+- [ ] DB: Add `exams` table (id, contactId, contactName, contactEmail, courseType, language, status: pending/passed/failed, examinedBy, examinedAt, notes, createdAt)
+- [ ] DB: Add `certificates` table (id, contactId, contactName, courseType, language, issuedAt, pdfUrl, examinedBy)
+- [ ] DB: Add `canExamineExams` boolean column to dashboard_users (default false)
+- [ ] Backend: GHL webhook endpoint POST /api/webhooks/ghl-shown — receives shown trigger, creates exam (diplo/cert) or certificate (intro/vidare)
+- [ ] Backend: tRPC exam procedures — listPending, listAll, markPassed, markFailed
+- [ ] Backend: tRPC certificate procedures — list, getDownloadUrl
+- [ ] Backend: PDF certificate generation (placeholder design: name, course type, date, Ivar Bohlin signature)
+- [ ] Backend: GHL tag setter — set exam-passed-qualified-fs or exam-passed-certified-fs on contact via GHL API
+- [ ] Frontend: Exam Queue page — tasklist sorted by createdAt, Godkänd/Underkänd buttons, notes field
+- [ ] Frontend: Certificate List page — all issued certificates with download button
+- [ ] Frontend: Add canExamineExams toggle in User Management form
+- [ ] Frontend: Sidebar nav — show Exam Queue for admin + canExamineExams users
+- [ ] Frontend: Role-based access — examiner sees only Exam Queue, not financials
+- [ ] GHL: Configure webhook in GHL workflow to POST to portal on shown status

@@ -33,6 +33,7 @@ import {
 import type { DashboardUser } from "../drizzle/schema";
 import { courseDatesRouter } from "./routers/courseDates";
 import { settlementsRouter } from "./routers/settlements";
+import { examsRouter } from "./routers/exams";
 
 // ─── Session cookie name for dashboard ───────────────────────────────────────
 const DASH_SESSION = "fa_dash_session";
@@ -169,6 +170,7 @@ export const appRouter = router({
         affiliateCode: user.affiliateCode,
         ghlContactId: user.ghlContactId,
         isAffiliate: user.isAffiliate,
+        canExamineExams: user.canExamineExams,
       };
     }),
 
@@ -226,6 +228,7 @@ export const appRouter = router({
         profileUrl: z.string().url().optional(),
         invoiceReference: z.string().optional(),
         isAffiliate: z.boolean().optional(),
+        canExamineExams: z.boolean().optional(),
       }))
       .mutation(async ({ input }) => createDashboardUser(input)),
 
@@ -240,6 +243,7 @@ export const appRouter = router({
         profileUrl: z.string().url().optional().nullable(),
         invoiceReference: z.string().optional().nullable(),
         isAffiliate: z.boolean().optional(),
+        canExamineExams: z.boolean().optional(),
         active: z.boolean().optional(),
         password: z.string().min(6).optional(),
       }))
@@ -559,6 +563,7 @@ export const appRouter = router({
   }),
   courseDates: courseDatesRouter,
   settlements: settlementsRouter,
+  exams: examsRouter,
 });
 
 export type AppRouter = typeof appRouter;

@@ -21,6 +21,7 @@ type UserForm = {
   profileUrl: string; // link to course leader's profile page on fasciaacademy.com
   invoiceReference: string; // unique payment reference for settlements (e.g. "FK-001")
   isAffiliate: boolean; // true = also acts as affiliate (dual-role)
+  canExamineExams: boolean; // true = can grade exams in exam queue
 };
 
 const EMPTY_FORM: UserForm = {
@@ -33,6 +34,7 @@ const EMPTY_FORM: UserForm = {
   profileUrl: "",
   invoiceReference: "",
   isAffiliate: false,
+  canExamineExams: false,
 };
 
 const ROLE_LABELS: Record<string, string> = {
@@ -118,6 +120,7 @@ export default function UserManagement() {
       profileUrl: (user as any).profileUrl ?? "",
       invoiceReference: (user as any).invoiceReference ?? "",
       isAffiliate: (user as any).isAffiliate ?? false,
+      canExamineExams: (user as any).canExamineExams ?? false,
     });
     setEditId(user.id);
   };
@@ -138,6 +141,7 @@ export default function UserManagement() {
         profileUrl: form.profileUrl || undefined,
         invoiceReference: form.invoiceReference || undefined,
         isAffiliate: form.isAffiliate,
+        canExamineExams: form.canExamineExams,
         ...(form.password ? { password: form.password } : {}),
       });
     } else {
@@ -152,6 +156,7 @@ export default function UserManagement() {
         profileUrl: form.profileUrl || undefined,
         invoiceReference: form.invoiceReference || undefined,
         isAffiliate: form.isAffiliate,
+        canExamineExams: form.canExamineExams,
       });
     }
   };
@@ -370,6 +375,18 @@ export default function UserManagement() {
                 />
               </div>
             )}
+            <div className="flex items-center justify-between rounded-lg border p-3">
+              <div className="space-y-0.5">
+                <Label className="text-sm font-medium">Kan rätta prov</Label>
+                <p className="text-xs text-muted-foreground">
+                  Ger tillgång till Provkö och Bevis. Kan ges till vilken roll som helst.
+                </p>
+              </div>
+              <Switch
+                checked={form.canExamineExams}
+                onCheckedChange={(checked) => setForm({ ...form, canExamineExams: checked })}
+              />
+            </div>
             {(form.role === "affiliate" || (form.role === "course_leader" && form.isAffiliate)) && (
               <div className="space-y-1.5">
                 <Label>Affiliate Code</Label>

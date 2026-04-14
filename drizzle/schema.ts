@@ -43,6 +43,7 @@ export const dashboardUsers = mysqlTable("dashboard_users", {
   profileUrl: varchar("profileUrl", { length: 512 }), // link to course leader's profile page
   invoiceReference: varchar("invoiceReference", { length: 128 }), // unique payment reference for invoices (e.g. FK-001)
   isAffiliate: boolean("isAffiliate").default(false).notNull(), // true = also acts as affiliate (dual-role)
+  canExamineExams: boolean("canExamineExams").default(false).notNull(), // true = can grade exams in exam queue
   active: boolean("active").default(true).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
@@ -187,3 +188,49 @@ export const passwordResetTokens = mysqlTable("password_reset_tokens", {
 });
 
 export type PasswordResetToken = typeof passwordResetTokens.$inferSelect;
+
+/**
+ * Exams — one row per participant who needs their exam graded (Diplo & Cert only).
+ * Created automatically when GHL webhook fires with shown status for diplo/cert.
+ * status: pending (awaiting grading) | passed | failed
+ */
+export const exams = mysqlTable("exams", {
+  id: int("id").autoincrement().primaryKey(),
+  ghlContactId: varchar("ghlContactId", { length: 64 }).notNull(),
+  contactName: varchar("contactName", { length: 255 }).notNull(),
+  contactEmail: varchar("contactEmail", { length: 320 }),
+  courseType: mysqlEnum("courseType", ["diplo", "cert"]).notNull(),
+  language: mysqlEnum("language", ["sv", "en"]).notNull().default("sv"),
+  status: mysqlEnum("status", ["pending", "passed", "failed"]).notNull().default("pending"),
+  examinedBy: int("examinedBy"),   // dashboard_users.id of the examiner
+  examinedAt: timestamp("examinedAt"),
+  notes: text("notes"),             // examiner notes / reason for fail
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Exam = typeof exams.$inferSelect;
+export type InsertExam = typeof exams.$inferInsert;
+
+/**
+ * Certificates — one row per issued certificate/diploma/intyg.
+ * Created automatically when:
+ *   - Intro/Vidare: GHL webhook fires with shown status
+ *   - Diplo/Cert: exam is marked as passed
+ */
+export const certificates = mysqlTable("certificates", {
+  id: int("id").autoincrement().primaryKey(),
+  ghlContactId: varchar("ghlContactId", { length: 64 }).notNull(),
+  contactName: varchar("contactName", { length: 255 }).notNull(),
+  contactEmail: varchar("contactEmail", { length: 320 }),
+  courseType: mysqlEnum("courseType", ["intro", "diplo", "cert", "vidare"]).notNull(),
+  language: mysqlEnum("language", ["sv", "en"]).notNull().default("sv"),
+  issuedAt: timestamp("issuedAt").defaultNow().notNull(),
+  pdfUrl: varchar("pdfUrl", { length: 1024 }), // S3 URL, null until generated
+  issuedBy: int("issuedBy"),        // dashboard_users.id who triggered issuance (null = auto)
+  examId: int("examId"),            // references exams.id for diplo/cert
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type Certificate = typeof certificates.$inferSelect;
+export type InsertCertificate = typeof certificates.$inferInsert;

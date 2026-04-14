@@ -18,6 +18,8 @@ import {
   Loader2,
   Zap,
   FileText,
+  ClipboardCheck,
+  ScrollText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
@@ -40,6 +42,8 @@ const NAV_ITEMS: NavItem[] = [
   { label: "User Management", href: "/users", icon: Settings, roles: ["admin"] },
   { label: "Quick Links", href: "/quick-links", icon: Zap, roles: ["admin"] },
   { label: "Settlements", href: "/settlements", icon: FileText, roles: ["admin"] },
+  { label: "Exam Queue", href: "/exam-queue", icon: ClipboardCheck, roles: ["admin"] },
+  { label: "Certificates", href: "/certificates", icon: ScrollText, roles: ["admin"] },
   { label: "My Courses", href: "/my-courses", icon: BookOpen, roles: ["course_leader"] },
   { label: "My Settlements", href: "/my-settlements", icon: FileText, roles: ["course_leader", "affiliate"] },
   { label: "Quick Links", href: "/leader-links", icon: Zap, roles: ["course_leader"] },
@@ -91,16 +95,19 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
   });
 
   // For dual-role users (course_leader with isAffiliate=true), show affiliate nav items too
+  // For canExamineExams users (any role), show exam queue and certificates
   const visibleItems = NAV_ITEMS.filter((item) => {
     if (!user) return false;
     if (item.roles.includes(user.role)) return true;
     // Show affiliate nav items if course_leader is also an affiliate
-    if (user.role === "course_leader" && (user as any).isAffiliate && item.roles.includes("affiliate")) return true;
+    if (user.role === "course_leader" && user.isAffiliate && item.roles.includes("affiliate")) return true;
+    // Show exam queue/certificates if user has examiner capability
+    if (user.canExamineExams && (item.href === "/exam-queue" || item.href === "/certificates")) return true;
     return false;
   });
 
   const roleLabel = user?.role === "admin" ? "Administrator" 
-    : user?.role === "course_leader" && (user as any).isAffiliate ? "Course Leader & Affiliate"
+    : user?.role === "course_leader" && user?.isAffiliate ? "Course Leader & Affiliate"
     : user?.role === "course_leader" ? "Course Leader" 
     : "Affiliate";
   const roleBadgeColor = user?.role === "admin" ? "bg-[oklch(0.72_0.12_75)] text-[oklch(0.17_0.04_255)]" : user?.role === "course_leader" ? "bg-blue-500/20 text-blue-200" : "bg-emerald-500/20 text-emerald-200";

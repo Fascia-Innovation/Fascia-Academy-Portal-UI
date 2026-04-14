@@ -449,6 +449,29 @@ export function calculateBreakdown(
   };
 }
 
+// ─── Contact mutation helpers ───────────────────────────────────────────────
+/**
+ * Add a tag to a GHL contact.
+ * Uses the GHL v2 contacts API PUT /contacts/{contactId}/tags
+ */
+export async function setGhlTag(contactId: string, tag: string): Promise<void> {
+  const url = `${GHL_BASE}/contacts/${contactId}/tags`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${API_KEY}`,
+      Version: "2021-07-28",
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify({ tags: [tag] }),
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`GHL setGhlTag error ${res.status}: ${body}`);
+  }
+}
+
 // ─── Course name extraction ───────────────────────────────────────────────────
 export function extractCourseLeaderName(calendarName: string): string {
   // Pattern: "Introduktionskurs Fascia - Anna Lindgren - Stockholm"

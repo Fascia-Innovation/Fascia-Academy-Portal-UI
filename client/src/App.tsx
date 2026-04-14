@@ -22,6 +22,8 @@ import QuickLinks from "./pages/QuickLinks";
 import Settlements from "./pages/Settlements";
 import CourseLeaderLinks from "./pages/CourseLeaderLinks";
 import ResetPassword from "./pages/ResetPassword";
+import ExamQueue from "./pages/ExamQueue";
+import Certificates from "./pages/Certificates";
 import { Loader2 } from "lucide-react";
 
 function AppRoutes() {
@@ -72,6 +74,8 @@ function AppRoutes() {
         {user.role === "admin" && <Route path="/users" component={UserManagement} />}
         {user.role === "admin" && <Route path="/quick-links" component={QuickLinks} />}
         {user.role === "admin" && <Route path="/settlements" component={Settlements} />}
+        {(user.role === "admin" || user.canExamineExams) && <Route path="/exam-queue" component={ExamQueue} />}
+        {(user.role === "admin" || user.canExamineExams) && <Route path="/certificates" component={Certificates} />}
         {(user.role === "course_leader" || user.role === "affiliate") && <Route path="/my-settlements" component={Settlements} />}
         {user.role === "course_leader" && <Route path="/leader-links" component={CourseLeaderLinks} />}
         {(user.role === "admin" || user.role === "course_leader") && <Route path="/my-courses" component={MyCourses} />}

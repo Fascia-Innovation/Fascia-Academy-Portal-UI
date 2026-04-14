@@ -8,6 +8,8 @@ export type DashUser = {
   role: "admin" | "course_leader" | "affiliate";
   affiliateCode?: string | null;
   ghlContactId?: string | null;
+  isAffiliate?: boolean;
+  canExamineExams?: boolean;
 };
 
 type DashAuthContextType = {

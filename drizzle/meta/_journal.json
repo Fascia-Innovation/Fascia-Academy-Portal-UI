@@ -57,6 +57,13 @@
       "when": 1776181103877,
       "tag": "0007_steady_power_pack",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "5",
+      "when": 1776195759071,
+      "tag": "0008_polite_the_executioner",
+      "breakpoints": true
     }
   ]
 }
