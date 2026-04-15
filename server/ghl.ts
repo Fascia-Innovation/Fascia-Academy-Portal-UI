@@ -455,17 +455,19 @@ export function calculateBreakdown(
  * Returns the first matching contact or null if not found.
  */
 export async function searchContactByEmail(email: string): Promise<GHLContact | null> {
-  // GHL v2 search endpoint uses 'query' param
+  // GHL v2 /contacts/search/duplicate returns { contact: {...} } (singular)
   try {
-    const data = await ghlGet<{ contacts: GHLContact[] }>(
+    const data = await ghlGet<{ contact?: GHLContact; contacts?: GHLContact[] }>(
       `/contacts/search/duplicate`,
       { locationId: LOCATION_ID, email }
     );
+    // Handle both singular and plural response formats
+    if (data.contact) return data.contact;
     if (data.contacts?.[0]) return data.contacts[0];
   } catch (e) {
     console.warn("[searchContactByEmail] duplicate search failed:", e);
   }
-  // Fallback: /contacts/ with email query
+  // Fallback: /contacts/ with query
   try {
     const data = await ghlGet<{ contacts: GHLContact[] }>(
       `/contacts/`,
