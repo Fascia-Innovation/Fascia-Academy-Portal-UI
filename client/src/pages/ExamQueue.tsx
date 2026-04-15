@@ -30,16 +30,24 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ClipboardCheck, CheckCircle2, XCircle, Clock, RefreshCw, Mail, ExternalLink, Trash2, User } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { ClipboardCheck, CheckCircle2, XCircle, Clock, RefreshCw, Mail, ExternalLink, Trash2, User, Search } from "lucide-react";
 
-const COURSE_LABELS: Record<string, string> = {
-  diplo: "Diplomerad Fasciaspecialist",
-  cert: "Certifierad Fasciaspecialist",
-};
+function getCourseLabel(courseType: string, language: string): string {
+  const isSv = language === "sv" || language === "Svenska" || language === "se";
+  if (courseType === "diplo") return isSv ? "Diplomerad Fasciaspecialist" : "Qualified Fascia Specialist";
+  if (courseType === "cert") return isSv ? "Certifierad Fasciaspecialist" : "Certified Fascia Specialist";
+  if (courseType === "intro") return isSv ? "Introduktionskurs Fascia" : "Introduction Course Fascia";
+  if (courseType === "vidare") return isSv ? "Vidareutbildning FS" : "Advanced Fascia Specialist";
+  return courseType;
+}
 
 const LANG_LABELS: Record<string, string> = {
   sv: "Svenska",
+  Svenska: "Svenska",
+  se: "Svenska",
   en: "English",
+  English: "English",
 };
 
 type Exam = {
@@ -65,6 +73,7 @@ export default function ExamQueue() {
   const [gradeDialog, setGradeDialog] = useState<{ exam: Exam; result: "passed" | "failed" } | null>(null);
   const [feedback, setFeedback] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState<Exam | null>(null);
+  const [search, setSearch] = useState("");
 
   const markPassed = trpc.exams.markPassed.useMutation({
     onSuccess: () => {
@@ -117,6 +126,19 @@ export default function ExamQueue() {
 
   const graded = all.filter((e: Exam) => e.status !== "pending");
 
+  function matchesSearch(exam: Exam): boolean {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return (
+      exam.contactName.toLowerCase().includes(q) ||
+      (exam.contactEmail ?? "").toLowerCase().includes(q) ||
+      getCourseLabel(exam.courseType, exam.language).toLowerCase().includes(q)
+    );
+  }
+
+  const filteredPending = (pending as Exam[]).filter(matchesSearch);
+  const filteredGraded = (graded as Exam[]).filter(matchesSearch);
+
   function LogCell({ exam }: { exam: Exam }) {
     if (!exam.examinedAt) return <span className="text-muted-foreground/50 text-xs italic">—</span>;
     return (
@@ -150,6 +172,17 @@ export default function ExamQueue() {
           <RefreshCw className="h-4 w-4 mr-2" />
           Refresh
         </Button>
+      </div>
+
+      {/* Search */}
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Search by name, email or course..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="pl-9"
+        />
       </div>
 
       {/* Pending exams */}
@@ -187,14 +220,15 @@ export default function ExamQueue() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {(pending as Exam[]).map((exam) => (
+                {filteredPending.map((exam) => (
                   <TableRow key={exam.id}>
                     <TableCell className="font-medium">{exam.contactName}</TableCell>
                     <TableCell className="text-muted-foreground text-sm">{exam.contactEmail ?? "—"}</TableCell>
                     <TableCell>
                       <Badge variant="outline" className="text-xs">
-                        {COURSE_LABELS[exam.courseType] ?? exam.courseType}
-                      </Badge>
+{getCourseLabel(exam.courseType, exam.language)}
+                       </Badge>
+
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">{LANG_LABELS[exam.language] ?? exam.language}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">
@@ -241,7 +275,7 @@ export default function ExamQueue() {
       </section>
 
       {/* Recently graded */}
-      {graded.length > 0 && (
+        {filteredGraded.length > 0 && (
         <section>
           <h2 className="text-lg font-semibold mb-3">Recently Graded</h2>
           <div className="border rounded-xl overflow-hidden">
@@ -257,12 +291,12 @@ export default function ExamQueue() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {(graded as Exam[]).slice(0, 20).map((exam) => (
+                {filteredGraded.slice(0, 20).map((exam) => (
                   <TableRow key={exam.id}>
                     <TableCell className="font-medium">{exam.contactName}</TableCell>
                     <TableCell>
                       <Badge variant="outline" className="text-xs">
-                        {COURSE_LABELS[exam.courseType] ?? exam.courseType}
+                        {getCourseLabel(exam.courseType, exam.language)}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -308,14 +342,14 @@ export default function ExamQueue() {
             <div className="space-y-4 py-2">
               <div className="bg-muted/40 rounded-lg p-4 space-y-1">
                 <p className="font-medium">{gradeDialog.exam.contactName}</p>
-                <p className="text-sm text-muted-foreground">{COURSE_LABELS[gradeDialog.exam.courseType]}</p>
+                <p className="text-sm text-muted-foreground">{getCourseLabel(gradeDialog.exam.courseType, gradeDialog.exam.language)}</p>
                 {gradeDialog.exam.contactEmail && (
                   <p className="text-sm text-muted-foreground">{gradeDialog.exam.contactEmail}</p>
                 )}
               </div>
               {gradeDialog.result === "passed" && (
                 <div className="text-sm text-emerald-700 bg-emerald-50 rounded-lg p-3 space-y-2">
-                  <p>A result email will be sent to the student. The GHL tag <strong>exam-passed-{gradeDialog.exam.courseType === "cert" ? "certified" : "qualified"}-fs</strong> will be set on the contact.</p>
+                  <p>A result email will be sent to the student. The GHL tag <strong>{gradeDialog.exam.courseType === "cert" ? ((gradeDialog.exam.language ?? "").toLowerCase() === "en" || (gradeDialog.exam.language ?? "").toLowerCase() === "english" ? "exam-passed-certified-fs-en" : "exam-passed-certifierad-fs-se") : ((gradeDialog.exam.language ?? "").toLowerCase() === "en" || (gradeDialog.exam.language ?? "").toLowerCase() === "english" ? "exam-passed-qualified-fs-en" : "exam-passed-diplomerad-fs-se")}</strong> will be set on the contact.</p>
                   <div className="flex items-start gap-2 bg-emerald-100 rounded-md p-2">
                     <ExternalLink className="h-4 w-4 mt-0.5 shrink-0" />
                     <p><strong>Remember:</strong> After confirming, go to <strong>GHL Certificates</strong> and issue the certificate manually for this student.</p>

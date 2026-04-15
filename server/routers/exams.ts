@@ -176,12 +176,20 @@ export const examsRouter = router({
         }
       }
 
-      // Set GHL tag
+      // Set GHL tag — specific per courseType + language for certificate automation
+      // Tags: exam-passed-diplomerad-fs-se, exam-passed-qualified-fs-en,
+      //        exam-passed-certifierad-fs-se, exam-passed-certified-fs-en
       try {
-        const tag = exam.courseType === "cert"
-          ? "exam-passed-certified-fs"
-          : "exam-passed-qualified-fs";
+        const langRaw = (exam.language ?? "en").toLowerCase();
+        const isSv = langRaw === "sv" || langRaw === "svenska" || langRaw === "se";
+        let tag: string;
+        if (exam.courseType === "cert") {
+          tag = isSv ? "exam-passed-certifierad-fs-se" : "exam-passed-certified-fs-en";
+        } else {
+          tag = isSv ? "exam-passed-diplomerad-fs-se" : "exam-passed-qualified-fs-en";
+        }
         await setGhlTag(resolvedContactId, tag);
+        console.log(`[exams] GHL tag set: ${tag} for contact ${resolvedContactId}`);
       } catch (e) {
         console.error("[exams] GHL tag set failed:", e);
       }
@@ -270,11 +278,24 @@ export const examsRouter = router({
     .query(async ({ input }) => {
       const db = await getDb();
       if (!db) return [];
-      return db
-        .select()
+      const rows = await db
+        .select({
+          id: certificates.id,
+          ghlContactId: certificates.ghlContactId,
+          contactName: certificates.contactName,
+          contactEmail: certificates.contactEmail,
+          courseType: certificates.courseType,
+          language: certificates.language,
+          pdfUrl: certificates.pdfUrl,
+          issuedAt: certificates.issuedAt,
+          issuedBy: certificates.issuedBy,
+          issuerName: dashboardUsers.name,
+        })
         .from(certificates)
+        .leftJoin(dashboardUsers, eq(certificates.issuedBy, dashboardUsers.id))
         .orderBy(desc(certificates.issuedAt))
         .limit(input.limit);
+      return rows;
     }),
 
   // ── Regenerate PDF for a certificate ─────────────────────────────────────

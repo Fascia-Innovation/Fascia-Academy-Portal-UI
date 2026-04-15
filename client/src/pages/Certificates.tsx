@@ -13,12 +13,17 @@ import {
 } from "@/components/ui/table";
 import { ScrollText, Download, RefreshCw, Search } from "lucide-react";
 
-const COURSE_LABELS: Record<string, string> = {
-  intro: "Introduktionskurs Fascia",
-  diplo: "Diplomerad Fasciaspecialist",
-  cert: "Certifierad Fasciaspecialist",
-  vidare: "Vidareutbildning",
-};
+function getCourseLabel(courseType: string, language: string): string {
+  const langLower = (language ?? "").toLowerCase();
+  const isEn = langLower === "en" || langLower === "english";
+  switch (courseType) {
+    case "intro": return isEn ? "Introduction Course Fascia" : "Introduktionskurs Fascia";
+    case "diplo": return isEn ? "Qualified Fascia Specialist" : "Diplomerad Fasciaspecialist";
+    case "cert":  return isEn ? "Certified Fascia Specialist" : "Certifierad Fasciaspecialist";
+    case "vidare": return isEn ? "Advanced Fascia Specialist" : "Vidareutbildning";
+    default: return courseType;
+  }
+}
 
 const CERT_TYPE_LABELS: Record<string, string> = {
   intro: "Intyg",
@@ -36,7 +41,8 @@ type Certificate = {
   language: string;
   pdfUrl?: string | null;
   issuedAt: Date;
-  issuedBy?: string | null;
+  issuedBy?: number | null;
+  issuerName?: string | null;
 };
 
 export default function Certificates() {
@@ -49,7 +55,7 @@ export default function Certificates() {
     return (
       c.contactName.toLowerCase().includes(q) ||
       (c.contactEmail ?? "").toLowerCase().includes(q) ||
-      COURSE_LABELS[c.courseType]?.toLowerCase().includes(q)
+      getCourseLabel(c.courseType, c.language).toLowerCase().includes(q)
     );
   });
 
@@ -122,7 +128,7 @@ export default function Certificates() {
                   <TableCell className="text-muted-foreground text-sm">{cert.contactEmail ?? "—"}</TableCell>
                   <TableCell>
                     <Badge variant="outline" className="text-xs whitespace-nowrap">
-                      {COURSE_LABELS[cert.courseType] ?? cert.courseType}
+                      {getCourseLabel(cert.courseType, cert.language)}
                     </Badge>
                   </TableCell>
                   <TableCell>
@@ -139,13 +145,13 @@ export default function Certificates() {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
-                    {cert.language === "en" ? "EN" : "SE"}
+                    {(cert.language ?? "").toLowerCase() === "en" || (cert.language ?? "").toLowerCase() === "english" ? "EN" : "SE"}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {new Date(cert.issuedAt).toLocaleDateString("sv-SE")}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
-                    {cert.issuedBy ?? "—"}
+                    {cert.issuerName ?? "—"}
                   </TableCell>
                   <TableCell className="text-right">
                     {cert.pdfUrl ? (
