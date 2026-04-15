@@ -211,86 +211,93 @@ export default function UserManagement() {
         <div className="flex items-center justify-center h-64">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
-      ) : (
-        <div className="bg-card rounded-xl border border-border overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-muted/50">
-                <tr>
-                  <th className="text-xs font-medium text-muted-foreground uppercase tracking-wider py-3 px-4 text-left">Name</th>
-                  <th className="text-xs font-medium text-muted-foreground uppercase tracking-wider py-3 px-4 text-left">Email</th>
-                  <th className="text-xs font-medium text-muted-foreground uppercase tracking-wider py-3 px-4 text-left">Role</th>
-                  <th className="text-xs font-medium text-muted-foreground uppercase tracking-wider py-3 px-4 text-left" title="GHL Contact ID — the user/contact ID in GoHighLevel for this person. Used to match GHL profile photos and bookings.">GHL Contact ID</th>
-                  <th className="text-xs font-medium text-muted-foreground uppercase tracking-wider py-3 px-4 text-left">Affiliate Code</th>
-                  <th className="text-xs font-medium text-muted-foreground uppercase tracking-wider py-3 px-4 text-left">Status</th>
-                  <th className="text-xs font-medium text-muted-foreground uppercase tracking-wider py-3 px-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users?.map((user) => (
-                  <tr key={user.id} className="border-t border-border hover:bg-muted/20 transition-colors">
-                    <td className="py-3 px-4 text-sm font-medium text-foreground">{user.name}</td>
-                    <td className="py-3 px-4 text-sm text-muted-foreground">{user.email}</td>
-                    <td className="py-3 px-4">
-                      <div className="flex flex-wrap gap-1">
-                        <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${ROLE_COLORS[user.role] ?? ROLE_COLORS.default}`}>
-                          {ROLE_LABELS[user.role] ?? user.role}
-                        </span>
-                        {(user as any).isAffiliate && (
-                          <span className="text-xs px-2.5 py-0.5 rounded-full font-medium bg-amber-100 text-amber-700">
-                            + Affiliate
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 text-xs font-mono text-muted-foreground">{user.ghlContactId ?? "—"}</td>
-                    <td className="py-3 px-4 text-sm font-mono text-muted-foreground">{user.affiliateCode ?? "—"}</td>
-                    <td className="py-3 px-4">
-                      <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${user.active ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
-                        {user.active ? "Active" : "Inactive"}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        {/* View As button — only for non-admin users */}
-                        {user.role !== "admin" && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 px-2 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                            onClick={() => impersonateMutation.mutate({ userId: user.id })}
-                            disabled={impersonateMutation.isPending}
-                            title={`View dashboard as ${user.name}`}
-                          >
-                            {impersonateMutation.isPending ? (
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                            ) : (
-                              <Eye className="h-3.5 w-3.5 mr-1" />
-                            )}
-                            View as
-                          </Button>
-                        )}
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(user)}>
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7"
-                          onClick={() => toggleActive(user)}
-                          title={user.active ? "Deactivate" : "Activate"}
-                        >
-                          {user.active ? <UserX className="h-3.5 w-3.5 text-red-500" /> : <UserCheck className="h-3.5 w-3.5 text-green-500" />}
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      ) : (() => {
+        const activeUsers = users?.filter(u => u.active) ?? [];
+        const inactiveUsers = users?.filter(u => !u.active) ?? [];
+        const renderRow = (user: NonNullable<typeof users>[number]) => (
+          <tr key={user.id} className="border-t border-border hover:bg-muted/20 transition-colors">
+            <td className="py-3 px-4 text-sm font-medium text-foreground">{user.name}</td>
+            <td className="py-3 px-4 text-sm text-muted-foreground">{user.email}</td>
+            <td className="py-3 px-4">
+              <div className="flex flex-wrap gap-1">
+                <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${ROLE_COLORS[user.role] ?? ROLE_COLORS.default}`}>
+                  {ROLE_LABELS[user.role] ?? user.role}
+                </span>
+                {(user as any).isAffiliate && (
+                  <span className="text-xs px-2.5 py-0.5 rounded-full font-medium bg-amber-100 text-amber-700">+ Affiliate</span>
+                )}
+                {(user as any).canExamineExams && (
+                  <span className="text-xs px-2.5 py-0.5 rounded-full font-medium bg-teal-100 text-teal-700">+ Examiner</span>
+                )}
+              </div>
+            </td>
+            <td className="py-3 px-4 text-xs font-mono text-muted-foreground">{user.ghlContactId ?? "—"}</td>
+            <td className="py-3 px-4 text-sm font-mono text-muted-foreground">{user.affiliateCode ?? "—"}</td>
+            <td className="py-3 px-4">
+              <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${user.active ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+                {user.active ? "Active" : "Inactive"}
+              </span>
+            </td>
+            <td className="py-3 px-4 text-right">
+              <div className="flex items-center justify-end gap-2">
+                {user.role !== "admin" && (
+                  <Button
+                    variant="ghost" size="sm"
+                    className="h-7 px-2 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                    onClick={() => impersonateMutation.mutate({ userId: user.id })}
+                    disabled={impersonateMutation.isPending}
+                    title={`View dashboard as ${user.name}`}
+                  >
+                    {impersonateMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Eye className="h-3.5 w-3.5 mr-1" />}
+                    View as
+                  </Button>
+                )}
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(user)}>
+                  <Pencil className="h-3.5 w-3.5" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => toggleActive(user)} title={user.active ? "Deactivate" : "Activate"}>
+                  {user.active ? <UserX className="h-3.5 w-3.5 text-red-500" /> : <UserCheck className="h-3.5 w-3.5 text-green-500" />}
+                </Button>
+              </div>
+            </td>
+          </tr>
+        );
+        const TableHeaders = () => (
+          <thead className="bg-muted/50">
+            <tr>
+              <th className="text-xs font-medium text-muted-foreground uppercase tracking-wider py-3 px-4 text-left">Name</th>
+              <th className="text-xs font-medium text-muted-foreground uppercase tracking-wider py-3 px-4 text-left">Email</th>
+              <th className="text-xs font-medium text-muted-foreground uppercase tracking-wider py-3 px-4 text-left">Role</th>
+              <th className="text-xs font-medium text-muted-foreground uppercase tracking-wider py-3 px-4 text-left">GHL Contact ID</th>
+              <th className="text-xs font-medium text-muted-foreground uppercase tracking-wider py-3 px-4 text-left">Affiliate Code</th>
+              <th className="text-xs font-medium text-muted-foreground uppercase tracking-wider py-3 px-4 text-left">Status</th>
+              <th className="text-xs font-medium text-muted-foreground uppercase tracking-wider py-3 px-4 text-right">Actions</th>
+            </tr>
+          </thead>
+        );
+        return (
+          <div className="space-y-8">
+            <div>
+              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Active Users ({activeUsers.length})</h2>
+              <div className="bg-card rounded-xl border border-border overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full"><TableHeaders /><tbody>{activeUsers.map(renderRow)}</tbody></table>
+                </div>
+              </div>
+            </div>
+            {inactiveUsers.length > 0 && (
+              <div>
+                <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Inactive Users ({inactiveUsers.length})</h2>
+                <div className="bg-card rounded-xl border border-border overflow-hidden opacity-60">
+                  <div className="overflow-x-auto">
+                    <table className="w-full"><TableHeaders /><tbody>{inactiveUsers.map(renderRow)}</tbody></table>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Create / Edit dialog */}
       <Dialog open={showCreate || editId !== null} onOpenChange={(open) => { if (!open) { setShowCreate(false); setEditId(null); } }}>
@@ -377,9 +384,9 @@ export default function UserManagement() {
             )}
             <div className="flex items-center justify-between rounded-lg border p-3">
               <div className="space-y-0.5">
-                <Label className="text-sm font-medium">Kan rätta prov</Label>
+                <Label className="text-sm font-medium">Can Grade Exams</Label>
                 <p className="text-xs text-muted-foreground">
-                  Ger tillgång till Provkö och Bevis. Kan ges till vilken roll som helst.
+                  Grants access to Exam Queue and Certificates. Can be assigned to any role.
                 </p>
               </div>
               <Switch

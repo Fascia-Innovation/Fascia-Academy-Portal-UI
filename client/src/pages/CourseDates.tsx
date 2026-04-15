@@ -1102,7 +1102,7 @@ export default function CourseDates() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label>Booked Seats <span className="text-muted-foreground font-normal text-xs">(uppdateras manuellt)</span></Label>
+                <Label>Booked Seats <span className="text-muted-foreground font-normal text-xs">(updated manually — auto-sync coming soon)</span></Label>
                 <Input
                   type="number"
                   min={0}
@@ -1118,8 +1118,8 @@ export default function CourseDates() {
               <div className="flex items-center justify-between">
                 <Label className="flex items-center gap-1.5">
                   <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-                  Ytterligare kursdagar
-                  <span className="text-muted-foreground font-normal text-xs">(för flerdagarskurser)</span>
+                  Additional Course Days
+                  <span className="text-muted-foreground font-normal text-xs">(for multi-day courses)</span>
                 </Label>
                 <button
                   type="button"
@@ -1139,11 +1139,11 @@ export default function CourseDates() {
                   className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
                 >
                   <Plus className="h-3.5 w-3.5" />
-                  Lägg till dag
+                  + Add Day
                 </button>
               </div>
               {form.additionalDays.length === 0 ? (
-                <p className="text-xs text-muted-foreground">Inga ytterligare kursdagar. Klicka "Lägg till dag" för flerdagarskurser.</p>
+                <p className="text-xs text-muted-foreground">No additional days. Click "+ Add Day" for multi-day courses.</p>
               ) : (
                 <div className="space-y-2">
                   {form.additionalDays.map((day, idx) => (
@@ -1198,22 +1198,22 @@ export default function CourseDates() {
 
             {/* ── Booking Info (shown publicly on booking page) ── */}
             <div className="space-y-1.5">
-              <Label>Övrig bokningsinformation <span className="text-muted-foreground font-normal">(valfri — visas på bokningssidan)</span></Label>
+              <Label>Additional Booking Info <span className="text-muted-foreground font-normal">(optional — shown on booking page)</span></Label>
               <Textarea
                 value={form.bookingInfo}
                 onChange={(e) => setForm((f) => ({ ...f, bookingInfo: e.target.value }))}
-                placeholder="t.ex. Parkering finns på gatan, ring på dörren 'Fascia Academy', ta hiss till våning 3..."
+                placeholder="e.g. Parking available on the street, ring the 'Fascia Academy' doorbell, take the lift to floor 3..."
                 rows={2}
               />
             </div>
 
             {/* ── Internal Notes ── */}
             <div className="space-y-1.5">
-              <Label>Interna anteckningar <span className="text-muted-foreground font-normal">(valfri — visas ej publikt)</span></Label>
+              <Label>Internal Notes <span className="text-muted-foreground font-normal">(optional — not shown publicly)</span></Label>
               <Textarea
                 value={form.notes}
                 onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-                placeholder="t.ex. Dag 2 är 9:00–16:00, speciella lokalinstruktioner..."
+                placeholder="e.g. Day 2 is 9:00–16:00, special venue instructions..."
                 rows={2}
               />
             </div>
