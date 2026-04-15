@@ -1181,7 +1181,7 @@ export default function PublicCourses() {
                 <option value="intro" className="text-gray-900">{(t.courseTypes as Record<string,string>).intro}</option>
                 <option value="diplo" className="text-gray-900">{(t.courseTypes as Record<string,string>).diplo}</option>
                 <option value="cert" className="text-gray-900">{(t.courseTypes as Record<string,string>).cert}</option>
-{/* vidare hidden from public filter — not in use currently */}
+                <option value="vidare" className="text-gray-900">{(t.courseTypes as Record<string,string>).vidare}</option>
               </select>
               <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-white/60 pointer-events-none" />
             </div>

@@ -231,3 +231,9 @@
 - [x] User Management: GHL Calendar ID label clarified with better help text and instructions
 - [x] Backend: searchContactByEmail helper added to ghl.ts
 - [x] Backend: /api/webhooks/exam-submitted endpoint added (receives GHL Survey submissions)
+
+## Round 10: Examiner Feedback Field + GHL Workflow Guide
+- [x] Frontend: Renamed "Kommentar" → "Feedback to student" in Exam Queue dialog with clearer UX (English, with email context hint)
+- [x] Backend: Send result email to student via GHL API when exam is graded (passed/failed) with examiner feedback
+- [x] Backend: Added sendExamResultEmail() helper in ghl.ts using GHL Conversations API
+- [x] Docs: Created GHL Workflow setup guide for all 4 exam forms at /home/ubuntu/fascia_ghl_workflow_guide.md

@@ -20,7 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ClipboardCheck, CheckCircle2, XCircle, Clock, RefreshCw } from "lucide-react";
+import { ClipboardCheck, CheckCircle2, XCircle, Clock, RefreshCw, Mail } from "lucide-react";
 
 const COURSE_LABELS: Record<string, string> = {
   diplo: "Diplomerad Fasciaspecialist",
@@ -51,42 +51,46 @@ export default function ExamQueue() {
   const { data: all = [] } = trpc.exams.listAll.useQuery({ limit: 100 });
 
   const [gradeDialog, setGradeDialog] = useState<{ exam: Exam; result: "passed" | "failed" } | null>(null);
-  const [notes, setNotes] = useState("");
+  const [feedback, setFeedback] = useState("");
 
   const markPassed = trpc.exams.markPassed.useMutation({
     onSuccess: (data) => {
-      toast.success("Prov godkänt! Bevis genererat.", { description: data.pdfUrl ? "PDF klar för nedladdning." : "PDF-generering misslyckades, försök igen." });
+      toast.success("Exam approved! Certificate generated.", {
+        description: data.pdfUrl
+          ? "PDF ready. Result email sent to student."
+          : "PDF generation failed — try regenerating from Certificates page.",
+      });
       utils.exams.listPending.invalidate();
       utils.exams.listAll.invalidate();
       utils.exams.listCertificates.invalidate();
       setGradeDialog(null);
-      setNotes("");
+      setFeedback("");
     },
-    onError: (e) => toast.error("Fel: " + e.message),
+    onError: (e) => toast.error("Error: " + e.message),
   });
 
   const markFailed = trpc.exams.markFailed.useMutation({
     onSuccess: () => {
-      toast.success("Prov markerat som underkänt.");
+      toast.success("Exam marked as not approved. Result email sent to student.");
       utils.exams.listPending.invalidate();
       utils.exams.listAll.invalidate();
       setGradeDialog(null);
-      setNotes("");
+      setFeedback("");
     },
-    onError: (e) => toast.error("Fel: " + e.message),
+    onError: (e) => toast.error("Error: " + e.message),
   });
 
   function openGrade(exam: Exam, result: "passed" | "failed") {
-    setNotes("");
+    setFeedback("");
     setGradeDialog({ exam, result });
   }
 
   function confirmGrade() {
     if (!gradeDialog) return;
     if (gradeDialog.result === "passed") {
-      markPassed.mutate({ examId: gradeDialog.exam.id, notes });
+      markPassed.mutate({ examId: gradeDialog.exam.id, notes: feedback || undefined });
     } else {
-      markFailed.mutate({ examId: gradeDialog.exam.id, notes });
+      markFailed.mutate({ examId: gradeDialog.exam.id, notes: feedback || undefined });
     }
   }
 
@@ -102,14 +106,14 @@ export default function ExamQueue() {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-foreground" style={{ fontFamily: "'Playfair Display', serif" }}>
-              Provkö
+              Exam Queue
             </h1>
-            <p className="text-sm text-muted-foreground">Rätta inkomna prov för Diplo och Cert</p>
+            <p className="text-sm text-muted-foreground">Grade submitted exams for Diplo and Cert courses</p>
           </div>
         </div>
         <Button variant="outline" size="sm" onClick={() => refetch()}>
           <RefreshCw className="h-4 w-4 mr-2" />
-          Uppdatera
+          Refresh
         </Button>
       </div>
 
@@ -117,33 +121,33 @@ export default function ExamQueue() {
       <section>
         <div className="flex items-center gap-2 mb-3">
           <Clock className="h-4 w-4 text-amber-500" />
-          <h2 className="text-lg font-semibold">Väntande prov</h2>
+          <h2 className="text-lg font-semibold">Pending Exams</h2>
           {pending.length > 0 && (
             <Badge variant="secondary" className="bg-amber-100 text-amber-700 border-amber-200">
-              {pending.length} väntande
+              {pending.length} pending
             </Badge>
           )}
         </div>
 
         {isLoading ? (
-          <div className="text-muted-foreground text-sm py-8 text-center">Laddar...</div>
+          <div className="text-muted-foreground text-sm py-8 text-center">Loading...</div>
         ) : pending.length === 0 ? (
           <div className="border rounded-xl p-10 text-center text-muted-foreground bg-muted/30">
             <CheckCircle2 className="h-10 w-10 mx-auto mb-3 text-emerald-500 opacity-60" />
-            <p className="font-medium">Inga väntande prov</p>
-            <p className="text-sm mt-1">Alla prov är rättade.</p>
+            <p className="font-medium">No pending exams</p>
+            <p className="text-sm mt-1">All exams have been graded.</p>
           </div>
         ) : (
           <div className="border rounded-xl overflow-hidden">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/40">
-                  <TableHead>Deltagare</TableHead>
-                  <TableHead>E-post</TableHead>
-                  <TableHead>Kurstyp</TableHead>
-                  <TableHead>Språk</TableHead>
-                  <TableHead>Inkom</TableHead>
-                  <TableHead className="text-right">Åtgärd</TableHead>
+                  <TableHead>Participant</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Course</TableHead>
+                  <TableHead>Language</TableHead>
+                  <TableHead>Submitted</TableHead>
+                  <TableHead className="text-right">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -168,7 +172,7 @@ export default function ExamQueue() {
                           onClick={() => openGrade(exam, "passed")}
                         >
                           <CheckCircle2 className="h-4 w-4 mr-1" />
-                          Godkänd
+                          Approve
                         </Button>
                         <Button
                           size="sm"
@@ -177,7 +181,7 @@ export default function ExamQueue() {
                           onClick={() => openGrade(exam, "failed")}
                         >
                           <XCircle className="h-4 w-4 mr-1" />
-                          Underkänd
+                          Not Approved
                         </Button>
                       </div>
                     </TableCell>
@@ -192,16 +196,16 @@ export default function ExamQueue() {
       {/* Recently graded */}
       {graded.length > 0 && (
         <section>
-          <h2 className="text-lg font-semibold mb-3">Nyligen rättade</h2>
+          <h2 className="text-lg font-semibold mb-3">Recently Graded</h2>
           <div className="border rounded-xl overflow-hidden">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/40">
-                  <TableHead>Deltagare</TableHead>
-                  <TableHead>Kurstyp</TableHead>
-                  <TableHead>Resultat</TableHead>
-                  <TableHead>Rättat</TableHead>
-                  <TableHead>Kommentar</TableHead>
+                  <TableHead>Participant</TableHead>
+                  <TableHead>Course</TableHead>
+                  <TableHead>Result</TableHead>
+                  <TableHead>Graded</TableHead>
+                  <TableHead>Feedback sent to student</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -215,16 +219,16 @@ export default function ExamQueue() {
                     </TableCell>
                     <TableCell>
                       {exam.status === "passed" ? (
-                        <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">Godkänd</Badge>
+                        <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">Approved</Badge>
                       ) : (
-                        <Badge className="bg-red-100 text-red-700 border-red-200">Underkänd</Badge>
+                        <Badge className="bg-red-100 text-red-700 border-red-200">Not Approved</Badge>
                       )}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {exam.examinedAt ? new Date(exam.examinedAt).toLocaleDateString("sv-SE") : "—"}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground max-w-xs truncate">
-                      {exam.notes ?? "—"}
+                      {exam.notes ?? <span className="italic opacity-60">No feedback</span>}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -236,10 +240,10 @@ export default function ExamQueue() {
 
       {/* Grade confirmation dialog */}
       <Dialog open={!!gradeDialog} onOpenChange={(open) => !open && setGradeDialog(null)}>
-        <DialogContent>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>
-              {gradeDialog?.result === "passed" ? "✅ Godkänn prov" : "❌ Underkänn prov"}
+              {gradeDialog?.result === "passed" ? "✅ Approve Exam" : "❌ Mark as Not Approved"}
             </DialogTitle>
           </DialogHeader>
           {gradeDialog && (
@@ -252,35 +256,55 @@ export default function ExamQueue() {
                 )}
               </div>
               {gradeDialog.result === "passed" && (
-                <p className="text-sm text-emerald-700 bg-emerald-50 rounded-lg p-3">
-                  Beviset genereras automatiskt som PDF och syns under Bevis-sidan.
-                  Taggen <strong>exam-passed-{gradeDialog.exam.courseType === "cert" ? "certified" : "qualified"}-fs</strong> sätts i GHL.
-                </p>
+                <div className="text-sm text-emerald-700 bg-emerald-50 rounded-lg p-3 space-y-1">
+                  <p>A certificate PDF will be generated automatically and shown on the Certificates page.</p>
+                  <p>The GHL tag <strong>exam-passed-{gradeDialog.exam.courseType === "cert" ? "certified" : "qualified"}-fs</strong> will be set on the contact.</p>
+                </div>
               )}
               {gradeDialog.result === "failed" && (
-                <p className="text-sm text-red-700 bg-red-50 rounded-lg p-3">
-                  Deltagaren behöver kontaktas manuellt och informeras om omtagning.
-                </p>
+                <div className="text-sm text-red-700 bg-red-50 rounded-lg p-3">
+                  <p>The student will be notified that their exam needs supplementation. Use the feedback field below to explain what needs to be improved.</p>
+                </div>
               )}
               <div className="space-y-2">
-                <Label>Kommentar (valfri)</Label>
+                <Label className="flex items-center gap-2">
+                  <Mail className="h-4 w-4 text-muted-foreground" />
+                  Feedback to student
+                  <span className="text-xs text-muted-foreground font-normal">(optional — included in the result email)</span>
+                </Label>
                 <Textarea
-                  placeholder="Anteckningar om provet..."
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  rows={3}
+                  placeholder={
+                    gradeDialog.result === "passed"
+                      ? "Add a personal note or encouragement for the student..."
+                      : "Explain what needs to be supplemented or improved..."
+                  }
+                  value={feedback}
+                  onChange={(e) => setFeedback(e.target.value)}
+                  rows={4}
+                  className="resize-none"
                 />
+                <p className="text-xs text-muted-foreground">
+                  {gradeDialog.result === "passed"
+                    ? "The student will receive a congratulations email with their certificate PDF and your feedback."
+                    : "The student will receive an email explaining that supplementation is required, along with your feedback."}
+                </p>
               </div>
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setGradeDialog(null)}>Avbryt</Button>
+            <Button variant="outline" onClick={() => setGradeDialog(null)}>Cancel</Button>
             <Button
               onClick={confirmGrade}
               disabled={markPassed.isPending || markFailed.isPending}
-              className={gradeDialog?.result === "passed" ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "bg-red-600 hover:bg-red-700 text-white"}
+              className={gradeDialog?.result === "passed"
+                ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                : "bg-red-600 hover:bg-red-700 text-white"}
             >
-              {markPassed.isPending || markFailed.isPending ? "Sparar..." : gradeDialog?.result === "passed" ? "Bekräfta godkänd" : "Bekräfta underkänd"}
+              {markPassed.isPending || markFailed.isPending
+                ? "Saving..."
+                : gradeDialog?.result === "passed"
+                  ? "Confirm Approval"
+                  : "Confirm — Not Approved"}
             </Button>
           </DialogFooter>
         </DialogContent>

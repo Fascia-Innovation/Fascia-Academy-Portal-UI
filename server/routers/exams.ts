@@ -16,7 +16,7 @@ import { getDb } from "../db";
 import { exams, certificates } from "../../drizzle/schema";
 import { eq, desc } from "drizzle-orm";
 import { generateCertificatePdf } from "../certificatePdf";
-import { setGhlTag } from "../ghl";
+import { setGhlTag, sendExamResultEmail } from "../ghl";
 
 const DASH_SESSION = "fa_dash_session";
 
@@ -136,6 +136,24 @@ export const examsRouter = router({
         console.error("[exams] GHL tag set failed:", e);
       }
 
+      // Send result email to student
+      if (exam.contactEmail) {
+        try {
+          await sendExamResultEmail({
+            contactId: exam.ghlContactId,
+            contactEmail: exam.contactEmail,
+            contactName: exam.contactName,
+            courseType: exam.courseType as "diplo" | "cert",
+            language: exam.language,
+            result: "passed",
+            feedback: input.notes ?? null,
+            pdfUrl: pdfUrl ?? null,
+          });
+        } catch (e) {
+          console.error("[exams] Result email (passed) failed:", e);
+        }
+      }
+
       return { success: true, certificateId: cert.id, pdfUrl };
     }),
 
@@ -162,6 +180,24 @@ export const examsRouter = router({
           notes: input.notes ?? null,
         })
         .where(eq(exams.id, input.examId));
+
+      // Send result email to student
+      if (exam.contactEmail) {
+        try {
+          await sendExamResultEmail({
+            contactId: exam.ghlContactId,
+            contactEmail: exam.contactEmail,
+            contactName: exam.contactName,
+            courseType: exam.courseType as "diplo" | "cert",
+            language: exam.language,
+            result: "failed",
+            feedback: input.notes ?? null,
+            pdfUrl: null,
+          });
+        } catch (e) {
+          console.error("[exams] Result email (failed) failed:", e);
+        }
+      }
 
       return { success: true };
     }),

@@ -498,6 +498,126 @@ export async function setGhlTag(contactId: string, tag: string): Promise<void> {
   }
 }
 
+// ─── Email helpers ───────────────────────────────────────────────────────────
+
+/**
+ * Send an exam result email to a student via GHL Conversations API.
+ * Uses the GHL /conversations/messages endpoint with type: Email.
+ *
+ * @param contactId  - GHL contact ID of the student
+ * @param contactEmail - Student's email address (used as emailTo)
+ * @param contactName  - Student's full name (for personalisation)
+ * @param courseType   - 'diplo' | 'cert'
+ * @param language     - 'sv' | 'en'
+ * @param result       - 'passed' | 'failed'
+ * @param feedback     - Optional examiner feedback/comment to include in the email
+ * @param pdfUrl       - Optional PDF certificate URL (attached when result = passed)
+ */
+export async function sendExamResultEmail(opts: {
+  contactId: string;
+  contactEmail: string;
+  contactName: string;
+  courseType: "diplo" | "cert";
+  language: string;
+  result: "passed" | "failed";
+  feedback?: string | null;
+  pdfUrl?: string | null;
+}): Promise<void> {
+  const { contactId, contactEmail, contactName, courseType, language, result, feedback, pdfUrl } = opts;
+
+  const isSv = language !== "en";
+  const courseName = courseType === "cert"
+    ? (isSv ? "Certifierad Fasciaspecialist" : "Certified Fascia Specialist")
+    : (isSv ? "Diplomerad Fasciaspecialist" : "Qualified Fascia Specialist");
+
+  let subject: string;
+  let html: string;
+
+  if (result === "passed") {
+    subject = isSv
+      ? `Grattis! Ditt prov för ${courseName} är godkänt`
+      : `Congratulations! Your exam for ${courseName} has been approved`;
+
+    const feedbackBlock = feedback
+      ? (isSv
+          ? `<p><strong>Kommentar från provrättaren:</strong><br>${feedback.replace(/\n/g, "<br>")}</p>`
+          : `<p><strong>Examiner's comment:</strong><br>${feedback.replace(/\n/g, "<br>")}</p>`)
+      : "";
+
+    const certBlock = pdfUrl
+      ? (isSv
+          ? `<p>Ditt bevis finns bifogat i detta e-postmeddelande och kan även laddas ned via länken nedan:</p><p><a href="${pdfUrl}">Ladda ned bevis (PDF)</a></p>`
+          : `<p>Your certificate is attached to this email and can also be downloaded via the link below:</p><p><a href="${pdfUrl}">Download certificate (PDF)</a></p>`)
+      : "";
+
+    html = isSv
+      ? `<p>Hej ${contactName},</p>
+<p>Vi är glada att meddela att ditt prov för <strong>${courseName}</strong> har blivit <strong>godkänt</strong>!</p>
+${feedbackBlock}
+${certBlock}
+<p>Välkommen att kontakta oss på <a href="mailto:info@fasciaacademy.com">info@fasciaacademy.com</a> om du har några frågor.</p>
+<p>Med vänliga hälsningar,<br>Fascia Academy</p>`
+      : `<p>Hi ${contactName},</p>
+<p>We are pleased to inform you that your exam for <strong>${courseName}</strong> has been <strong>approved</strong>!</p>
+${feedbackBlock}
+${certBlock}
+<p>Please feel free to contact us at <a href="mailto:info@fasciaacademy.com">info@fasciaacademy.com</a> if you have any questions.</p>
+<p>Best regards,<br>Fascia Academy</p>`;
+  } else {
+    subject = isSv
+      ? `Ditt prov för ${courseName} – komplettering krävs`
+      : `Your exam for ${courseName} – supplementation required`;
+
+    const feedbackBlock = feedback
+      ? (isSv
+          ? `<p><strong>Återkoppling från provrättaren:</strong><br>${feedback.replace(/\n/g, "<br>")}</p>`
+          : `<p><strong>Examiner's feedback:</strong><br>${feedback.replace(/\n/g, "<br>")}</p>`)
+      : "";
+
+    html = isSv
+      ? `<p>Hej ${contactName},</p>
+<p>Vi har granskat ditt prov för <strong>${courseName}</strong> och behöver tyvärr meddela att det <strong>inte är godkänt</strong> i nuläget.</p>
+${feedbackBlock}
+<p>Du är välkommen att komplettera och skicka in ditt prov på nytt. Kontakta oss gärna på <a href="mailto:info@fasciaacademy.com">info@fasciaacademy.com</a> om du har frågor.</p>
+<p>Med vänliga hälsningar,<br>Fascia Academy</p>`
+      : `<p>Hi ${contactName},</p>
+<p>We have reviewed your exam for <strong>${courseName}</strong> and unfortunately need to inform you that it has <strong>not been approved</strong> at this time.</p>
+${feedbackBlock}
+<p>You are welcome to supplement and resubmit your exam. Please contact us at <a href="mailto:info@fasciaacademy.com">info@fasciaacademy.com</a> if you have any questions.</p>
+<p>Best regards,<br>Fascia Academy</p>`;
+  }
+
+  const attachments = pdfUrl && result === "passed" ? [pdfUrl] : [];
+
+  const body: Record<string, unknown> = {
+    type: "Email",
+    contactId,
+    emailTo: contactEmail,
+    emailFrom: "info@fasciaacademy.com",
+    subject,
+    html,
+    status: "pending",
+  };
+  if (attachments.length > 0) body.attachments = attachments;
+
+  const url = `${GHL_BASE}/conversations/messages`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${API_KEY}`,
+      Version: "2021-04-15",
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`GHL sendExamResultEmail error ${res.status}: ${text}`);
+  }
+}
+
 // ─── Course name extraction ───────────────────────────────────────────────────
 export function extractCourseLeaderName(calendarName: string): string {
   // Pattern: "Introduktionskurs Fascia - Anna Lindgren - Stockholm"
