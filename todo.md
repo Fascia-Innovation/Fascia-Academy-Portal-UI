@@ -243,3 +243,7 @@
 - [x] Update approved email text: "Ditt intyg skickas till dig inom kort via ett separat e-postmeddelande"
 - [x] Remove pdfUrl from sendExamResultEmail signature and all call sites
 - [x] Update ExamQueue.tsx success toast to not mention PDF
+
+## Round 12: GHL Certificates reminder + GHL Workflow guide delivery
+- [x] Add GHL Certificates reminder in Exam Queue approval dialog
+- [x] Deliver simplified GHL Workflow setup guide

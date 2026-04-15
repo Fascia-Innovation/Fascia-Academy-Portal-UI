@@ -20,7 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ClipboardCheck, CheckCircle2, XCircle, Clock, RefreshCw, Mail } from "lucide-react";
+import { ClipboardCheck, CheckCircle2, XCircle, Clock, RefreshCw, Mail, ExternalLink } from "lucide-react";
 
 const COURSE_LABELS: Record<string, string> = {
   diplo: "Diplomerad Fasciaspecialist",
@@ -254,9 +254,12 @@ export default function ExamQueue() {
                 )}
               </div>
               {gradeDialog.result === "passed" && (
-                <div className="text-sm text-emerald-700 bg-emerald-50 rounded-lg p-3 space-y-1">
-                  <p>A certificate PDF will be generated automatically and shown on the Certificates page.</p>
-                  <p>The GHL tag <strong>exam-passed-{gradeDialog.exam.courseType === "cert" ? "certified" : "qualified"}-fs</strong> will be set on the contact.</p>
+                <div className="text-sm text-emerald-700 bg-emerald-50 rounded-lg p-3 space-y-2">
+                  <p>A result email will be sent to the student. The GHL tag <strong>exam-passed-{gradeDialog.exam.courseType === "cert" ? "certified" : "qualified"}-fs</strong> will be set on the contact.</p>
+                  <div className="flex items-start gap-2 bg-emerald-100 rounded-md p-2">
+                    <ExternalLink className="h-4 w-4 mt-0.5 shrink-0" />
+                    <p><strong>Remember:</strong> After confirming, go to <strong>GHL Certificates</strong> and issue the certificate manually for this student.</p>
+                  </div>
                 </div>
               )}
               {gradeDialog.result === "failed" && (
@@ -283,7 +286,7 @@ export default function ExamQueue() {
                 />
                 <p className="text-xs text-muted-foreground">
                   {gradeDialog.result === "passed"
-                    ? "The student will receive a congratulations email with their certificate PDF and your feedback."
+                    ? "The student will receive a congratulations email saying the certificate arrives shortly."
                     : "The student will receive an email explaining that supplementation is required, along with your feedback."}
                 </p>
               </div>
