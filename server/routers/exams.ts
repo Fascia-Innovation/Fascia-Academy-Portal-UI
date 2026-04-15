@@ -14,7 +14,8 @@ import { getSessionUser } from "../dashboardAuth";
 import type { DashboardUser } from "../../drizzle/schema";
 import { getDb } from "../db";
 import { exams, certificates } from "../../drizzle/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, inArray } from "drizzle-orm";
+import { dashboardUsers } from "../../drizzle/schema";
 import { generateCertificatePdf } from "../certificatePdf";
 import { setGhlTag, sendExamResultEmail } from "../ghl";
 
@@ -51,16 +52,38 @@ const adminProcedure = dashboardProcedure.use(({ ctx, next }) => {
   return next({ ctx });
 });
 
+// Helper: enrich exam rows with examiner display names
+async function enrichWithExaminerNames(
+  db: Awaited<ReturnType<typeof getDb>>,
+  rows: (typeof exams.$inferSelect)[]
+) {
+  if (!db || rows.length === 0) return rows.map(r => ({ ...r, examinedByName: null as string | null }));
+  const examinerIds = Array.from(new Set(rows.map(r => r.examinedBy).filter((id): id is number => id != null)));
+  const nameMap: Record<number, string> = {};
+  if (examinerIds.length > 0) {
+    const users = await db
+      .select({ id: dashboardUsers.id, name: dashboardUsers.name })
+      .from(dashboardUsers)
+      .where(inArray(dashboardUsers.id, examinerIds));
+    for (const u of users) nameMap[u.id] = u.name;
+  }
+  return rows.map(r => ({
+    ...r,
+    examinedByName: r.examinedBy != null ? (nameMap[r.examinedBy] ?? null) : null,
+  }));
+}
+
 export const examsRouter = router({
   // ── List pending exams (examiner queue) ──────────────────────────────────
   listPending: examinerProcedure.query(async () => {
     const db = await getDb();
     if (!db) return [];
-    return db
+    const rows = await db
       .select()
       .from(exams)
       .where(eq(exams.status, "pending"))
       .orderBy(exams.createdAt);
+    return enrichWithExaminerNames(db, rows);
   }),
 
   // ── List all exams (admin/examiner overview) ──────────────────────────────
@@ -69,11 +92,22 @@ export const examsRouter = router({
     .query(async ({ input }) => {
       const db = await getDb();
       if (!db) return [];
-      return db
+      const rows = await db
         .select()
         .from(exams)
         .orderBy(desc(exams.createdAt))
         .limit(input.limit);
+      return enrichWithExaminerNames(db, rows);
+    }),
+
+  // ── Delete exam (admin only) ──────────────────────────────────────────────
+  deleteExam: adminProcedure
+    .input(z.object({ examId: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      await db.delete(exams).where(eq(exams.id, input.examId));
+      return { success: true };
     }),
 
   // ── Mark exam as passed ───────────────────────────────────────────────────
