@@ -258,3 +258,16 @@
 
 ## Round 14: Replace booking iframe with external link dialog
 - [x] Replace BookingModal iframe with course info + "Gå till bokning" button opening GHL in new tab
+
+## Backlog / Att göra
+
+### HÖG PRIORITET
+- [ ] GHL: Uppdatera bekräftelsemail för alla kalenders — lägg till datum ({{appointment.formatted_start_date}}) och starttid ({{appointment.start_time}})
+- [ ] GHL: Gå igenom och förbättra bokningstext för alla kurstyper (Intro, Diplo, Cert)
+  - Steglista som guidar studenten genom hela resan från bokning till diplom/certifikat
+  - Info om vad som ska förberedas innan första tillfället
+  - För Diplo + Cert: tydlig info om provet och hur det fungerar
+- [ ] GHL: Sätt upp 4 workflows för provformulären (se fascia_ghl_workflow_guide.md)
+
+### LÅGT PRIORITET
+- [ ] GHL: Hitta inställning för 24-timmarsformat (ta bort AM/PM i bokningswidgeten) — troligen under Calendars → kalender → Widget appearance eller Settings → Business Info

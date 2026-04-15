@@ -129,17 +129,22 @@ export function registerGhlWebhookRoutes(app: Express): void {
    */
   app.post("/api/webhooks/exam-submitted", async (req: Request, res: Response) => {
     try {
-      const body = req.body as {
-        email?: string;
-        contactName?: string;
-        courseType?: string;
-        language?: string;
-      };
+      // GHL Custom Data sends keys as "fieldName / Value:" — normalize to plain keys
+      const rawBody = req.body as Record<string, unknown>;
+      const normalized: Record<string, string> = {};
+      for (const [key, val] of Object.entries(rawBody)) {
+        // Strip " / Value:", " / Va", " /" suffixes that GHL appends
+        const cleanKey = key.replace(/\s*\/.*$/, "").trim();
+        normalized[cleanKey] = String(val ?? "");
+      }
 
-      const email = (body.email ?? "").trim().toLowerCase();
-      const contactName = (body.contactName ?? "").trim();
-      const courseType = (body.courseType ?? "").toLowerCase();
-      const language = (body.language ?? "sv").toLowerCase();
+      const email = (normalized["email"] ?? "").trim().toLowerCase();
+      const contactName = (normalized["contactName"] ?? "").trim();
+      const courseType = (normalized["courseType"] ?? "").toLowerCase();
+      const language = (normalized["language"] ?? "sv").toLowerCase();
+
+      console.log("[examWebhook] Raw body keys:", Object.keys(rawBody));
+      console.log("[examWebhook] Normalized:", { email, contactName, courseType, language });
 
       // Validate required fields
       if (!email) {
