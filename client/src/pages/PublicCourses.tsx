@@ -248,17 +248,15 @@ function BookingModal({
 }) {
   const dateParam = format(startDate, "yyyy-MM-dd");
   const bookingUrl = `https://api.leadconnectorhq.com/widget/booking/${calendarId}?date=${dateParam}`;
+  const locale = lang === "sv" ? sv : enUS;
+  const formattedDate = format(startDate, "d MMMM yyyy", { locale });
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col overflow-hidden">
+        {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b">
-          <div>
-            <h2 className="font-semibold text-gray-900">{t.bookingTitle}</h2>
-            <p className="text-sm text-gray-500">
-              {courseName} · {courseLeaderName} · {format(startDate, "d MMMM yyyy", { locale: lang === "sv" ? sv : enUS })}
-            </p>
-          </div>
+          <h2 className="font-semibold text-gray-900">{t.bookingTitle}</h2>
           <button
             onClick={onClose}
             className="h-8 w-8 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
@@ -266,13 +264,52 @@ function BookingModal({
             <X className="h-4 w-4" />
           </button>
         </div>
-        <div className="flex-1 overflow-hidden">
-          <iframe
-            src={bookingUrl}
-            className="w-full h-full min-h-[500px] border-0"
-            title={`Book ${courseName}`}
-            allow="payment; payment *; camera; microphone; clipboard-read; clipboard-write; geolocation; fullscreen; autoplay; encrypted-media; picture-in-picture; web-share; cross-origin-isolated"
-          />
+
+        {/* Course summary */}
+        <div className="px-6 py-5 space-y-4">
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-gray-500 uppercase tracking-wide">{t.filterType}</p>
+            <p className="text-lg font-semibold text-gray-900">{courseName}</p>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <p className="text-xs text-gray-400 uppercase tracking-wide">{t.startDate}</p>
+              <p className="text-sm font-medium text-gray-800 flex items-center gap-1.5">
+                <Calendar className="h-4 w-4 text-gray-400" />
+                {formattedDate}
+              </p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs text-gray-400 uppercase tracking-wide">{t.courseLeader}</p>
+              <p className="text-sm font-medium text-gray-800 flex items-center gap-1.5">
+                <User className="h-4 w-4 text-gray-400" />
+                {courseLeaderName}
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
+            {lang === "sv"
+              ? "Du kommer att föras vidare till bokningssidan för att slutföra din anmälan och betalning."
+              : "You will be taken to the booking page to complete your registration and payment."}
+          </div>
+
+          <a
+            href={bookingUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 w-full bg-amber-500 hover:bg-amber-600 text-white font-semibold py-3 px-6 rounded-xl transition-colors"
+          >
+            {lang === "sv" ? "Gå till bokning" : "Go to booking"}
+            <ExternalLink className="h-4 w-4" />
+          </a>
+
+          <button
+            onClick={onClose}
+            className="w-full text-sm text-gray-500 hover:text-gray-700 py-2 transition-colors"
+          >
+            {t.close}
+          </button>
         </div>
       </div>
     </div>

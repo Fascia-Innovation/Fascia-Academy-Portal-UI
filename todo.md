@@ -255,3 +255,6 @@
 ## Round 13: Fix GHL booking widget iframe — Stripe not loading
 - [x] Add full allow attribute to booking iframe (payment, popups, forms, scripts)
 - [x] Add server-side headers to allow Stripe/GHL domains in iframe context
+
+## Round 14: Replace booking iframe with external link dialog
+- [x] Replace BookingModal iframe with course info + "Gå till bokning" button opening GHL in new tab
