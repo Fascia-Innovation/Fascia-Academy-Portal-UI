@@ -237,3 +237,9 @@
 - [x] Backend: Send result email to student via GHL API when exam is graded (passed/failed) with examiner feedback
 - [x] Backend: Added sendExamResultEmail() helper in ghl.ts using GHL Conversations API
 - [x] Docs: Created GHL Workflow setup guide for all 4 exam forms at /home/ubuntu/fascia_ghl_workflow_guide.md
+
+## Round 11: Simplify result email — GHL Certificates handles the certificate
+- [x] Remove PDF link from approved result email (GHL Certificates sends the certificate separately)
+- [x] Update approved email text: "Ditt intyg skickas till dig inom kort via ett separat e-postmeddelande"
+- [x] Remove pdfUrl from sendExamResultEmail signature and all call sites
+- [x] Update ExamQueue.tsx success toast to not mention PDF

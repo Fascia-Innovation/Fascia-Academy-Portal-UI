@@ -147,7 +147,6 @@ export const examsRouter = router({
             language: exam.language,
             result: "passed",
             feedback: input.notes ?? null,
-            pdfUrl: pdfUrl ?? null,
           });
         } catch (e) {
           console.error("[exams] Result email (passed) failed:", e);
@@ -192,7 +191,6 @@ export const examsRouter = router({
             language: exam.language,
             result: "failed",
             feedback: input.notes ?? null,
-            pdfUrl: null,
           });
         } catch (e) {
           console.error("[exams] Result email (failed) failed:", e);

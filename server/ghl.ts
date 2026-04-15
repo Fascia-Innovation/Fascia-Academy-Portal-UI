@@ -511,7 +511,6 @@ export async function setGhlTag(contactId: string, tag: string): Promise<void> {
  * @param language     - 'sv' | 'en'
  * @param result       - 'passed' | 'failed'
  * @param feedback     - Optional examiner feedback/comment to include in the email
- * @param pdfUrl       - Optional PDF certificate URL (attached when result = passed)
  */
 export async function sendExamResultEmail(opts: {
   contactId: string;
@@ -521,9 +520,8 @@ export async function sendExamResultEmail(opts: {
   language: string;
   result: "passed" | "failed";
   feedback?: string | null;
-  pdfUrl?: string | null;
 }): Promise<void> {
-  const { contactId, contactEmail, contactName, courseType, language, result, feedback, pdfUrl } = opts;
+  const { contactId, contactEmail, contactName, courseType, language, result, feedback } = opts;
 
   const isSv = language !== "en";
   const courseName = courseType === "cert"
@@ -544,23 +542,21 @@ export async function sendExamResultEmail(opts: {
           : `<p><strong>Examiner's comment:</strong><br>${feedback.replace(/\n/g, "<br>")}</p>`)
       : "";
 
-    const certBlock = pdfUrl
-      ? (isSv
-          ? `<p>Ditt bevis finns bifogat i detta e-postmeddelande och kan även laddas ned via länken nedan:</p><p><a href="${pdfUrl}">Ladda ned bevis (PDF)</a></p>`
-          : `<p>Your certificate is attached to this email and can also be downloaded via the link below:</p><p><a href="${pdfUrl}">Download certificate (PDF)</a></p>`)
-      : "";
+    const certNotice = isSv
+      ? `<p>Ditt intyg skickas till dig inom kort via ett separat e-postmeddelande.</p>`
+      : `<p>Your certificate will be sent to you shortly in a separate email.</p>`;
 
     html = isSv
       ? `<p>Hej ${contactName},</p>
 <p>Vi är glada att meddela att ditt prov för <strong>${courseName}</strong> har blivit <strong>godkänt</strong>!</p>
 ${feedbackBlock}
-${certBlock}
+${certNotice}
 <p>Välkommen att kontakta oss på <a href="mailto:info@fasciaacademy.com">info@fasciaacademy.com</a> om du har några frågor.</p>
 <p>Med vänliga hälsningar,<br>Fascia Academy</p>`
       : `<p>Hi ${contactName},</p>
 <p>We are pleased to inform you that your exam for <strong>${courseName}</strong> has been <strong>approved</strong>!</p>
 ${feedbackBlock}
-${certBlock}
+${certNotice}
 <p>Please feel free to contact us at <a href="mailto:info@fasciaacademy.com">info@fasciaacademy.com</a> if you have any questions.</p>
 <p>Best regards,<br>Fascia Academy</p>`;
   } else {
@@ -587,8 +583,6 @@ ${feedbackBlock}
 <p>Best regards,<br>Fascia Academy</p>`;
   }
 
-  const attachments = pdfUrl && result === "passed" ? [pdfUrl] : [];
-
   const body: Record<string, unknown> = {
     type: "Email",
     contactId,
@@ -598,7 +592,6 @@ ${feedbackBlock}
     html,
     status: "pending",
   };
-  if (attachments.length > 0) body.attachments = attachments;
 
   const url = `${GHL_BASE}/conversations/messages`;
   const res = await fetch(url, {

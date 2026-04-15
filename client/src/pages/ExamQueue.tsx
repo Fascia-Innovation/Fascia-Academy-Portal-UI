@@ -55,10 +55,8 @@ export default function ExamQueue() {
 
   const markPassed = trpc.exams.markPassed.useMutation({
     onSuccess: (data) => {
-      toast.success("Exam approved! Certificate generated.", {
-        description: data.pdfUrl
-          ? "PDF ready. Result email sent to student."
-          : "PDF generation failed — try regenerating from Certificates page.",
+      toast.success("Exam approved!", {
+        description: "Result email sent to student. Issue the certificate in GHL Certificates.",
       });
       utils.exams.listPending.invalidate();
       utils.exams.listAll.invalidate();
