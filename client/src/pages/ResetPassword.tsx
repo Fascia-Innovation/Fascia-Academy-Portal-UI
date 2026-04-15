@@ -94,7 +94,7 @@ export default function ResetPassword() {
             <span className="text-2xl font-bold text-[oklch(0.17_0.04_255)]" style={{ fontFamily: "'Playfair Display', serif" }}>FA</span>
           </div>
           <h1 className="text-3xl font-bold text-white" style={{ fontFamily: "'Playfair Display', serif" }}>Fascia Academy</h1>
-          <p className="text-[oklch(0.65_0.03_250)] mt-2 text-sm">Settlement Portal</p>
+          <p className="text-[oklch(0.65_0.03_250)] mt-2 text-sm">Fascia Academy Settlement Portal</p>
         </div>
 
         <div className="bg-white rounded-2xl shadow-2xl p-8">
