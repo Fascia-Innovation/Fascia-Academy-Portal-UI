@@ -616,6 +616,64 @@ ${feedbackBlock}
   }
 }
 
+/**
+ * Send an admin notification email to info@fasciaacademy.com when a new exam is submitted.
+ */
+export async function sendAdminExamNotification(opts: {
+  contactName: string;
+  contactEmail: string;
+  courseType: "diplo" | "cert";
+  language: string;
+}): Promise<void> {
+  const { contactName, contactEmail, courseType, language } = opts;
+  const ADMIN_CONTACT_ID = "DE7AomgMw1EEbM3SIVj0";
+  const ADMIN_EMAIL = "info@fasciaacademy.com";
+
+  const courseName = courseType === "cert"
+    ? (language === "en" ? "Certified Fascia Specialist" : "Certifierad Fasciaspecialist")
+    : (language === "en" ? "Qualified Fascia Specialist" : "Diplomerad Fasciaspecialist");
+
+  const subject = `New exam submitted: ${contactName} – ${courseName}`;
+  const html = `<p>A new exam has been submitted and is waiting for review in the Exam Queue.</p>
+<ul>
+  <li><strong>Student:</strong> ${contactName}</li>
+  <li><strong>Email:</strong> ${contactEmail}</li>
+  <li><strong>Course:</strong> ${courseName}</li>
+  <li><strong>Language:</strong> ${language === "en" ? "English" : "Swedish"}</li>
+</ul>
+<p><a href="https://fascidash-9qucsw5g.manus.space/exam-queue">Open Exam Queue →</a></p>`;
+
+  const body: Record<string, unknown> = {
+    type: "Email",
+    contactId: ADMIN_CONTACT_ID,
+    emailTo: ADMIN_EMAIL,
+    emailFrom: "info@fasciaacademy.com",
+    subject,
+    html,
+    status: "pending",
+  };
+
+  const url = `${GHL_BASE}/conversations/messages`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${API_KEY}`,
+      Version: "2021-04-15",
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    console.error(`[sendAdminExamNotification] GHL error ${res.status}: ${text}`);
+    // Don't throw — admin notification failure should not block the exam submission
+  } else {
+    console.log(`[sendAdminExamNotification] Admin notified for ${contactName} (${courseType}/${language})`);
+  }
+}
+
 // ─── Course name extraction ───────────────────────────────────────────────────
 export function extractCourseLeaderName(calendarName: string): string {
   // Pattern: "Introduktionskurs Fascia - Anna Lindgren - Stockholm"

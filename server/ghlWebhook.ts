@@ -23,7 +23,7 @@
 import type { Express, Request, Response } from "express";
 import { getDb } from "./db";
 import { exams, certificates } from "../drizzle/schema";
-import { detectCourseType, getCalendars, searchContactByEmail } from "./ghl";
+import { detectCourseType, getCalendars, searchContactByEmail, sendAdminExamNotification } from "./ghl";
 import { generateCertificatePdf } from "./certificatePdf";
 
 export function registerGhlWebhookRoutes(app: Express): void {
@@ -205,6 +205,15 @@ export function registerGhlWebhookRoutes(app: Express): void {
       });
 
       console.log(`[examWebhook] Exam submission recorded for ${resolvedName || email} (${courseType}/${language})`);
+
+      // Notify admin via email
+      sendAdminExamNotification({
+        contactName: resolvedName || email,
+        contactEmail: email,
+        courseType: courseType as "diplo" | "cert",
+        language,
+      }).catch((e) => console.error("[examWebhook] Admin notification failed:", e));
+
       return res.json({
         ok: true,
         action: "exam_queued",
