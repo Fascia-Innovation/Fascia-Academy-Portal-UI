@@ -247,3 +247,11 @@
 ## Round 12: GHL Certificates reminder + GHL Workflow guide delivery
 - [x] Add GHL Certificates reminder in Exam Queue approval dialog
 - [x] Deliver simplified GHL Workflow setup guide
+
+## Round 13: Bug fix — booking dialog infinite loading spinner
+- [ ] Investigate why Payment Information section in booking dialog spins indefinitely
+- [ ] Fix the root cause
+
+## Round 13: Fix GHL booking widget iframe — Stripe not loading
+- [x] Add full allow attribute to booking iframe (payment, popups, forms, scripts)
+- [x] Add server-side headers to allow Stripe/GHL domains in iframe context

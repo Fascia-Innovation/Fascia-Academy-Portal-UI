@@ -271,7 +271,7 @@ function BookingModal({
             src={bookingUrl}
             className="w-full h-full min-h-[500px] border-0"
             title={`Book ${courseName}`}
-            allow="payment"
+            allow="payment; payment *; camera; microphone; clipboard-read; clipboard-write; geolocation; fullscreen; autoplay; encrypted-media; picture-in-picture; web-share; cross-origin-isolated"
           />
         </div>
       </div>
