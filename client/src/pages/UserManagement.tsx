@@ -334,11 +334,12 @@ export default function UserManagement() {
             {form.role === "course_leader" && (
               <>
                 <div className="space-y-1.5">
-                  <Label>GHL Calendar ID (optional)</Label>
-                  <Input value={form.ghlContactId} onChange={(e) => setForm({ ...form, ghlContactId: e.target.value })} placeholder="Override calendar ID for multi-leader calendars" />
+                  <Label>GHL Calendar ID Override (optional)</Label>
+                  <Input value={form.ghlContactId} onChange={(e) => setForm({ ...form, ghlContactId: e.target.value })} placeholder="e.g. abc123xyz (from GHL calendar URL)" />
                   <p className="text-xs text-muted-foreground">
-                    Leave blank if the calendar name contains the leader's name (e.g. "Intro - Anna Lindgren - Stockholm").
-                    Set this for shared calendars like "Fascia Academy Sollentuna".
+                    Only needed for shared/multi-leader calendars (e.g. "Fascia Academy Sollentuna").
+                    Leave blank if the GHL calendar name already contains this leader's name.
+                    Find the ID in GHL → Calendars → click calendar → copy ID from the URL.
                   </p>
                 </div>
                 <div className="space-y-1.5">

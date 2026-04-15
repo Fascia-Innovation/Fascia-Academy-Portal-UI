@@ -1049,13 +1049,15 @@ function MoreAboutCourses({ lang, t }: { lang: Lang; t: (typeof T)[Lang] }) {
 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 export default function PublicCourses() {
-  const urlLang = (new URLSearchParams(window.location.search).get("lang") as Lang) || "sv";
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlLang = (urlParams.get("lang") as Lang) || "sv";
+  const urlLeader = urlParams.get("courseLeaderName") || "all";
   const [lang, setLang] = useState<Lang>(urlLang);
   const t = T[lang];
 
   const [viewMode, setViewMode] = useState<ViewMode>("calendar");
   const [filterType, setFilterType] = useState<CourseType | "all">("all");
-  const [filterLeader, setFilterLeader] = useState<string>("all");
+  const [filterLeader, setFilterLeader] = useState<string>(urlLeader);
 
   const [bookingDate, setBookingDate] = useState<null | {
     calendarId: string;
@@ -1179,7 +1181,7 @@ export default function PublicCourses() {
                 <option value="intro" className="text-gray-900">{(t.courseTypes as Record<string,string>).intro}</option>
                 <option value="diplo" className="text-gray-900">{(t.courseTypes as Record<string,string>).diplo}</option>
                 <option value="cert" className="text-gray-900">{(t.courseTypes as Record<string,string>).cert}</option>
-                <option value="vidare" className="text-gray-900">{(t.courseTypes as Record<string,string>).vidare}</option>
+{/* vidare hidden from public filter — not in use currently */}
               </select>
               <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-white/60 pointer-events-none" />
             </div>
