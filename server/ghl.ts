@@ -455,24 +455,27 @@ export function calculateBreakdown(
  * Returns the first matching contact or null if not found.
  */
 export async function searchContactByEmail(email: string): Promise<GHLContact | null> {
+  // GHL v2 search endpoint uses 'query' param
   try {
     const data = await ghlGet<{ contacts: GHLContact[] }>(
-      `/contacts/search`,
-      { locationId: LOCATION_ID, email, limit: "1" }
+      `/contacts/search/duplicate`,
+      { locationId: LOCATION_ID, email }
     );
-    return data.contacts?.[0] ?? null;
-  } catch {
-    // Fallback: search via /contacts/ with email filter
-    try {
-      const data = await ghlGet<{ contacts: GHLContact[] }>(
-        `/contacts/`,
-        { locationId: LOCATION_ID, email, limit: "1" }
-      );
-      return data.contacts?.[0] ?? null;
-    } catch {
-      return null;
-    }
+    if (data.contacts?.[0]) return data.contacts[0];
+  } catch (e) {
+    console.warn("[searchContactByEmail] duplicate search failed:", e);
   }
+  // Fallback: /contacts/ with email query
+  try {
+    const data = await ghlGet<{ contacts: GHLContact[] }>(
+      `/contacts/`,
+      { locationId: LOCATION_ID, query: email, limit: "1" }
+    );
+    if (data.contacts?.[0]) return data.contacts[0];
+  } catch (e) {
+    console.warn("[searchContactByEmail] contacts list search failed:", e);
+  }
+  return null;
 }
 
 // ─── Contact mutation helpers ───────────────────────────────────────────────

@@ -17,7 +17,7 @@ import { exams, certificates } from "../../drizzle/schema";
 import { eq, desc, inArray } from "drizzle-orm";
 import { dashboardUsers } from "../../drizzle/schema";
 import { generateCertificatePdf } from "../certificatePdf";
-import { setGhlTag, sendExamResultEmail } from "../ghl";
+import { setGhlTag, sendExamResultEmail, searchContactByEmail } from "../ghl";
 
 const DASH_SESSION = "fa_dash_session";
 
@@ -160,12 +160,28 @@ export const examsRouter = router({
         examId: exam.id,
       }).$returningId();
 
+      // Resolve real GHL contact ID if stored as email fallback
+      let resolvedContactId = exam.ghlContactId;
+      if (resolvedContactId.startsWith("email:") && exam.contactEmail) {
+        try {
+          const contact = await searchContactByEmail(exam.contactEmail);
+          if (contact) {
+            resolvedContactId = contact.id;
+            // Update the stored contact ID for future use
+            await db.update(exams).set({ ghlContactId: contact.id }).where(eq(exams.id, exam.id));
+            console.log(`[exams] Resolved GHL contact ID for ${exam.contactEmail}: ${contact.id}`);
+          }
+        } catch (e) {
+          console.error("[exams] Contact ID re-lookup failed:", e);
+        }
+      }
+
       // Set GHL tag
       try {
         const tag = exam.courseType === "cert"
           ? "exam-passed-certified-fs"
           : "exam-passed-qualified-fs";
-        await setGhlTag(exam.ghlContactId, tag);
+        await setGhlTag(resolvedContactId, tag);
       } catch (e) {
         console.error("[exams] GHL tag set failed:", e);
       }
@@ -174,7 +190,7 @@ export const examsRouter = router({
       if (exam.contactEmail) {
         try {
           await sendExamResultEmail({
-            contactId: exam.ghlContactId,
+            contactId: resolvedContactId,
             contactEmail: exam.contactEmail,
             contactName: exam.contactName,
             courseType: exam.courseType as "diplo" | "cert",
@@ -214,11 +230,25 @@ export const examsRouter = router({
         })
         .where(eq(exams.id, input.examId));
 
+      // Resolve real GHL contact ID if stored as email fallback
+      let resolvedContactId = exam.ghlContactId;
+      if (resolvedContactId.startsWith("email:") && exam.contactEmail) {
+        try {
+          const contact = await searchContactByEmail(exam.contactEmail);
+          if (contact) {
+            resolvedContactId = contact.id;
+            await db.update(exams).set({ ghlContactId: contact.id }).where(eq(exams.id, exam.id));
+          }
+        } catch (e) {
+          console.error("[exams] Contact ID re-lookup failed:", e);
+        }
+      }
+
       // Send result email to student
       if (exam.contactEmail) {
         try {
           await sendExamResultEmail({
-            contactId: exam.ghlContactId,
+            contactId: resolvedContactId,
             contactEmail: exam.contactEmail,
             contactName: exam.contactName,
             courseType: exam.courseType as "diplo" | "cert",
