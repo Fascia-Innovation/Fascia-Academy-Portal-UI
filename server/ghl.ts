@@ -449,6 +449,32 @@ export function calculateBreakdown(
   };
 }
 
+// ─── Contact search helpers ─────────────────────────────────────────────────
+/**
+ * Search for a GHL contact by email address.
+ * Returns the first matching contact or null if not found.
+ */
+export async function searchContactByEmail(email: string): Promise<GHLContact | null> {
+  try {
+    const data = await ghlGet<{ contacts: GHLContact[] }>(
+      `/contacts/search`,
+      { locationId: LOCATION_ID, email, limit: "1" }
+    );
+    return data.contacts?.[0] ?? null;
+  } catch {
+    // Fallback: search via /contacts/ with email filter
+    try {
+      const data = await ghlGet<{ contacts: GHLContact[] }>(
+        `/contacts/`,
+        { locationId: LOCATION_ID, email, limit: "1" }
+      );
+      return data.contacts?.[0] ?? null;
+    } catch {
+      return null;
+    }
+  }
+}
+
 // ─── Contact mutation helpers ───────────────────────────────────────────────
 /**
  * Add a tag to a GHL contact.

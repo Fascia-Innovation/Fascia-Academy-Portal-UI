@@ -23,7 +23,7 @@
 import type { Express, Request, Response } from "express";
 import { getDb } from "./db";
 import { exams, certificates } from "../drizzle/schema";
-import { detectCourseType, getCalendars } from "./ghl";
+import { detectCourseType, getCalendars, searchContactByEmail } from "./ghl";
 import { generateCertificatePdf } from "./certificatePdf";
 
 export function registerGhlWebhookRoutes(app: Express): void {
@@ -109,6 +109,99 @@ export function registerGhlWebhookRoutes(app: Express): void {
       }
     } catch (err) {
       console.error("[ghlWebhook] Error:", err);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  /**
+   * POST /api/webhooks/exam-submitted
+   *
+   * Called by GHL Workflow when a student submits an exam survey/form.
+   * Creates a pending exam record in the Exam Queue.
+   *
+   * Expected payload:
+   * {
+   *   "email": "student@example.com",
+   *   "contactName": "Anna Svensson",
+   *   "courseType": "diplo" | "cert",
+   *   "language": "sv" | "en"
+   * }
+   */
+  app.post("/api/webhooks/exam-submitted", async (req: Request, res: Response) => {
+    try {
+      const body = req.body as {
+        email?: string;
+        contactName?: string;
+        courseType?: string;
+        language?: string;
+      };
+
+      const email = (body.email ?? "").trim().toLowerCase();
+      const contactName = (body.contactName ?? "").trim();
+      const courseType = (body.courseType ?? "").toLowerCase();
+      const language = (body.language ?? "sv").toLowerCase();
+
+      // Validate required fields
+      if (!email) {
+        return res.status(400).json({ error: "Missing email" });
+      }
+      if (courseType !== "diplo" && courseType !== "cert") {
+        return res.status(400).json({ error: "courseType must be 'diplo' or 'cert'" });
+      }
+      if (language !== "sv" && language !== "en") {
+        return res.status(400).json({ error: "language must be 'sv' or 'en'" });
+      }
+
+      const db = await getDb();
+      if (!db) {
+        console.error("[examWebhook] DB unavailable");
+        return res.status(500).json({ error: "DB unavailable" });
+      }
+
+      // Look up GHL contact by email to get the contactId
+      let ghlContactId: string | null = null;
+      let resolvedName = contactName;
+
+      try {
+        const contact = await searchContactByEmail(email);
+        if (contact) {
+          ghlContactId = contact.id;
+          // Use GHL name if no name was provided in the webhook
+          if (!resolvedName && (contact.firstName || contact.lastName)) {
+            resolvedName = [contact.firstName, contact.lastName].filter(Boolean).join(" ");
+          }
+          console.log(`[examWebhook] Found GHL contact: ${contact.id} for email ${email}`);
+        } else {
+          console.warn(`[examWebhook] No GHL contact found for email ${email} — creating exam with email as ID`);
+          // Use email as fallback contactId so the record is still created
+          ghlContactId = `email:${email}`;
+        }
+      } catch (e) {
+        console.error("[examWebhook] GHL contact lookup failed:", e);
+        ghlContactId = `email:${email}`;
+      }
+
+      // Create exam record in queue
+      await db.insert(exams).values({
+        ghlContactId: ghlContactId!,
+        contactName: resolvedName || email,
+        contactEmail: email,
+        courseType: courseType as "diplo" | "cert",
+        language: language as "sv" | "en",
+        status: "pending",
+      });
+
+      console.log(`[examWebhook] Exam submission recorded for ${resolvedName || email} (${courseType}/${language})`);
+      return res.json({
+        ok: true,
+        action: "exam_queued",
+        email,
+        courseType,
+        language,
+        ghlContactId,
+      });
+    } catch (err) {
+      console.error("[examWebhook] Error:", err);
       return res.status(500).json({ error: "Internal server error" });
     }
   });
