@@ -466,6 +466,123 @@ export const appRouter = router({
       return Array.from(grouped.values()).sort((a, b) => (a.appointments[0]?.startTime ?? "").localeCompare(b.appointments[0]?.startTime ?? ""));
     }),
 
+    // ── Students: aggregate participant data from GHL appointments + certificates ──
+    students: adminProcedure
+      .input(z.object({ search: z.string().optional() }))
+      .query(async ({ input }) => {
+        // Fetch all appointments from the last 2 years + next 3 months
+        const now = new Date();
+        const twoYearsAgo = new Date(now.getFullYear() - 2, now.getMonth(), 1);
+        const threeMonthsAhead = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
+        const [calendars, appointments] = await Promise.all([
+          getCalendars(),
+          getAllAppointments(twoYearsAgo.toISOString(), threeMonthsAhead.toISOString()),
+        ]);
+        const calMap = new Map(calendars.map((c) => [c.id, c]));
+
+        // Build per-contact aggregation
+        type StudentRecord = {
+          contactId: string;
+          name: string;
+          email: string;
+          courses: Array<{ calendarName: string; courseType: string; date: string; status: string; courseLeader: string }>;
+          totalSpend: number;
+          currency: string;
+        };
+        const studentMap = new Map<string, StudentRecord>();
+
+        for (const appt of appointments) {
+          const status = (appt.appointmentStatus ?? appt.status ?? "").toLowerCase();
+          if (status === "cancelled" || status === "no_show" || status === "noshow" || status === "invalid") continue;
+          const cal = calMap.get(appt.calendarId);
+          if (!cal) continue;
+          const courseType = detectCourseType(cal.name);
+          const currency = detectCurrency(cal.name);
+          const courseLeader = extractCourseLeaderName(cal.name);
+
+          if (!studentMap.has(appt.contactId)) {
+            const contact = await getContact(appt.contactId);
+            const name = [contact?.firstName, contact?.lastName].filter(Boolean).join(" ") || "Unknown";
+            studentMap.set(appt.contactId, {
+              contactId: appt.contactId,
+              name,
+              email: contact?.email ?? "",
+              courses: [],
+              totalSpend: 0,
+              currency,
+            });
+          }
+          const rec = studentMap.get(appt.contactId)!;
+          const isShowed = status === "showed";
+          rec.courses.push({
+            calendarName: cal.name,
+            courseType,
+            date: appt.startTime,
+            status: isShowed ? "completed" : "booked",
+            courseLeader,
+          });
+
+          // Add spend for showed appointments
+          if (isShowed) {
+            const allFields = [...(appt.customFields ?? [])];
+            const contact = await getContact(appt.contactId);
+            if (contact?.customFields) allFields.push(...contact.customFields);
+            const paidField = allFields.find(
+              (f) => f.id.toLowerCase().includes("paid_amount") || f.id.toLowerCase().includes("paidamount")
+            );
+            const rawVal = paidField?.value;
+            const isMissing = rawVal === undefined || rawVal === null || rawVal === "";
+            let paid = isMissing ? NaN : Number(rawVal);
+            if (isMissing || isNaN(paid)) {
+              if (courseType === "intro") paid = currency === "SEK" ? 3500 : 350;
+              else if (courseType === "diplo") paid = currency === "SEK" ? 15000 : 1500;
+              else if (courseType === "cert") paid = currency === "SEK" ? 50000 : 5000;
+              else paid = currency === "SEK" ? 3500 : 350;
+            }
+            rec.totalSpend += paid;
+          }
+        }
+
+        // Fetch certificates from DB
+        const db = await import("./db").then((m) => m.getDb());
+        let certMap = new Map<string, Array<{ courseType: string; issuedAt: Date | null }>>(); 
+        if (db) {
+          const { certificates: certTable } = await import("../drizzle/schema");
+          const allCerts = await db.select().from(certTable);
+          for (const cert of allCerts) {
+            if (!certMap.has(cert.ghlContactId)) certMap.set(cert.ghlContactId, []);
+            certMap.get(cert.ghlContactId)!.push({ courseType: cert.courseType, issuedAt: cert.issuedAt });
+          }
+        }
+
+        // Build result array
+        let results = Array.from(studentMap.values()).map((s) => {
+          const certs = certMap.get(s.contactId) ?? [];
+          const completedCourses = s.courses.filter((c) => c.status === "completed");
+          const bookedCourses = s.courses.filter((c) => c.status === "booked");
+          return {
+            contactId: s.contactId,
+            name: s.name,
+            email: s.email,
+            bookedCourses: bookedCourses.map((c) => ({ courseType: c.courseType, date: c.date, courseLeader: c.courseLeader })),
+            completedCourses: completedCourses.map((c) => ({ courseType: c.courseType, date: c.date, courseLeader: c.courseLeader })),
+            certificates: certs.map((c) => ({ courseType: c.courseType, issuedAt: c.issuedAt?.toISOString() ?? null })),
+            totalSpend: s.totalSpend,
+            currency: s.currency,
+          };
+        });
+
+        // Apply search filter
+        if (input.search) {
+          const q = input.search.toLowerCase();
+          results = results.filter((r) =>
+            r.name.toLowerCase().includes(q) || r.email.toLowerCase().includes(q)
+          );
+        }
+
+        return results.sort((a, b) => a.name.localeCompare(b.name));
+      }),
+
     courseCalendar: adminProcedure
       .input(z.object({
         startMs: z.number(),
@@ -494,6 +611,7 @@ export const appRouter = router({
 
   // ── Course Leader ──────────────────────────────────────────────────────────
   courseLeader: router({
+    // Helper: resolve this leader's calendar IDs
     myData: dashboardProcedure
       .input(z.object({ year: z.number(), month: z.number() }))
       .query(async ({ input, ctx }) => {
@@ -503,12 +621,7 @@ export const appRouter = router({
         }
         const { showed, calMap } = await fetchMonthData(input.year, input.month);
         const myName = dashUser.name;
-
-        // Match calendars by:
-        // 1. Name extracted from calendar title ("Intro - Victor Forsell - Stockholm" → "Victor Forsell")
-        // 2. Exact calendar name match (for multi-leader calendars like "Fascia Academy Sollentuna")
-        //    stored as ghlContactId field (we repurpose it for calendar ID override)
-        const calendarIdOverride = dashUser.ghlContactId; // admin can set this to a specific calendarId
+        const calendarIdOverride = dashUser.ghlContactId;
         const myCals = Array.from(calMap.values()).filter((c) => {
           if (calendarIdOverride && c.id === calendarIdOverride) return true;
           return extractCourseLeaderName(c.name).toLowerCase().trim() === myName.toLowerCase().trim();
@@ -531,6 +644,162 @@ export const appRouter = router({
 
         return { courseLeaderName: myName, courses: Array.from(courseMap.values()) };
       }),
+
+    // ── My Overview: motivational stats comparing with self over time ──
+    myOverview: dashboardProcedure.query(async ({ ctx }) => {
+      const dashUser = (ctx as { dashUser: DashboardUser }).dashUser;
+      if (dashUser.role !== "admin" && dashUser.role !== "course_leader") {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+      const myName = dashUser.name;
+      const calendarIdOverride = dashUser.ghlContactId;
+      const calendars = await getCalendars();
+      const calMap = new Map(calendars.map((c) => [c.id, c]));
+      const myCals = calendars.filter((c) => {
+        if (calendarIdOverride && c.id === calendarIdOverride) return true;
+        return extractCourseLeaderName(c.name).toLowerCase().trim() === myName.toLowerCase().trim();
+      });
+      const myCalIds = new Set(myCals.map((c) => c.id));
+
+      // Get data for the last 6 months
+      const months = getPreviousMonths(6);
+      const monthlyStats = [];
+      let totalPayoutSEK = 0;
+      let totalPayoutEUR = 0;
+      let totalParticipants = 0;
+
+      for (const m of months) {
+        const { start, end } = getMonthRange(m.year, m.month);
+        const appointments = await getAllAppointments(start, end);
+        const showed = appointments.filter((a) => a.status === "showed" && myCalIds.has(a.calendarId));
+        let monthPayoutSEK = 0;
+        let monthPayoutEUR = 0;
+
+        for (const appt of showed) {
+          const b = await buildParticipantBreakdown(appt, calMap);
+          if (!b) continue;
+          if (b.currency === "SEK") monthPayoutSEK += b.courseLeaderPayout;
+          else monthPayoutEUR += b.courseLeaderPayout;
+        }
+
+        monthlyStats.push({
+          label: m.label,
+          year: m.year,
+          month: m.month,
+          participants: showed.length,
+          payoutSEK: monthPayoutSEK,
+          payoutEUR: monthPayoutEUR,
+        });
+        totalPayoutSEK += monthPayoutSEK;
+        totalPayoutEUR += monthPayoutEUR;
+        totalParticipants += showed.length;
+      }
+
+      // Count upcoming courses from courseDates
+      const db = await import("./db").then((m) => m.getDb());
+      let upcomingCount = 0;
+      if (db) {
+        const { courseDates: cdTable } = await import("../drizzle/schema");
+        const { sql } = await import("drizzle-orm");
+        const rows = await db.select().from(cdTable).where(
+          sql`${cdTable.courseLeaderName} = ${myName} AND ${cdTable.startDate} > NOW() AND ${cdTable.published} = true`
+        );
+        upcomingCount = rows.length;
+      }
+
+      return {
+        courseLeaderName: myName,
+        monthlyStats,
+        totalPayoutSEK,
+        totalPayoutEUR,
+        totalParticipants,
+        upcomingCourses: upcomingCount,
+      };
+    }),
+
+    // ── My Participants: per-course participant lists with privacy controls ──
+    myParticipants: dashboardProcedure.query(async ({ ctx }) => {
+      const dashUser = (ctx as { dashUser: DashboardUser }).dashUser;
+      if (dashUser.role !== "admin" && dashUser.role !== "course_leader") {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+      const myName = dashUser.name;
+      const calendarIdOverride = dashUser.ghlContactId;
+      const calendars = await getCalendars();
+      const calMap = new Map(calendars.map((c) => [c.id, c]));
+      const myCals = calendars.filter((c) => {
+        if (calendarIdOverride && c.id === calendarIdOverride) return true;
+        return extractCourseLeaderName(c.name).toLowerCase().trim() === myName.toLowerCase().trim();
+      });
+      const myCalIds = new Set(myCals.map((c) => c.id));
+
+      // Fetch appointments from last 6 months + next 3 months
+      const now = new Date();
+      const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 6, 1);
+      const threeMonthsAhead = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
+      const appointments = await getAllAppointments(sixMonthsAgo.toISOString(), threeMonthsAhead.toISOString());
+
+      // Group by calendar and date
+      type ParticipantInfo = {
+        contactId: string;
+        firstName: string;
+        lastName: string;
+        phone: string | null; // only for upcoming/active courses
+      };
+      type CourseEvent = {
+        calendarId: string;
+        calendarName: string;
+        courseType: string;
+        date: string;
+        isPast: boolean;
+        participants: ParticipantInfo[];
+      };
+
+      const eventMap = new Map<string, CourseEvent>();
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      for (const appt of appointments) {
+        if (!myCalIds.has(appt.calendarId)) continue;
+        const status = (appt.appointmentStatus ?? appt.status ?? "").toLowerCase();
+        if (status === "cancelled" || status === "noshow" || status === "no_show" || status === "invalid") continue;
+
+        const cal = calMap.get(appt.calendarId);
+        if (!cal) continue;
+        const courseType = detectCourseType(cal.name);
+        const dateKey = appt.startTime.substring(0, 10);
+        const eventKey = `${appt.calendarId}_${dateKey}`;
+        const eventDate = new Date(appt.startTime);
+        const isPast = eventDate < today;
+
+        if (!eventMap.has(eventKey)) {
+          eventMap.set(eventKey, {
+            calendarId: appt.calendarId,
+            calendarName: cal.name,
+            courseType,
+            date: appt.startTime,
+            isPast,
+            participants: [],
+          });
+        }
+
+        const contact = await getContact(appt.contactId);
+        const firstName = contact?.firstName ?? "";
+        const lastName = contact?.lastName ?? "";
+        // Privacy: phone only visible for upcoming/active courses
+        const phone = isPast ? null : (contact?.phone ?? null);
+
+        eventMap.get(eventKey)!.participants.push({
+          contactId: appt.contactId,
+          firstName,
+          lastName,
+          phone,
+        });
+      }
+
+      const events = Array.from(eventMap.values()).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      return { events };
+    }),
   }),
 
   // ── Affiliate ──────────────────────────────────────────────────────────────

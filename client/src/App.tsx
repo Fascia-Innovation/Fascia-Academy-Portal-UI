@@ -9,18 +9,15 @@ import Login from "./pages/Login";
 import AdminOverview from "./pages/AdminOverview";
 import CourseLeaderRanking from "./pages/CourseLeaderRanking";
 import AffiliateRanking from "./pages/AffiliateRanking";
-import MonthlyHistory from "./pages/MonthlyHistory";
-import UpcomingCourses from "./pages/UpcomingCourses";
-import CourseCalendar from "./pages/CourseCalendar";
-import UserManagement from "./pages/UserManagement";
+import CoursesAdmin from "./pages/CoursesAdmin";
+import Students from "./pages/Students";
+import SettingsPage from "./pages/SettingsPage";
 import MyCourses from "./pages/MyCourses";
+import MyOverview from "./pages/MyOverview";
 import MyCommissions from "./pages/MyCommissions";
 import NotFound from "./pages/NotFound";
-import CourseDates from "./pages/CourseDates";
 import PublicCourses from "./pages/PublicCourses";
-import QuickLinks from "./pages/QuickLinks";
 import Settlements from "./pages/Settlements";
-import CourseLeaderLinks from "./pages/CourseLeaderLinks";
 import ResetPassword from "./pages/ResetPassword";
 import ExamQueue from "./pages/ExamQueue";
 import Certificates from "./pages/Certificates";
@@ -50,7 +47,7 @@ function AppRoutes() {
   if (location === "/login") {
     if (user) {
       if (user.role === "admin") return <Redirect to="/" />;
-      if (user.role === "course_leader") return <Redirect to="/my-courses" />;
+      if (user.role === "course_leader") return <Redirect to="/my-overview" />;
       return <Redirect to="/my-commissions" />;
     }
     return <Login />;
@@ -58,28 +55,31 @@ function AppRoutes() {
 
   if (!user) return <Redirect to="/login" />;
 
-  if (location === "/" && user.role === "course_leader") return <Redirect to="/my-courses" />;
+  if (location === "/" && user.role === "course_leader") return <Redirect to="/my-overview" />;
   if (location === "/" && user.role === "affiliate") return <Redirect to="/my-commissions" />;
 
   return (
     <DashboardShell>
       <Switch>
+        {/* Admin routes */}
         {user.role === "admin" && <Route path="/" component={AdminOverview} />}
+        {user.role === "admin" && <Route path="/courses-admin" component={CoursesAdmin} />}
+        {user.role === "admin" && <Route path="/students" component={Students} />}
         {user.role === "admin" && <Route path="/course-leaders" component={CourseLeaderRanking} />}
         {user.role === "admin" && <Route path="/affiliates" component={AffiliateRanking} />}
-        {user.role === "admin" && <Route path="/history" component={MonthlyHistory} />}
-        {user.role === "admin" && <Route path="/upcoming" component={UpcomingCourses} />}
-        {user.role === "admin" && <Route path="/course-calendar" component={CourseCalendar} />}
-        {user.role === "admin" && <Route path="/course-dates" component={CourseDates} />}
-        {user.role === "admin" && <Route path="/users" component={UserManagement} />}
-        {user.role === "admin" && <Route path="/quick-links" component={QuickLinks} />}
         {user.role === "admin" && <Route path="/settlements" component={Settlements} />}
+        {user.role === "admin" && <Route path="/settings" component={SettingsPage} />}
         {(user.role === "admin" || user.canExamineExams) && <Route path="/exam-queue" component={ExamQueue} />}
         {(user.role === "admin" || user.canExamineExams) && <Route path="/certificates" component={Certificates} />}
-        {(user.role === "course_leader" || user.role === "affiliate") && <Route path="/my-settlements" component={Settlements} />}
-        {user.role === "course_leader" && <Route path="/leader-links" component={CourseLeaderLinks} />}
+
+        {/* Course Leader routes */}
+        {user.role === "course_leader" && <Route path="/my-overview" component={MyOverview} />}
         {(user.role === "admin" || user.role === "course_leader") && <Route path="/my-courses" component={MyCourses} />}
+        {(user.role === "course_leader" || user.role === "affiliate") && <Route path="/my-settlements" component={Settlements} />}
+
+        {/* Affiliate routes */}
         {(user.role === "admin" || user.role === "affiliate") && <Route path="/my-commissions" component={MyCommissions} />}
+
         <Route component={NotFound} />
       </Switch>
     </DashboardShell>

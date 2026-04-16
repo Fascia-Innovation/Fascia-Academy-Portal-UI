@@ -271,3 +271,52 @@
 
 ### LÅGT PRIORITET
 - [ ] GHL: Hitta inställning för 24-timmarsformat (ta bort AM/PM i bokningswidgeten) — troligen under Calendars → kalender → Widget appearance eller Settings → Business Info
+
+## Round 15: Portal Restructure
+
+### Navigation & Layout
+- [x] New admin sidebar: Overview, Courses, Students, Course Leaders, Affiliates, Settlements, Exam Queue, Certificates, Settings
+- [x] Remove standalone pages: Monthly History, Upcoming Bookings, Course Calendar, Course Dates, Quick Links, User Management
+- [x] Quick Links → header dropdown widget (both admin and course leader links)
+- [x] Course leader sidebar: My Overview, My Courses, My Settlements (+ Exam Queue if canExamineExams)
+
+### Merged Overview Page (Admin)
+- [x] Merge AdminOverview + MonthlyHistory into single Overview page with tabs (Current Month / History)
+- [x] Current Month tab: KPI cards + revenue breakdown (existing AdminOverview content)
+- [x] History tab: charts + data table (existing MonthlyHistory content)
+
+### Merged Courses Page (Admin)
+- [x] Three tabs: Calendar, Upcoming Bookings, Manage Dates
+- [x] Calendar tab: existing CourseCalendar content with participant lists per event
+- [x] Upcoming Bookings tab: existing UpcomingCourses content
+- [x] Manage Dates tab: existing CourseDates admin CRUD
+- [x] Participant list per event (admin sees full data: name, email, phone, status)
+
+### Students Page (Admin)
+- [x] New page pulling participant data from GHL
+- [x] Show: name, email, booked courses, completed courses + dates, certificates, course leader, total spend
+- [x] Exam pass/fail NOT shown (only whether they have certificate)
+- [x] No export functionality
+
+### Quick Links Header Widget
+- [x] Dropdown in header area with admin quick links (add course date, add user, public page, GHL, etc.)
+- [x] Course leader version with their specific links (forms, handbook, community, contact)
+
+### Course Leader Views
+- [x] My Overview: motivational stats (participants over time, compare with self), upcoming courses summary, payout summary
+- [x] My Courses: upcoming courses + participant lists with privacy controls
+- [x] Privacy: upcoming/active courses show first+last name + phone; historical courses show first+last name only
+- [x] Privacy: settlement/invoice context shows first+last name only
+- [x] No export of customer data for course leaders
+- [x] No historical customer lists accessible
+
+### Settings Page (Admin)
+- [x] Merge User Management into Settings page
+- [x] Preserve View As functionality prominently
+
+### Notifications
+- [x] Header notification indicator for: new bookings, settlement approved, new exam to grade (only if canExamineExams)
+
+### Backend
+- [x] Students tRPC procedure: fetch contacts from GHL with course/certificate data
+- [x] Course leader data access controls: restrict PII based on course timing

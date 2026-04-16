@@ -20,7 +20,7 @@ function formatDate(iso: string) {
   });
 }
 
-export default function UpcomingCourses() {
+export default function UpcomingCourses({ embedded = false }: { embedded?: boolean } = {}) {
   const { data, isLoading, error } = trpc.admin.upcomingCourses.useQuery();
 
   const courseTypeLabel: Record<string, string> = {
@@ -31,13 +31,15 @@ export default function UpcomingCourses() {
   };
 
   return (
-    <div className="p-8 max-w-7xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-foreground" style={{ fontFamily: "'Playfair Display', serif" }}>
-          Upcoming Bookings
-        </h1>
-        <p className="text-muted-foreground text-sm mt-1">Confirmed bookings across all calendars — next 90 days</p>
-      </div>
+    <div className={embedded ? "" : "p-8 max-w-7xl mx-auto"}>
+      {!embedded && (
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold text-foreground" style={{ fontFamily: "'Playfair Display', serif" }}>
+            Upcoming Bookings
+          </h1>
+          <p className="text-muted-foreground text-sm mt-1">Confirmed bookings across all calendars — next 90 days</p>
+        </div>
+      )}
 
       {isLoading ? (
         <div className="flex items-center justify-center h-64">

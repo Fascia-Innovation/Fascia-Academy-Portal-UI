@@ -492,7 +492,7 @@ const emptyForm = (): FormData => ({
   customDescription: "",
 });
 
-export default function CourseDates() {
+export default function CourseDates({ embedded = false }: { embedded?: boolean } = {}) {
   const utils = trpc.useUtils();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -712,11 +712,11 @@ export default function CourseDates() {
   const past = courseDates.filter((d) => new Date(d.startDate) < now);
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className={embedded ? "" : "p-6 max-w-6xl mx-auto"}>
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Course Dates</h1>
+          {!embedded && <h1 className="text-2xl font-bold text-foreground">Course Dates</h1>}
           <p className="text-sm text-muted-foreground mt-1">
             Manually register course dates for the public booking page.
             Each entry takes ~30 seconds.

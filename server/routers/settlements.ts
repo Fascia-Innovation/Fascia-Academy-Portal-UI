@@ -519,9 +519,14 @@ export const settlementsRouter = router({
         .where(eq(settlementAdjustments.settlementId, input.id))
         .orderBy(settlementAdjustments.createdAt);
 
+      // Privacy: non-admin users only see participant first+last name (no email)
+      const maskedLines = user.role !== "admin"
+        ? lines.map((l) => ({ ...l, participantEmail: "" }))
+        : lines;
+
       return {
         settlement:  { ...row.settlement, userName: row.userName, userEmail: row.userEmail, invoiceReference: row.invoiceReference, userPhone: row.userPhone },
-        lines,
+        lines: maskedLines,
         adjustments: adjustmentsRows.map((r) => ({ ...r.adjustment, createdByName: r.createdByName })),
         faCompany:   FA_COMPANY,
       };

@@ -156,7 +156,7 @@ function SlotCard({ slot }: { slot: Slot }) {
   );
 }
 
-export default function CourseCalendar() {
+export default function CourseCalendar({ embedded = false }: { embedded?: boolean } = {}) {
   const [windowStart, setWindowStart] = useState(() => {
     const d = new Date();
     d.setHours(0, 0, 0, 0);
@@ -209,16 +209,17 @@ export default function CourseCalendar() {
   const windowLabel = `${new Date(windowStart).toLocaleDateString("sv-SE", { day: "numeric", month: "short" })} – ${new Date(windowEnd).toLocaleDateString("sv-SE", { day: "numeric", month: "short", year: "numeric" })}`;
 
   return (
-    <div className="p-8 max-w-5xl mx-auto">
-      {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground" style={{ fontFamily: "'Playfair Display', serif" }}>
-          Course Calendar
-        </h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          Available course dates across all calendars — free slots and bookings
-        </p>
-      </div>
+    <div className={embedded ? "" : "p-8 max-w-5xl mx-auto"}>
+      {!embedded && (
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-foreground" style={{ fontFamily: "'Playfair Display', serif" }}>
+            Course Calendar
+          </h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            Available course dates across all calendars — free slots and bookings
+          </p>
+        </div>
+      )}
 
       {/* Controls */}
       <div className="flex flex-wrap items-center gap-3 mb-6">
