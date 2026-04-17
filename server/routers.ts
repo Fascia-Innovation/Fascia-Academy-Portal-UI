@@ -719,6 +719,181 @@ export const appRouter = router({
       };
     }),
 
+    // ── Leader Notifications: feedback from FA (bell icon) ──
+    leaderNotifications: dashboardProcedure.query(async ({ ctx }) => {
+      const dashUser = (ctx as { dashUser: DashboardUser }).dashUser;
+      if (dashUser.role !== "course_leader" && dashUser.role !== "admin") {
+        return { notifications: [] };
+      }
+      const myName = dashUser.name;
+      const db = await import("./db").then((m) => m.getDb());
+      if (!db) return { notifications: [] };
+
+      const { courseDates: cdTable } = await import("../drizzle/schema");
+      const { sql, desc } = await import("drizzle-orm");
+
+      // Get all courses for this leader updated in last 60 days
+      const sixtyDaysAgo = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
+      const rows = await db.select().from(cdTable).where(
+        sql`LOWER(TRIM(${cdTable.courseLeaderName})) = LOWER(TRIM(${myName})) AND ${cdTable.updatedAt} >= ${sixtyDaysAgo}`
+      ).orderBy(desc(cdTable.updatedAt));
+
+      type Notification = { id: string; type: string; message: string; courseId: number; time: Date };
+      const notifications: Notification[] = [];
+
+      for (const r of rows) {
+        // Parse changeLog to find recent admin actions
+        let log: Array<{ action: string; by: string; at: string; details?: string }> = [];
+        try { log = r.changeLog ? JSON.parse(r.changeLog) : []; } catch { /* ignore */ }
+
+        const courseLabel = `${r.courseType.charAt(0).toUpperCase() + r.courseType.slice(1)} — ${r.city}`;
+
+        // Check for admin actions in the change log
+        for (const entry of log) {
+          const entryDate = new Date(entry.at);
+          if (entryDate < sixtyDaysAgo) continue;
+          if (entry.by === myName) continue; // Skip own actions
+
+          if (entry.action === "approved") {
+            notifications.push({
+              id: `approved-${r.id}-${entry.at}`,
+              type: "approved",
+              message: `Your course ${courseLabel} has been approved`,
+              courseId: r.id,
+              time: entryDate,
+            });
+          } else if (entry.action === "needs_revision") {
+            notifications.push({
+              id: `revision-${r.id}-${entry.at}`,
+              type: "needs_revision",
+              message: `Your course ${courseLabel} needs revision${entry.details ? `: ${entry.details}` : ""}`,
+              courseId: r.id,
+              time: entryDate,
+            });
+          } else if (entry.action === "cancellation_approved") {
+            notifications.push({
+              id: `cancel-approved-${r.id}-${entry.at}`,
+              type: "cancelled",
+              message: `Your cancellation request for ${courseLabel} has been processed`,
+              courseId: r.id,
+              time: entryDate,
+            });
+          } else if (entry.action === "reschedule_approved") {
+            notifications.push({
+              id: `resched-approved-${r.id}-${entry.at}`,
+              type: "rescheduled",
+              message: `Your reschedule request for ${courseLabel} has been approved`,
+              courseId: r.id,
+              time: entryDate,
+            });
+          } else if (entry.action === "rejected" || entry.action === "cancellation_rejected" || entry.action === "reschedule_rejected") {
+            notifications.push({
+              id: `rejected-${r.id}-${entry.at}`,
+              type: "rejected",
+              message: `Your request for ${courseLabel} was not approved${entry.details ? `: ${entry.details}` : ""}`,
+              courseId: r.id,
+              time: entryDate,
+            });
+          }
+        }
+      }
+
+      // Sort by time descending, limit to 20
+      notifications.sort((a, b) => b.time.getTime() - a.time.getTime());
+      return { notifications: notifications.slice(0, 20) };
+    }),
+
+    // ── Leader Action Items: tasks the course leader needs to do (home page) ──
+    leaderActionItems: dashboardProcedure.query(async ({ ctx }) => {
+      const dashUser = (ctx as { dashUser: DashboardUser }).dashUser;
+      if (dashUser.role !== "course_leader" && dashUser.role !== "admin") {
+        return { actionItems: [] };
+      }
+      const db = await import("./db").then((m) => m.getDb());
+      if (!db) return { actionItems: [] };
+
+      type ActionItem = { id: string; type: string; title: string; description: string; href: string; priority: "high" | "medium" | "low" };
+      const actionItems: ActionItem[] = [];
+
+      // 1. Courses needing revision
+      const { courseDates: cdTable } = await import("../drizzle/schema");
+      const { sql } = await import("drizzle-orm");
+      const myName = dashUser.name;
+
+      const revisionCourses = await db.select().from(cdTable).where(
+        sql`LOWER(TRIM(${cdTable.courseLeaderName})) = LOWER(TRIM(${myName})) AND ${cdTable.status} = 'needs_revision'`
+      );
+
+      for (const r of revisionCourses) {
+        const courseLabel = `${r.courseType.charAt(0).toUpperCase() + r.courseType.slice(1)} — ${r.city}`;
+        actionItems.push({
+          id: `revision-${r.id}`,
+          type: "revision",
+          title: "Update course details",
+          description: `${courseLabel} needs revision${r.adminMessage ? `: ${r.adminMessage}` : ""}`,
+          href: "/my-courses",
+          priority: "high",
+        });
+      }
+
+      // 2. Approved settlements needing invoice (course leader)
+      const { settlements: sTable } = await import("../drizzle/schema");
+      const { eq, and } = await import("drizzle-orm");
+
+      const approvedSettlements = await db.select().from(sTable).where(
+        and(
+          eq(sTable.userId, dashUser.id),
+          eq(sTable.status, "approved"),
+          eq(sTable.userType, "course_leader"),
+        )
+      );
+
+      for (const s of approvedSettlements) {
+        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        const periodLabel = `${monthNames[s.periodMonth - 1]} ${s.periodYear}`;
+        actionItems.push({
+          id: `invoice-cl-${s.id}`,
+          type: "invoice",
+          title: "Create invoice",
+          description: `Settlement for ${periodLabel} (${Number(s.totalPayout).toLocaleString("sv-SE")} ${s.currency}) is approved — please send your invoice`,
+          href: "/my-settlements",
+          priority: "medium",
+        });
+      }
+
+      // 3. Approved affiliate settlements needing invoice (if isAffiliate)
+      if (dashUser.isAffiliate) {
+        const affiliateSettlements = await db.select().from(sTable).where(
+          and(
+            eq(sTable.userId, dashUser.id),
+            eq(sTable.status, "approved"),
+            eq(sTable.userType, "affiliate"),
+          )
+        );
+
+        for (const s of affiliateSettlements) {
+          const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+          const periodLabel = `${monthNames[s.periodMonth - 1]} ${s.periodYear}`;
+          actionItems.push({
+            id: `invoice-aff-${s.id}`,
+            type: "invoice_affiliate",
+            title: "Create affiliate invoice",
+            description: `Affiliate commission for ${periodLabel} (${Number(s.totalPayout).toLocaleString("sv-SE")} ${s.currency}) is approved — please send your invoice`,
+            href: "/my-commissions",
+            priority: "medium",
+          });
+        }
+      }
+
+      // Sort: high priority first, then medium
+      actionItems.sort((a, b) => {
+        const p = { high: 0, medium: 1, low: 2 };
+        return p[a.priority] - p[b.priority];
+      });
+
+      return { actionItems };
+    }),
+
     // ── My Overview: motivational stats comparing with self over time ──
     myOverview: dashboardProcedure.query(async ({ ctx }) => {
       const dashUser = (ctx as { dashUser: DashboardUser }).dashUser;

@@ -144,9 +144,10 @@ function timeAgo(date: Date | string | null | undefined): string {
   return `${days}d ago`;
 }
 
-function NotificationBell({ user, pendingItems, setLocation }: {
+function NotificationBell({ user, pendingItems, leaderNotifications, setLocation }: {
   user: ReturnType<typeof useDashAuth>["user"];
   pendingItems: any[] | undefined;
+  leaderNotifications?: Array<{ id: string; type: string; message: string; courseId: number; time: Date }>;
   setLocation: (path: string) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -220,15 +221,40 @@ function NotificationBell({ user, pendingItems, setLocation }: {
       });
     }
 
-    // For course leaders: welcome
-    if (user?.role === "course_leader") {
+    // For course leaders: real FA feedback notifications
+    if (user?.role === "course_leader" && leaderNotifications && leaderNotifications.length > 0) {
+      const NOTIF_ICON_MAP: Record<string, { icon: typeof CheckCircle2; iconColor: string; iconBg: string }> = {
+        approved: { icon: CheckCircle2, iconColor: "text-emerald-600", iconBg: "bg-emerald-100" },
+        needs_revision: { icon: AlertTriangle, iconColor: "text-amber-600", iconBg: "bg-amber-100" },
+        cancelled: { icon: XCircle, iconColor: "text-red-600", iconBg: "bg-red-100" },
+        rescheduled: { icon: RefreshCw, iconColor: "text-blue-600", iconBg: "bg-blue-100" },
+        rejected: { icon: XCircle, iconColor: "text-red-600", iconBg: "bg-red-100" },
+      };
+      const shown = leaderNotifications.slice(0, 10);
+      for (const n of shown) {
+        const cfg = NOTIF_ICON_MAP[n.type] || { icon: Bell, iconColor: "text-muted-foreground", iconBg: "bg-muted" };
+        items.push({
+          id: n.id,
+          icon: cfg.icon,
+          iconColor: cfg.iconColor,
+          iconBg: cfg.iconBg,
+          title: n.message,
+          subtitle: "",
+          time: timeAgo(n.time),
+          href: "/my-courses",
+        });
+      }
+    }
+
+    // Course leader with no notifications: all caught up
+    if (user?.role === "course_leader" && (!leaderNotifications || leaderNotifications.length === 0)) {
       items.push({
-        id: "welcome",
+        id: "leader-clear",
         icon: CheckCircle2,
-        iconColor: "text-[oklch(0.72_0.12_75)]",
-        iconBg: "bg-[oklch(0.72_0.12_75)]/10",
-        title: "Welcome to your dashboard",
-        subtitle: "Check My Overview for your latest stats",
+        iconColor: "text-emerald-600",
+        iconBg: "bg-emerald-100",
+        title: "No new notifications",
+        subtitle: "You're all caught up!",
         time: "",
         href: "/my-overview",
       });
@@ -249,10 +275,12 @@ function NotificationBell({ user, pendingItems, setLocation }: {
     }
 
     return items;
-  }, [user, pendingItems]);
+  }, [user, pendingItems, leaderNotifications]);
 
   const pendingCount = pendingItems?.length ?? 0;
   const hasPendingActions = user?.role === "admin" && pendingCount > 0;
+  const leaderNotifCount = leaderNotifications?.length ?? 0;
+  const hasLeaderNotifs = user?.role === "course_leader" && leaderNotifCount > 0;
 
   return (
     <div ref={ref} className="relative">
@@ -266,7 +294,12 @@ function NotificationBell({ user, pendingItems, setLocation }: {
             {pendingCount > 99 ? "99+" : pendingCount}
           </span>
         )}
-        {!hasPendingActions && notifications.length > 0 && (
+        {hasLeaderNotifs && (
+          <span className="absolute -top-1 -right-1 min-w-[16px] h-4 rounded-full bg-[oklch(0.72_0.12_75)] text-white text-[10px] font-bold flex items-center justify-center px-1">
+            {leaderNotifCount > 99 ? "99+" : leaderNotifCount}
+          </span>
+        )}
+        {!hasPendingActions && !hasLeaderNotifs && notifications.length > 0 && (
           <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-[oklch(0.72_0.12_75)]" />
         )}
       </button>
@@ -416,6 +449,12 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
   });
   const pendingCount = (pendingItems as unknown[] | undefined)?.length ?? 0;
 
+  // Fetch leader notifications for course leader bell
+  const { data: leaderNotifData } = trpc.courseLeader.leaderNotifications.useQuery(undefined, {
+    enabled: user?.role === "course_leader",
+    refetchInterval: 60_000,
+  });
+
   const stopImpersonationMutation = trpc.admin.stopImpersonation.useMutation({
     onSuccess: () => {
       toast.success("Returned to admin view");
@@ -530,7 +569,7 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
             <div />
           )}
           <div className="flex items-center gap-2">
-            <NotificationBell user={user} pendingItems={pendingItems as any[] | undefined} setLocation={setLocation} />
+            <NotificationBell user={user} pendingItems={pendingItems as any[] | undefined} leaderNotifications={leaderNotifData?.notifications} setLocation={setLocation} />
             <QuickLinksDropdown links={quickLinks} setLocation={setLocation} />
           </div>
         </div>

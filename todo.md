@@ -403,3 +403,21 @@
 - [x] Fix "Participants (this month)" → "Showed (this month)" to clarify it's confirmed attendees
 - [x] Add empty state to My Statistics when all data is 0
 - [x] Update routing: /my-overview → LeaderHome, /my-statistics → MyOverview
+
+### Two-Tier Notification System
+**Notification Bell (feedback from FA):**
+- [x] Course approved notification
+- [x] Cancellation request processed notification
+- [x] Reschedule request approved notification
+- [x] Course needs revision notification
+- [x] Cancellation/reschedule rejected notification
+
+**Home Page (action items / tasks):**
+- [x] Courses needing revision (needs_revision) → "Update your course details"
+- [x] Create invoice for approved settlement → "Create invoice for [period]"
+- [x] Create invoice for affiliate commission → "Create invoice for affiliate commission [period]"
+- [x] Empty state: "No action items — you're all caught up!" ✓
+
+**Backend:**
+- [x] New tRPC procedure: leaderNotifications (DB-only, returns recent status changes)
+- [x] New tRPC procedure: leaderActionItems (DB-only, returns tasks needing attention)

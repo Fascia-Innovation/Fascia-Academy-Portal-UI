@@ -1,7 +1,11 @@
 /**
  * Course Leader: Home
  * Lightweight welcome page — DB-only, no GHL calls. Loads instantly.
- * Shows notifications, next course, and quick actions.
+ * Shows action items (tasks), next course, quick stats, and quick actions.
+ *
+ * Two-tier notification system:
+ *   - Notification Bell (DashboardShell) = feedback from FA (approvals, rejections, etc.)
+ *   - This page = action items / tasks the course leader needs to do
  */
 import { trpc } from "@/lib/trpc";
 import { useDashAuth } from "@/contexts/DashAuthContext";
@@ -11,7 +15,6 @@ import {
   CalendarDays,
   AlertCircle,
   CheckCircle2,
-  XCircle,
   Clock,
   ArrowRight,
   CalendarPlus,
@@ -19,6 +22,8 @@ import {
   Banknote,
   BarChart3,
   MapPin,
+  FileText,
+  TrendingUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -42,6 +47,9 @@ export default function LeaderHome() {
   const { data, isLoading } = trpc.courseLeader.homeData.useQuery(undefined, {
     staleTime: 30_000,
   });
+  const { data: actionData, isLoading: actionsLoading } = trpc.courseLeader.leaderActionItems.useQuery(undefined, {
+    staleTime: 30_000,
+  });
 
   if (isLoading) {
     return (
@@ -53,7 +61,21 @@ export default function LeaderHome() {
 
   const d = data!;
   const firstName = user?.name?.split(" ")[0] ?? "there";
-  const hasNotifications = d.needsRevision.length > 0 || d.recentlyApproved.length > 0 || d.recentlyCancelled.length > 0 || d.pendingCount > 0;
+  const actionItems = actionData?.actionItems ?? [];
+  const hasActions = actionItems.length > 0;
+
+  // Icon map for action item types
+  const ACTION_ICON_MAP: Record<string, typeof AlertCircle> = {
+    revision: AlertCircle,
+    invoice: FileText,
+    invoice_affiliate: TrendingUp,
+  };
+
+  const ACTION_STYLE_MAP: Record<string, { bg: string; border: string; iconColor: string }> = {
+    revision: { bg: "bg-amber-50", border: "border-amber-200", iconColor: "text-amber-600" },
+    invoice: { bg: "bg-blue-50", border: "border-blue-200", iconColor: "text-blue-600" },
+    invoice_affiliate: { bg: "bg-purple-50", border: "border-purple-200", iconColor: "text-purple-600" },
+  };
 
   return (
     <div className="p-8 max-w-4xl mx-auto space-y-8">
@@ -70,81 +92,63 @@ export default function LeaderHome() {
         </p>
       </div>
 
-      {/* Notifications */}
-      {hasNotifications && (
-        <div className="space-y-3">
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-            Notifications
-          </h2>
+      {/* Action Items — tasks the course leader needs to do */}
+      <div className="space-y-3">
+        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+          Action Items
+        </h2>
 
-          {/* Needs revision — most important */}
-          {d.needsRevision.map((c) => (
-            <div
-              key={`rev-${c.id}`}
-              className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 cursor-pointer hover:bg-amber-100 transition-colors"
-              onClick={() => navigate("/my-courses")}
-            >
-              <AlertCircle className="h-5 w-5 text-amber-600 shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-foreground">
-                  Revision requested: {courseTypeLabel(c.courseType)} — {c.city}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {formatDate(c.startDate)} · Please review and resubmit
-                </p>
-              </div>
-              <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
+        {actionsLoading ? (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground py-3">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Loading...
+          </div>
+        ) : hasActions ? (
+          <>
+            {actionItems.map((item) => {
+              const Icon = ACTION_ICON_MAP[item.type] || AlertCircle;
+              const style = ACTION_STYLE_MAP[item.type] || ACTION_STYLE_MAP.revision;
+              return (
+                <div
+                  key={item.id}
+                  className={`flex items-center gap-3 ${style.bg} border ${style.border} rounded-lg px-4 py-3 cursor-pointer hover:opacity-80 transition-opacity`}
+                  onClick={() => navigate(item.href)}
+                >
+                  <Icon className={`h-5 w-5 ${style.iconColor} shrink-0`} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-foreground">{item.title}</p>
+                    <p className="text-xs text-muted-foreground">{item.description}</p>
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                </div>
+              );
+            })}
+          </>
+        ) : (
+          <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-3">
+            <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-foreground">No action items</p>
+              <p className="text-xs text-muted-foreground">You're all caught up!</p>
             </div>
-          ))}
+          </div>
+        )}
 
-          {/* Pending count */}
-          {d.pendingCount > 0 && (
-            <div className="flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
-              <Clock className="h-5 w-5 text-blue-600 shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-foreground">
-                  {d.pendingCount} course{d.pendingCount > 1 ? "s" : ""} awaiting admin review
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  You'll be notified when a decision is made
-                </p>
-              </div>
+        {/* Informational: pending courses awaiting admin */}
+        {d.pendingCount > 0 && (
+          <div className="flex items-center gap-3 bg-muted/50 border border-border rounded-lg px-4 py-3">
+            <Clock className="h-5 w-5 text-muted-foreground shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-foreground">
+                {d.pendingCount} course{d.pendingCount > 1 ? "s" : ""} awaiting admin review
+              </p>
+              <p className="text-xs text-muted-foreground">
+                You'll be notified when a decision is made
+              </p>
             </div>
-          )}
-
-          {/* Recently approved */}
-          {d.recentlyApproved.map((c) => (
-            <div
-              key={`app-${c.id}`}
-              className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-3"
-            >
-              <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-foreground">
-                  Approved: {courseTypeLabel(c.courseType)} — {c.city}
-                </p>
-                <p className="text-xs text-muted-foreground">{formatDate(c.startDate)}</p>
-              </div>
-            </div>
-          ))}
-
-          {/* Recently cancelled/rejected */}
-          {d.recentlyCancelled.map((c) => (
-            <div
-              key={`can-${c.id}`}
-              className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-lg px-4 py-3"
-            >
-              <XCircle className="h-5 w-5 text-red-500 shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-foreground">
-                  Cancelled: {courseTypeLabel(c.courseType)} — {c.city}
-                </p>
-                <p className="text-xs text-muted-foreground">{formatDate(c.startDate)}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+          </div>
+        )}
+      </div>
 
       {/* Next Upcoming Course */}
       {d.nextCourse ? (
