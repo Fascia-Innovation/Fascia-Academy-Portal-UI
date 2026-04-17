@@ -1020,7 +1020,7 @@ export const courseDatesRouter = router({
     .input(
       z.object({
         id: z.number().int(),
-        adminMessage: z.string().min(1, "Ange anledning till komplettering"),
+        adminMessage: z.string().min(1, "Please provide a reason for the revision request"),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -1074,8 +1074,8 @@ export const courseDatesRouter = router({
                 contactId: contact.id,
                 emailTo: leader.email,
                 emailFrom: "info@fasciaacademy.com",
-                subject: "Angående din kurs – komplettering behövs",
-                html: `<p>Hej ${course.courseLeaderName},</p><p>Angående din kurs behövs komplettering. Se Portalen för mer information.</p><p>Med vänliga hälsningar,<br>Fascia Academy</p>`,
+                subject: "Your course registration requires revision",
+                html: `<p>Hi ${course.courseLeaderName},</p><p>Your course registration requires some revisions. Please log in to the Portal to view the admin's notes and resubmit.</p><p>Kind regards,<br>Fascia Academy</p>`,
                 status: "pending",
               }),
             }).catch(() => {});
@@ -1087,8 +1087,8 @@ export const courseDatesRouter = router({
       try {
         const { notifyOwner } = await import("../_core/notification");
         await notifyOwner({
-          title: `Komplettering begärd: ${course.courseLeaderName}`,
-          content: `Admin har begärt komplettering för ${course.courseType} den ${course.startDate.toISOString().slice(0, 10)}.\nAnledning: ${input.adminMessage}`,
+          title: `Revision requested: ${course.courseLeaderName}`,
+          content: `Admin has requested a revision for ${course.courseType} on ${course.startDate.toISOString().slice(0, 10)}.\nReason: ${input.adminMessage}`,
         });
       } catch { /* non-blocking */ }
 
@@ -1194,7 +1194,7 @@ export const courseDatesRouter = router({
       }
 
       if (course.status !== "needs_revision") {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Kursen behöver inte kompletteras" });
+        throw new TRPCError({ code: "BAD_REQUEST", message: "This course does not require revision" });
       }
 
       const existingLog = course.changeLog ? JSON.parse(course.changeLog) : [];
@@ -1203,7 +1203,7 @@ export const courseDatesRouter = router({
         by: dashUser.name,
         byId: dashUser.id,
         at: new Date().toISOString(),
-        details: input.leaderMessage || "Komplettering inskickad",
+        details: input.leaderMessage || "Revision submitted",
       });
 
       const updateData: Record<string, unknown> = {
@@ -1224,8 +1224,8 @@ export const courseDatesRouter = router({
       try {
         const { notifyOwner } = await import("../_core/notification");
         await notifyOwner({
-          title: `Komplettering inskickad: ${course.courseLeaderName}`,
-          content: `${dashUser.name} har kompletterat sin kursregistrering för ${course.courseType}.\n${input.leaderMessage ? `Meddelande: ${input.leaderMessage}` : ""}`,
+          title: `Revision submitted: ${course.courseLeaderName}`,
+          content: `${dashUser.name} has resubmitted their course registration for ${course.courseType}.\n${input.leaderMessage ? `Message: ${input.leaderMessage}` : ""}`,
         });
       } catch { /* non-blocking */ }
 

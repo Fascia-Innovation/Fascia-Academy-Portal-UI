@@ -41,22 +41,22 @@ type PendingCourse = {
 };
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ComponentType<{ className?: string }> }> = {
-  pending_approval: { label: "Ny registrering", color: "bg-blue-100 text-blue-700 border-blue-200", icon: CalendarDays },
-  pending_cancellation: { label: "Avbokning begärd", color: "bg-red-100 text-red-700 border-red-200", icon: XCircle },
-  pending_reschedule: { label: "Ombokning begärd", color: "bg-amber-100 text-amber-700 border-amber-200", icon: RefreshCw },
-  needs_revision: { label: "Komplettering begärd", color: "bg-purple-100 text-purple-700 border-purple-200", icon: FileEdit },
+  pending_approval: { label: "New registration", color: "bg-blue-100 text-blue-700 border-blue-200", icon: CalendarDays },
+  pending_cancellation: { label: "Cancellation requested", color: "bg-red-100 text-red-700 border-red-200", icon: XCircle },
+  pending_reschedule: { label: "Reschedule requested", color: "bg-amber-100 text-amber-700 border-amber-200", icon: RefreshCw },
+  needs_revision: { label: "Revision requested", color: "bg-purple-100 text-purple-700 border-purple-200", icon: FileEdit },
 };
 
 function formatDate(d: string | Date | null) {
   if (!d) return "—";
   const date = typeof d === "string" ? new Date(d) : d;
-  return date.toLocaleDateString("sv-SE", { year: "numeric", month: "short", day: "numeric" });
+  return date.toLocaleDateString("en-GB", { year: "numeric", month: "short", day: "numeric" });
 }
 
 function formatTime(d: string | Date | null) {
   if (!d) return "";
   const date = typeof d === "string" ? new Date(d) : d;
-  return date.toLocaleTimeString("sv-SE", { hour: "2-digit", minute: "2-digit" });
+  return date.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
 }
 
 function parseAdditionalDays(json: string | null): Array<{ date: string; startTime?: string; endTime?: string }> {
@@ -94,21 +94,21 @@ export default function PendingActions() {
     <div className="p-8 space-y-6 max-w-5xl">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Väntande åtgärder</h1>
+          <h1 className="text-2xl font-bold text-foreground">Pending Actions</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {totalCount === 0 ? "Inga väntande ärenden" : `${totalCount} ärende${totalCount > 1 ? "n" : ""} att hantera`}
+            {totalCount === 0 ? "No pending items" : `${totalCount} item${totalCount > 1 ? "s" : ""} to review`}
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={() => refetch()}>
-          <RefreshCw className="h-4 w-4 mr-2" /> Uppdatera
+          <RefreshCw className="h-4 w-4 mr-2" /> Refresh
         </Button>
       </div>
 
       {totalCount === 0 && (
         <div className="bg-muted/30 rounded-xl p-12 text-center">
           <CheckCircle2 className="h-12 w-12 text-emerald-400 mx-auto mb-3" />
-          <p className="text-lg font-medium text-foreground">Allt klart!</p>
-          <p className="text-sm text-muted-foreground mt-1">Inga väntande godkännanden just nu.</p>
+          <p className="text-lg font-medium text-foreground">All clear!</p>
+          <p className="text-sm text-muted-foreground mt-1">No pending approvals at the moment.</p>
         </div>
       )}
 
@@ -117,22 +117,22 @@ export default function PendingActions() {
         <div className="flex gap-3 flex-wrap">
           {newRegistrations.length > 0 && (
             <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-sm px-3 py-1">
-              <CalendarDays className="h-3.5 w-3.5 mr-1.5" /> {newRegistrations.length} nya registreringar
+              <CalendarDays className="h-3.5 w-3.5 mr-1.5" /> {newRegistrations.length} new registration{newRegistrations.length > 1 ? "s" : ""}
             </Badge>
           )}
           {cancellations.length > 0 && (
             <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 text-sm px-3 py-1">
-              <XCircle className="h-3.5 w-3.5 mr-1.5" /> {cancellations.length} avbokningar
+              <XCircle className="h-3.5 w-3.5 mr-1.5" /> {cancellations.length} cancellation{cancellations.length > 1 ? "s" : ""}
             </Badge>
           )}
           {reschedules.length > 0 && (
             <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-sm px-3 py-1">
-              <RefreshCw className="h-3.5 w-3.5 mr-1.5" /> {reschedules.length} ombokningar
+              <RefreshCw className="h-3.5 w-3.5 mr-1.5" /> {reschedules.length} reschedule{reschedules.length > 1 ? "s" : ""}
             </Badge>
           )}
           {revisions.length > 0 && (
             <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 text-sm px-3 py-1">
-              <FileEdit className="h-3.5 w-3.5 mr-1.5" /> {revisions.length} väntar på komplettering
+              <FileEdit className="h-3.5 w-3.5 mr-1.5" /> {revisions.length} awaiting revision
             </Badge>
           )}
         </div>
@@ -178,41 +178,41 @@ export default function PendingActions() {
                   {/* Course details grid */}
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
                     <div>
-                      <span className="text-muted-foreground text-xs block mb-0.5">Kurstyp</span>
+                      <span className="text-muted-foreground text-xs block mb-0.5">Course type</span>
                       <span className="font-medium">{course.courseType}</span>
                     </div>
                     <div>
-                      <span className="text-muted-foreground text-xs block mb-0.5">Språk</span>
+                      <span className="text-muted-foreground text-xs block mb-0.5">Language</span>
                       <span className="font-medium">{course.language || "—"}</span>
                     </div>
                     <div>
-                      <span className="text-muted-foreground text-xs block mb-0.5">Kursledare</span>
+                      <span className="text-muted-foreground text-xs block mb-0.5">Course leader</span>
                       <span className="font-medium">{course.courseLeaderName}</span>
                       {course.courseLeaderPhone && <span className="text-xs text-muted-foreground block">{course.courseLeaderPhone}</span>}
                     </div>
                     <div>
-                      <span className="text-muted-foreground text-xs block mb-0.5">Startdatum</span>
+                      <span className="text-muted-foreground text-xs block mb-0.5">Start date</span>
                       <span className="font-medium">{formatDate(course.startDate)} {formatTime(course.startDate)}</span>
                     </div>
                     <div>
-                      <span className="text-muted-foreground text-xs block mb-0.5">Slutdatum (dag 1)</span>
+                      <span className="text-muted-foreground text-xs block mb-0.5">End date (day 1)</span>
                       <span className="font-medium">{formatDate(course.endDate)} {formatTime(course.endDate)}</span>
                     </div>
                     <div>
-                      <span className="text-muted-foreground text-xs block mb-0.5">Max platser</span>
+                      <span className="text-muted-foreground text-xs block mb-0.5">Max seats</span>
                       <span className="font-medium">{course.maxSeats}</span>
-                      {course.bookedSeats > 0 && <span className="text-xs text-muted-foreground block">{course.bookedSeats} bokade</span>}
+                      {course.bookedSeats > 0 && <span className="text-xs text-muted-foreground block">{course.bookedSeats} booked</span>}
                     </div>
                     <div>
-                      <span className="text-muted-foreground text-xs block mb-0.5">Lokal</span>
+                      <span className="text-muted-foreground text-xs block mb-0.5">Venue</span>
                       <span className="font-medium">{course.venueName || "—"}</span>
                     </div>
                     <div>
-                      <span className="text-muted-foreground text-xs block mb-0.5">Adress</span>
+                      <span className="text-muted-foreground text-xs block mb-0.5">Address</span>
                       <span className="font-medium">{course.address || "—"}</span>
                     </div>
                     <div>
-                      <span className="text-muted-foreground text-xs block mb-0.5">Stad</span>
+                      <span className="text-muted-foreground text-xs block mb-0.5">City</span>
                       <span className="font-medium">{course.city || "—"}</span>
                     </div>
                   </div>
@@ -220,7 +220,7 @@ export default function PendingActions() {
                   {/* Additional days */}
                   {additionalDays.length > 0 && (
                     <div>
-                      <span className="text-muted-foreground text-xs block mb-1">Ytterligare kursdagar</span>
+                      <span className="text-muted-foreground text-xs block mb-1">Additional course days</span>
                       <div className="flex flex-wrap gap-2">
                         {additionalDays.map((d, i) => (
                           <Badge key={i} variant="outline" className="text-xs">
@@ -234,7 +234,7 @@ export default function PendingActions() {
                   {/* Booking info */}
                   {course.bookingInfo && (
                     <div>
-                      <span className="text-muted-foreground text-xs block mb-0.5">Bokningsinformation</span>
+                      <span className="text-muted-foreground text-xs block mb-0.5">Booking information</span>
                       <p className="text-sm bg-muted/30 rounded-lg p-3">{course.bookingInfo}</p>
                     </div>
                   )}
@@ -242,20 +242,20 @@ export default function PendingActions() {
                   {/* Reschedule info */}
                   {course.status === "pending_reschedule" && course.rescheduleNewStart && (
                     <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                      <span className="text-xs font-semibold text-amber-700 block mb-2">Begärd ombokning till:</span>
+                      <span className="text-xs font-semibold text-amber-700 block mb-2">Requested reschedule to:</span>
                       <div className="grid grid-cols-2 gap-3 text-sm">
                         <div>
-                          <span className="text-amber-600 text-xs">Nytt startdatum</span>
+                          <span className="text-amber-600 text-xs">New start date</span>
                           <span className="font-medium block">{formatDate(course.rescheduleNewStart)} {formatTime(course.rescheduleNewStart)}</span>
                         </div>
                         <div>
-                          <span className="text-amber-600 text-xs">Nytt slutdatum (dag 1)</span>
+                          <span className="text-amber-600 text-xs">New end date (day 1)</span>
                           <span className="font-medium block">{formatDate(course.rescheduleNewEnd)} {formatTime(course.rescheduleNewEnd)}</span>
                         </div>
                       </div>
                       {rescheduleAdditionalDays.length > 0 && (
                         <div className="mt-2">
-                          <span className="text-amber-600 text-xs">Nya ytterligare dagar</span>
+                          <span className="text-amber-600 text-xs">New additional days</span>
                           <div className="flex flex-wrap gap-2 mt-1">
                             {rescheduleAdditionalDays.map((d, i) => (
                               <Badge key={i} variant="outline" className="text-xs border-amber-300">
@@ -273,7 +273,7 @@ export default function PendingActions() {
                     <div className="flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-lg p-3">
                       <MessageSquare className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
                       <div>
-                        <span className="text-xs font-semibold text-blue-700">Meddelande från kursledare:</span>
+                        <span className="text-xs font-semibold text-blue-700">Message from course leader:</span>
                         <p className="text-sm text-blue-800 mt-0.5">{course.leaderMessage}</p>
                       </div>
                     </div>
@@ -283,7 +283,7 @@ export default function PendingActions() {
                     <div className="flex items-start gap-2 bg-purple-50 border border-purple-200 rounded-lg p-3">
                       <MessageSquare className="h-4 w-4 text-purple-500 mt-0.5 shrink-0" />
                       <div>
-                        <span className="text-xs font-semibold text-purple-700">Admin-meddelande:</span>
+                        <span className="text-xs font-semibold text-purple-700">Admin message:</span>
                         <p className="text-sm text-purple-800 mt-0.5">{course.adminMessage}</p>
                       </div>
                     </div>
@@ -298,7 +298,7 @@ export default function PendingActions() {
                         onClick={() => setActionDialog({ type: "approve", course })}
                       >
                         <CheckCircle2 className="h-4 w-4 mr-1.5" />
-                        {course.status === "pending_cancellation" ? "Godkänn avbokning" : course.status === "pending_reschedule" ? "Godkänn ombokning" : "Godkänn"}
+                        {course.status === "pending_cancellation" ? "Approve cancellation" : course.status === "pending_reschedule" ? "Approve reschedule" : "Approve"}
                       </Button>
                     )}
                     {course.status === "pending_approval" && (
@@ -308,7 +308,7 @@ export default function PendingActions() {
                         className="text-purple-600 border-purple-300 hover:bg-purple-50"
                         onClick={() => setActionDialog({ type: "revision", course })}
                       >
-                        <FileEdit className="h-4 w-4 mr-1.5" /> Begär komplettering
+                        <FileEdit className="h-4 w-4 mr-1.5" /> Request revision
                       </Button>
                     )}
                     {course.status !== "needs_revision" && (
@@ -319,7 +319,7 @@ export default function PendingActions() {
                         onClick={() => setActionDialog({ type: "reject", course })}
                       >
                         <XCircle className="h-4 w-4 mr-1.5" />
-                        {course.status === "pending_cancellation" ? "Neka avbokning" : course.status === "pending_reschedule" ? "Neka ombokning" : "Avvisa"}
+                        {course.status === "pending_cancellation" ? "Deny cancellation" : course.status === "pending_reschedule" ? "Deny reschedule" : "Reject"}
                       </Button>
                     )}
                   </div>
@@ -360,31 +360,31 @@ function ActionDialog({ type, course, onClose, onSuccess }: {
 
   const config = {
     approve: {
-      title: course.status === "pending_cancellation" ? "Godkänn avbokning" : course.status === "pending_reschedule" ? "Godkänn ombokning" : "Godkänn kursregistrering",
+      title: course.status === "pending_cancellation" ? "Approve cancellation" : course.status === "pending_reschedule" ? "Approve reschedule" : "Approve course registration",
       description: course.status === "pending_cancellation"
-        ? `Godkänn avbokning av ${course.courseType} den ${formatDate(course.startDate)}. ${course.bookedSeats > 0 ? `OBS: ${course.bookedSeats} kunder är bokade och måste flyttas.` : "Inga kunder bokade."}`
+        ? `Approve cancellation of ${course.courseType} on ${formatDate(course.startDate)}. ${course.bookedSeats > 0 ? `Note: ${course.bookedSeats} customer(s) are booked and must be moved.` : "No customers booked."}`
         : course.status === "pending_reschedule"
-        ? `Godkänn ombokning av ${course.courseType} från ${formatDate(course.startDate)} till ${formatDate(course.rescheduleNewStart)}. Kom ihåg att uppdatera availability i GHL-kalendern.`
-        : `Godkänn ${course.courseLeaderName}s registrering av ${course.courseType} den ${formatDate(course.startDate)}. Kom ihåg att sätta availability i GHL-kalendern.`,
-      buttonText: "Godkänn",
+        ? `Approve reschedule of ${course.courseType} from ${formatDate(course.startDate)} to ${formatDate(course.rescheduleNewStart)}. Remember to update availability in the GHL calendar.`
+        : `Approve ${course.courseLeaderName}'s registration of ${course.courseType} on ${formatDate(course.startDate)}. Remember to set availability in the GHL calendar.`,
+      buttonText: "Approve",
       buttonClass: "bg-emerald-600 hover:bg-emerald-700 text-white",
       messageRequired: false,
     },
     revision: {
-      title: "Begär komplettering",
-      description: `Be ${course.courseLeaderName} att komplettera sin registrering av ${course.courseType}. Kursledaren får ett e-postmeddelande.`,
-      buttonText: "Skicka kompletteringsbegäran",
+      title: "Request revision",
+      description: `Ask ${course.courseLeaderName} to revise their registration of ${course.courseType}. The course leader will receive an email.`,
+      buttonText: "Send revision request",
       buttonClass: "bg-purple-600 hover:bg-purple-700 text-white",
       messageRequired: true,
     },
     reject: {
-      title: course.status === "pending_cancellation" ? "Neka avbokning" : course.status === "pending_reschedule" ? "Neka ombokning" : "Avvisa registrering",
+      title: course.status === "pending_cancellation" ? "Deny cancellation" : course.status === "pending_reschedule" ? "Deny reschedule" : "Reject registration",
       description: course.status === "pending_cancellation"
-        ? `Neka avbokning av ${course.courseType}. Kursen behåller sin nuvarande status.`
+        ? `Deny the cancellation of ${course.courseType}. The course keeps its current status.`
         : course.status === "pending_reschedule"
-        ? `Neka ombokning av ${course.courseType}. Kursen behåller sitt nuvarande datum.`
-        : `Avvisa ${course.courseLeaderName}s registrering av ${course.courseType}.`,
-      buttonText: course.status === "pending_cancellation" ? "Neka avbokning" : course.status === "pending_reschedule" ? "Neka ombokning" : "Avvisa",
+        ? `Deny the reschedule of ${course.courseType}. The course keeps its current date.`
+        : `Reject ${course.courseLeaderName}'s registration of ${course.courseType}.`,
+      buttonText: course.status === "pending_cancellation" ? "Deny cancellation" : course.status === "pending_reschedule" ? "Deny reschedule" : "Reject",
       buttonClass: "bg-destructive hover:bg-destructive/90 text-destructive-foreground",
       messageRequired: false,
     },
@@ -392,19 +392,19 @@ function ActionDialog({ type, course, onClose, onSuccess }: {
 
   const handleSubmit = async () => {
     if (config.messageRequired && !message.trim()) {
-      toast.error("Ange anledning till komplettering");
+      toast.error("Please provide a reason for the revision request");
       return;
     }
     try {
       if (type === "approve") {
         await approveMut.mutateAsync({ id: course.id, adminMessage: message || undefined });
-        toast.success("Godkänd!", { description: "Kom ihåg att uppdatera availability i GHL-kalendern." });
+        toast.success("Approved!", { description: "Remember to update availability in the GHL calendar." });
       } else if (type === "revision") {
         await revisionMut.mutateAsync({ id: course.id, adminMessage: message });
-        toast.success("Kompletteringsbegäran skickad", { description: "Kursledaren har fått ett e-postmeddelande." });
+        toast.success("Revision request sent", { description: "The course leader has been notified by email." });
       } else {
         await rejectMut.mutateAsync({ id: course.id, adminMessage: message || undefined });
-        toast.success("Åtgärd genomförd");
+        toast.success("Action completed");
       }
       onSuccess();
     } catch (err: any) {
@@ -426,26 +426,26 @@ function ActionDialog({ type, course, onClose, onSuccess }: {
         {type === "approve" && (
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800">
             <AlertTriangle className="h-4 w-4 inline mr-1.5" />
-            <strong>Påminnelse:</strong> Efter godkännande, uppdatera availability i kursledarens GHL-kalender för startdatumet.
+            <strong>Reminder:</strong> After approving, update availability in the course leader's GHL calendar for the start date.
           </div>
         )}
 
         <div className="space-y-3">
           <div>
             <label className="text-sm font-medium text-foreground block mb-1">
-              {type === "revision" ? "Anledning till komplettering *" : "Meddelande till kursledare (valfritt)"}
+              {type === "revision" ? "Reason for revision *" : "Message to course leader (optional)"}
             </label>
             <Textarea
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder={type === "revision" ? "Beskriv vad som behöver kompletteras..." : "Valfritt meddelande..."}
+              placeholder={type === "revision" ? "Describe what needs to be revised..." : "Optional message..."}
               rows={3}
             />
           </div>
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={isPending}>Avbryt</Button>
+          <Button variant="outline" onClick={onClose} disabled={isPending}>Cancel</Button>
           <Button className={config.buttonClass} onClick={handleSubmit} disabled={isPending}>
             {isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
             {config.buttonText}

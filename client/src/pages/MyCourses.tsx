@@ -13,7 +13,7 @@ import {
   Loader2, BookOpen, ChevronDown, ChevronUp, Hash, Info,
   CalendarDays, MapPin, Clock, ExternalLink, History, Banknote,
   Users, TrendingUp, Plus, Copy, XCircle, RefreshCw, Lock,
-  AlertTriangle, CheckCircle, MessageSquare, Layers, RotateCcw,
+  AlertTriangle, CheckCircle, MessageSquare, Layers, RotateCcw, Pencil,
 } from "lucide-react";
 
 // ─── Formatters ───────────────────────────────────────────────────────────────
@@ -455,6 +455,139 @@ function RegisterCourseDialog({
   );
 }
 
+// ─── Edit & Resubmit Dialog ─────────────────────────────────────────────────
+function EditRevisionDialog({ open, onOpenChange, course, calendars }: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  course: CourseRow;
+  calendars: CalendarInfo[];
+}) {
+  const utils = trpc.useUtils();
+  const resubmitMut = trpc.courseDates.leaderResubmit.useMutation();
+
+  // Pre-fill from existing course
+  const startD = course.startDate ? new Date(course.startDate) : new Date();
+  const endD = course.endDate ? new Date(course.endDate) : new Date();
+  const toDateStr = (d: Date) => d.toISOString().slice(0, 10);
+  const toTimeStr = (d: Date) => d.toTimeString().slice(0, 5);
+
+  const [startDate, setStartDate] = useState(toDateStr(startD));
+  const [startTime, setStartTime] = useState(toTimeStr(startD));
+  const [endTime, setEndTime] = useState(toTimeStr(endD));
+  const [venueName, setVenueName] = useState(course.venueName ?? "");
+  const [bookingInfo, setBookingInfo] = useState(course.bookingInfo ?? "");
+  const [leaderMessage, setLeaderMessage] = useState("");
+  const [additionalDays, setAdditionalDays] = useState<AdditionalDay[]>([]);
+
+  const selectedCal = calendars.find((c) => c.id === course.ghlCalendarId);
+
+  const handleSubmit = async () => {
+    if (!startDate) { toast.error("Please select a date"); return; }
+    if (!venueName) { toast.error("Please enter a venue"); return; }
+    try {
+      await resubmitMut.mutateAsync({
+        id: course.id,
+        startDate: `${startDate}T${startTime}:00`,
+        endDate: `${startDate}T${endTime}:00`,
+        venueName,
+        bookingInfo: bookingInfo || undefined,
+        additionalDays: additionalDays.length > 0 ? JSON.stringify(additionalDays) : undefined,
+        leaderMessage: leaderMessage || undefined,
+      });
+      toast.success("Revision submitted!", { description: "Admin will review your updated course." });
+      utils.courseDates.myCourseSchedule.invalidate();
+      onOpenChange(false);
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Pencil className="h-5 w-5" /> Edit & Resubmit course
+          </DialogTitle>
+          <DialogDescription>
+            Update the details below and resubmit for admin approval.
+          </DialogDescription>
+        </DialogHeader>
+
+        {/* Admin message */}
+        {course.adminMessage && (
+          <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 text-sm text-orange-800">
+            <strong>Admin notes:</strong> {course.adminMessage}
+          </div>
+        )}
+
+        <div className="space-y-4">
+          {/* Calendar (locked) */}
+          <div>
+            <Label>Booking calendar</Label>
+            <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-md border border-border text-sm text-muted-foreground">
+              <Lock className="h-3.5 w-3.5" />
+              {selectedCal?.name ?? course.ghlCalendarId}
+            </div>
+          </div>
+
+          {/* Calendar info */}
+          {selectedCal && <CalendarInfoBox cal={selectedCal} />}
+
+          {/* Date & time */}
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <Label>Start date *</Label>
+              <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+            </div>
+            <div>
+              <Label>Start time (day 1)</Label>
+              <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+            </div>
+            <div>
+              <Label>End time (day 1)</Label>
+              <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+            </div>
+          </div>
+
+          {/* Additional days */}
+          {selectedCal && (
+            <AdditionalDaysEditor days={additionalDays} onChange={setAdditionalDays} courseType={selectedCal.courseType ?? course.courseType} />
+          )}
+
+          {/* Venue */}
+          <div>
+            <Label>Venue *</Label>
+            <Input value={venueName} onChange={(e) => setVenueName(e.target.value)} placeholder="e.g. Clinic name, address" />
+          </div>
+
+          {/* Booking info */}
+          <div>
+            <Label>Additional booking information <span className="text-muted-foreground font-normal">(optional)</span></Label>
+            <Textarea value={bookingInfo} onChange={(e) => setBookingInfo(e.target.value)} rows={2}
+              placeholder="e.g. parking, elevator code, entrance instructions..." />
+          </div>
+
+          {/* Message to admin */}
+          <div>
+            <Label>Message to admin <span className="text-muted-foreground font-normal">(optional)</span></Label>
+            <Textarea value={leaderMessage} onChange={(e) => setLeaderMessage(e.target.value)} rows={2}
+              placeholder="Describe what you changed..." />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button onClick={handleSubmit} disabled={resubmitMut.isPending}>
+            {resubmitMut.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+            Resubmit for approval
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── Cancel Dialog ───────────────────────────────────────────────────────────
 function CancelDialog({ open, onOpenChange, courseId, courseName }: {
   open: boolean; onOpenChange: (v: boolean) => void; courseId: number; courseName: string;
@@ -748,7 +881,7 @@ type CourseRow = {
   bookingInfo?: string | null;
 };
 
-function CourseCard({ row, showActions, isPending, showRepeat }: { row: CourseRow; showActions?: boolean; isPending?: boolean; showRepeat?: boolean }) {
+function CourseCard({ row, showActions, isPending, showRepeat, calendars }: { row: CourseRow; showActions?: boolean; isPending?: boolean; showRepeat?: boolean; calendars?: CalendarInfo[] }) {
   const label = COURSE_TYPE_LABELS[row.courseType] ?? row.courseType;
   const langFlag = row.language === "sv" ? "🇸🇪" : "🇬🇧";
   const bookUrl = `https://api.leadconnectorhq.com/widget/booking/${row.ghlCalendarId}`;
@@ -757,6 +890,7 @@ function CourseCard({ row, showActions, isPending, showRepeat }: { row: CourseRo
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
   const [copyOpen, setCopyOpen] = useState(false);
   const [logOpen, setLogOpen] = useState(false);
+  const [editRevisionOpen, setEditRevisionOpen] = useState(false);
 
   const canCancel = row.status === "approved" || row.status === "pending_approval";
   const canReschedule = row.status === "approved";
@@ -803,6 +937,12 @@ function CourseCard({ row, showActions, isPending, showRepeat }: { row: CourseRo
         {/* Action buttons */}
         {showActions && (
           <div className="flex items-center gap-2 mt-1 flex-wrap">
+            {/* Edit & Resubmit for needs_revision */}
+            {row.status === "needs_revision" && (
+              <Button size="sm" className="h-7 text-xs bg-orange-600 hover:bg-orange-700 text-white" onClick={() => setEditRevisionOpen(true)}>
+                <Pencil className="h-3 w-3 mr-1" /> Edit & Resubmit
+              </Button>
+            )}
             {row.status === "approved" && (
               <a href={bookUrl} target="_blank" rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 text-xs font-medium text-[oklch(0.22_0.04_255)] hover:underline">
@@ -847,6 +987,7 @@ function CourseCard({ row, showActions, isPending, showRepeat }: { row: CourseRo
       <RescheduleDialog open={rescheduleOpen} onOpenChange={setRescheduleOpen} course={row} />
       <CopyDialog open={copyOpen} onOpenChange={setCopyOpen} course={row} />
       <ChangeLogDialog open={logOpen} onOpenChange={setLogOpen} courseId={row.id} />
+      {calendars && <EditRevisionDialog open={editRevisionOpen} onOpenChange={setEditRevisionOpen} course={row} calendars={calendars} />}
     </>
   );
 }
@@ -904,7 +1045,7 @@ export default function MyCourses() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {schedule?.pending?.map((row) => (
-              <CourseCard key={row.id} row={row as unknown as CourseRow} showActions isPending />
+              <CourseCard key={row.id} row={row as unknown as CourseRow} showActions isPending calendars={calendarList} />
             ))}
           </div>
         </section>

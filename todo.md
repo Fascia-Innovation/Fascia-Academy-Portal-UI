@@ -437,3 +437,8 @@
 - [x] Update getCalendars to match on ghlUserId first, then name fallback
 - [x] Add GHL User ID field to User Management edit dialog
 - [x] Add ghlUserId to createDashboardUser and updateDashboardUser backend helpers
+
+### Pending Actions + Revision Flow Fixes
+- [ ] Translate Pending Actions admin page to English (all labels, badges, buttons)
+- [ ] Add Edit & Resubmit button to needs_revision course cards (course leader view)
+- [ ] Translate revision request email to English
