@@ -1376,6 +1376,57 @@ export const courseDatesRouter = router({
       return { success: true, appointmentId: input.appointmentId, showed: input.showed };
     }),
 
+  // ─── Course leader: mark a participant as no-show ────────────────────────
+  markParticipantNoShow: dashboardProcedure
+    .input(
+      z.object({
+        courseDateId: z.number().int(),
+        appointmentId: z.string().min(1),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      const dashUser = (ctx as { dashUser: DashboardUser }).dashUser;
+
+      // Verify ownership
+      const rows = await db.select().from(courseDates).where(eq(courseDates.id, input.courseDateId));
+      const course = rows[0];
+      if (!course) throw new TRPCError({ code: "NOT_FOUND" });
+
+      if (
+        dashUser.role !== "admin" &&
+        course.courseLeaderName.toLowerCase().trim() !== dashUser.name.toLowerCase().trim() &&
+        course.submittedBy !== dashUser.id
+      ) {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+
+      // Update appointment status in GHL to "noshow"
+      const res = await fetch(`${GHL_BASE}/calendars/appointments/${input.appointmentId}`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${API_KEY}`,
+          Version: "2021-04-15",
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({ appointmentStatus: "noshow" }),
+      });
+
+      if (!res.ok) {
+        const body = await res.text();
+        console.error("[markParticipantNoShow] GHL error:", res.status, body);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: `GHL update failed: ${res.status}`,
+        });
+      }
+
+      return { success: true, appointmentId: input.appointmentId };
+    }),
+
   // ─── Get change log for a course date ──────────────────────────────────────
   getChangeLog: dashboardProcedure
     .input(z.object({ id: z.number().int() }))

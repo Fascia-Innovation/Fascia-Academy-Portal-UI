@@ -456,3 +456,9 @@
 - [x] Backend: markParticipantShowed mutation in courseDates.ts
 - [x] Frontend: Participant list UI in MyCourses.tsx for past/approved courses
 - [x] Frontend: Mark as showed / undo buttons per participant
+
+## Night Session: Participant List + No-show + Improvements
+- [x] Frontend: Show participant list (read-only) for upcoming courses
+- [x] Frontend: Add explicit No-show button to participant attendance list
+- [x] Verify webhook flow: showed trigger → certificate/exam creation in code
+- [x] Write comprehensive improvement recommendations document (Markdown)
