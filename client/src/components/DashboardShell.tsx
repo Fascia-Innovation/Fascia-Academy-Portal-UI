@@ -34,6 +34,7 @@ import {
   BookMarked,
   DollarSign,
   CheckCircle2,
+  AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
@@ -44,6 +45,7 @@ type NavItem = {
   icon: React.ComponentType<{ className?: string }>;
   roles: Array<"admin" | "course_leader" | "affiliate">;
   examinerOnly?: boolean;
+  badgeKey?: string;
 };
 
 const NAV_ITEMS: NavItem[] = [
@@ -54,6 +56,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Course Leaders", href: "/course-leaders", icon: Users, roles: ["admin"] },
   { label: "Affiliates", href: "/affiliates", icon: Award, roles: ["admin"] },
   { label: "Settlements", href: "/settlements", icon: FileText, roles: ["admin"] },
+  { label: "Pending Actions", href: "/pending-actions", icon: AlertTriangle, roles: ["admin"], badgeKey: "pending" },
   { label: "Exam Queue", href: "/exam-queue", icon: ClipboardCheck, roles: ["admin"] },
   { label: "Certificates", href: "/certificates", icon: ScrollText, roles: ["admin"] },
   { label: "Settings", href: "/settings", icon: Settings, roles: ["admin"] },
@@ -261,7 +264,7 @@ function QuickLinksDropdown({ links, setLocation }: { links: QuickLink[]; setLoc
   );
 }
 
-function NavLink({ item, active }: { item: NavItem; active: boolean }) {
+function NavLink({ item, active, badge }: { item: NavItem; active: boolean; badge?: number }) {
   const Icon = item.icon;
   return (
     <Link href={item.href}>
@@ -275,7 +278,15 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
       >
         <Icon className="h-4 w-4 shrink-0" />
         <span>{item.label}</span>
-        {active && <ChevronRight className="h-3 w-3 ml-auto" />}
+        {badge !== undefined && badge > 0 && (
+          <span className={cn(
+            "ml-auto text-xs font-bold rounded-full min-w-[20px] h-5 flex items-center justify-center px-1.5",
+            active ? "bg-[oklch(0.17_0.04_255)]/20 text-[oklch(0.17_0.04_255)]" : "bg-amber-500/80 text-white"
+          )}>
+            {badge}
+          </span>
+        )}
+        {active && !badge && <ChevronRight className="h-3 w-3 ml-auto" />}
       </div>
     </Link>
   );
@@ -285,6 +296,13 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
   const [location, setLocation] = useLocation();
   const { user, isImpersonating, refetch } = useDashAuth();
   const utils = trpc.useUtils();
+
+  // Fetch pending actions count for admin badge
+  const { data: pendingItems } = trpc.courseDates.listPending.useQuery(undefined, {
+    enabled: user?.role === "admin",
+    refetchInterval: 60_000, // refresh every 60s
+  });
+  const pendingCount = (pendingItems as unknown[] | undefined)?.length ?? 0;
 
   const stopImpersonationMutation = trpc.admin.stopImpersonation.useMutation({
     onSuccess: () => {
@@ -349,6 +367,7 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
               key={item.href + item.label}
               item={item}
               active={location === item.href || (item.href !== "/" && location.startsWith(item.href))}
+              badge={item.badgeKey === "pending" ? pendingCount : undefined}
             />
           ))}
         </nav>

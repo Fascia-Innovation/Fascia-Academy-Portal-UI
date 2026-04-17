@@ -57,8 +57,136 @@ import {
   ChevronUp,
   Copy,
   Pencil as PencilIcon,
+  History,
+  Clock,
+  AlertTriangle,
+  XCircle,
+  RefreshCw,
+  FileEdit,
+  CheckCircle2,
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
+
+// ─── Status badge for admin table ──────────────────────────────────────────
+const STATUS_DISPLAY: Record<string, { label: string; color: string }> = {
+  pending_approval: { label: "Pending", color: "bg-blue-100 text-blue-700 border-blue-200" },
+  pending_cancellation: { label: "Cancel req.", color: "bg-red-100 text-red-700 border-red-200" },
+  pending_reschedule: { label: "Reschedule req.", color: "bg-amber-100 text-amber-700 border-amber-200" },
+  needs_revision: { label: "Needs revision", color: "bg-purple-100 text-purple-700 border-purple-200" },
+  approved: { label: "Approved", color: "bg-emerald-100 text-emerald-700 border-emerald-200" },
+  cancelled: { label: "Cancelled", color: "bg-gray-100 text-gray-500 border-gray-200" },
+};
+
+function CourseStatusBadge({ status, published }: { status?: string; published: boolean }) {
+  // If status field exists and is not just "approved", show the workflow status
+  if (status && status !== "approved") {
+    const cfg = STATUS_DISPLAY[status];
+    if (cfg) {
+      return (
+        <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border font-medium ${cfg.color}`}>
+          {cfg.label}
+        </span>
+      );
+    }
+  }
+  // For approved or legacy rows, show Published/Draft
+  if (published) {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs text-green-700 bg-green-50 px-2 py-0.5 rounded-full">
+        <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+        Published
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 text-xs text-gray-600 bg-gray-100 px-2 py-0.5 rounded-full">
+      <span className="h-1.5 w-1.5 rounded-full bg-gray-400" />
+      Draft
+    </span>
+  );
+}
+
+// ─── Change Log Dialog ──────────────────────────────────────────────────────
+function ChangeLogDialog({ courseId, onClose }: { courseId: number; onClose: () => void }) {
+  const { data, isLoading } = trpc.courseDates.getChangeLog.useQuery({ id: courseId });
+
+  const LOG_ACTION_LABELS: Record<string, { label: string; color: string }> = {
+    registered: { label: "Registrerad", color: "text-blue-600" },
+    approved: { label: "Godkänd", color: "text-emerald-600" },
+    cancellation_requested: { label: "Avbokning begärd", color: "text-red-600" },
+    cancellation_approved: { label: "Avbokning godkänd", color: "text-red-700" },
+    cancellation_denied: { label: "Avbokning nekad", color: "text-amber-600" },
+    reschedule_requested: { label: "Ombokning begärd", color: "text-amber-600" },
+    reschedule_approved: { label: "Ombokning godkänd", color: "text-emerald-600" },
+    reschedule_denied: { label: "Ombokning nekad", color: "text-red-600" },
+    revision_requested: { label: "Komplettering begärd", color: "text-purple-600" },
+    resubmitted: { label: "Komplettering inskickad", color: "text-blue-600" },
+    rejected: { label: "Avvisad", color: "text-red-700" },
+    copied: { label: "Kopierad", color: "text-gray-600" },
+  };
+
+  return (
+    <Dialog open onOpenChange={() => onClose()}>
+      <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <History className="h-5 w-5" /> Historik (kurs #{courseId})
+          </DialogTitle>
+        </DialogHeader>
+        {isLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {data?.adminMessage && (
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 text-sm">
+                <span className="font-semibold text-purple-700 text-xs">Senaste admin-meddelande:</span>
+                <p className="text-purple-800 mt-0.5">{data.adminMessage}</p>
+              </div>
+            )}
+            {data?.leaderMessage && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
+                <span className="font-semibold text-blue-700 text-xs">Senaste kursledar-meddelande:</span>
+                <p className="text-blue-800 mt-0.5">{data.leaderMessage}</p>
+              </div>
+            )}
+            {(!data?.log || data.log.length === 0) ? (
+              <p className="text-sm text-muted-foreground text-center py-6">Ingen historik registrerad.</p>
+            ) : (
+              <div className="relative pl-6 space-y-4">
+                {/* Timeline line */}
+                <div className="absolute left-2.5 top-1 bottom-1 w-px bg-border" />
+                {[...data.log].reverse().map((entry: any, i: number) => {
+                  const cfg = LOG_ACTION_LABELS[entry.action] ?? { label: entry.action, color: "text-gray-600" };
+                  return (
+                    <div key={i} className="relative">
+                      <div className="absolute -left-3.5 top-1 w-2 h-2 rounded-full bg-border border-2 border-background" />
+                      <div className="text-sm">
+                        <span className={`font-semibold ${cfg.color}`}>{cfg.label}</span>
+                        <span className="text-muted-foreground"> av {entry.by}</span>
+                        <div className="text-xs text-muted-foreground mt-0.5">
+                          {entry.at ? new Date(entry.at).toLocaleString("sv-SE") : ""}
+                        </div>
+                        {entry.details && entry.details !== cfg.label && (
+                          <p className="text-xs text-muted-foreground mt-1 bg-muted/30 rounded px-2 py-1">{entry.details}</p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Stäng</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 const COURSE_TYPE_LABELS: Record<string, string> = {
   intro: "Introduktionskurs Fascia",
@@ -502,6 +630,7 @@ export default function CourseDates({ embedded = false }: { embedded?: boolean }
   const [calSearch, setCalSearch] = useState("");
   const [showPreview, setShowPreview] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState(false);
+  const [changeLogId, setChangeLogId] = useState<number | null>(null);
 
   const { data: courseDates = [], isLoading } = trpc.courseDates.listAdmin.useQuery();
   const { data: ghlCalendars = [], isLoading: calendarsLoading } = trpc.courseDates.getCalendars.useQuery();
@@ -740,7 +869,7 @@ export default function CourseDates({ embedded = false }: { embedded?: boolean }
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-4 gap-4 mb-6">
         <div className="rounded-xl border bg-card p-4">
           <div className="text-2xl font-bold text-foreground">{upcoming.length}</div>
           <div className="text-sm text-muted-foreground">Upcoming dates</div>
@@ -754,6 +883,12 @@ export default function CourseDates({ embedded = false }: { embedded?: boolean }
             {courseDates.filter((d) => d.published).length}
           </div>
           <div className="text-sm text-muted-foreground">Published</div>
+        </div>
+        <div className="rounded-xl border bg-card p-4">
+          <div className="text-2xl font-bold text-amber-600">
+            {courseDates.filter((d) => ["pending_approval", "pending_cancellation", "pending_reschedule", "needs_revision"].includes((d as any).status)).length}
+          </div>
+          <div className="text-sm text-muted-foreground">Pending review</div>
         </div>
       </div>
 
@@ -850,20 +985,19 @@ export default function CourseDates({ embedded = false }: { embedded?: boolean }
                       <span className="text-muted-foreground text-xs">/{row.maxSeats}</span>
                     </td>
                     <td className="px-4 py-3">
-                      {row.published ? (
-                        <span className="inline-flex items-center gap-1 text-xs text-green-700 bg-green-50 px-2 py-0.5 rounded-full">
-                          <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
-                          Published
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-xs text-gray-600 bg-gray-100 px-2 py-0.5 rounded-full">
-                          <span className="h-1.5 w-1.5 rounded-full bg-gray-400" />
-                          Draft
-                        </span>
-                      )}
+                      <CourseStatusBadge status={(row as any).status} published={row.published} />
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1 justify-end">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          title="View history"
+                          onClick={() => setChangeLogId(row.id)}
+                        >
+                          <History className="h-3.5 w-3.5" />
+                        </Button>
                         <Button
                           variant="ghost"
                           size="icon"
@@ -1353,6 +1487,11 @@ export default function CourseDates({ embedded = false }: { embedded?: boolean }
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Change Log Dialog */}
+      {changeLogId !== null && (
+        <ChangeLogDialog courseId={changeLogId} onClose={() => setChangeLogId(null)} />
+      )}
     </div>
   );
 }

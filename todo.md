@@ -320,3 +320,47 @@
 ### Backend
 - [x] Students tRPC procedure: fetch contacts from GHL with course/certificate data
 - [x] Course leader data access controls: restrict PII based on course timing
+
+## Round 16: Course Leader Self-Service + Admin Approval Flow
+
+### Course Registration by Course Leader
+- [x] Booking Calendar dropdown: course leaders see only their own calendars, admin sees all
+- [x] Calendar info section (read-only): course leader name, phone, address, city, max seats with lock icons
+- [x] Info banner explaining calendar-controlled fields and how to request changes
+- [x] "Request new calendar" placeholder link
+- [x] Venue Name field (obligatory, editable)
+- [x] Start/End date & time fields
+- [x] Additional Course Days with validation per course type (Intro=1, Diplo/Quali>=4, Cert>=6, Vidare/Adva>=2)
+- [x] Additional Booking Info (optional)
+- [x] Message to Admin field (optional, triggers notification)
+- [x] Auto-generated Course Description (read-only, based on course type)
+- [x] Remove: Course Type dropdown, Language dropdown, Booked Seats, Published toggle, example names
+- [x] Status field: pending_approval -> approved / needs_revision / rejected
+- [x] Email notification to course leader on "needs revision"
+
+### Course Actions (per course date)
+- [x] Copy button: duplicates course with new date required
+- [x] Cancel button: sets status to pending_cancellation, admin must approve + handle availability
+- [x] Reschedule button: sets status to pending_reschedule with new date, admin must approve
+- [x] All actions require admin approval (admin handles GHL calendar availability)
+- [x] Course leader gets notification when action is completed
+- [x] Minimum fee of 1000 kr per course date (applied when normal compensation is less)
+
+### Batch Registration
+- [x] Batch creation: register multiple dates at once (same calendar, same venue, different dates)
+- [x] Copy of a batch course = copies single course only (not the batch)
+
+### Change Log
+- [x] Per-course timeline showing: created, approved, rescheduled, cancelled, etc.
+- [x] Shows who did what and when
+
+### Admin Pending Actions View
+- [x] Consolidated view of all pending tasks: new courses, cancellations, reschedules, exams, settlements
+- [x] Prioritized by deadline (nearest course date first)
+- [x] Approve / Request Completion / Reject actions
+- [x] Completion request sends email to course leader
+
+### Admin CourseDates Updates
+- [x] Status column showing pending/approved/needs_revision/cancelled/rescheduled
+- [x] Approval workflow integrated into existing Manage Dates tab
+- [x] Change log (Historik) dialog per course date in admin table

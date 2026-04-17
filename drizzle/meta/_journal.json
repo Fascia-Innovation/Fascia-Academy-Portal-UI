@@ -64,6 +64,13 @@
       "when": 1776195759071,
       "tag": "0008_polite_the_executioner",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "5",
+      "when": 1776416142642,
+      "tag": "0009_shiny_black_widow",
+      "breakpoints": true
     }
   ]
 }

@@ -21,6 +21,7 @@ import Settlements from "./pages/Settlements";
 import ResetPassword from "./pages/ResetPassword";
 import ExamQueue from "./pages/ExamQueue";
 import Certificates from "./pages/Certificates";
+import PendingActions from "./pages/PendingActions";
 import { Loader2 } from "lucide-react";
 
 function AppRoutes() {
@@ -68,6 +69,7 @@ function AppRoutes() {
         {user.role === "admin" && <Route path="/course-leaders" component={CourseLeaderRanking} />}
         {user.role === "admin" && <Route path="/affiliates" component={AffiliateRanking} />}
         {user.role === "admin" && <Route path="/settlements" component={Settlements} />}
+        {user.role === "admin" && <Route path="/pending-actions" component={PendingActions} />}
         {user.role === "admin" && <Route path="/settings" component={SettingsPage} />}
         {(user.role === "admin" || user.canExamineExams) && <Route path="/exam-queue" component={ExamQueue} />}
         {(user.role === "admin" || user.canExamineExams) && <Route path="/certificates" component={Certificates} />}

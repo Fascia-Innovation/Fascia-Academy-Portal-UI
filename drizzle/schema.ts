@@ -92,6 +92,16 @@ export const courseDates = mysqlTable("course_dates", {
   bookingInfo: text("bookingInfo"), // optional: vägbeskrivning, parking, extra info shown on booking page
   notes: text("notes"), // optional internal notes (admin only, not shown publicly)
   published: boolean("published").default(true).notNull(), // false = hidden from public page
+  // ── Self-service fields ──
+  status: mysqlEnum("status", ["approved", "pending_approval", "pending_cancellation", "pending_reschedule", "needs_revision", "cancelled"]).default("approved").notNull(),
+  submittedBy: int("submittedBy"), // dashboard_users.id of the course leader who submitted
+  adminMessage: text("adminMessage"), // message from admin (e.g. completion request reason)
+  leaderMessage: text("leaderMessage"), // message from course leader to admin
+  changeLog: text("changeLog"), // JSON array: [{action, by, at, details}]
+  // ── Reschedule fields ──
+  rescheduleNewStart: timestamp("rescheduleNewStart"), // proposed new start date for reschedule
+  rescheduleNewEnd: timestamp("rescheduleNewEnd"), // proposed new end date (first day)
+  rescheduleNewAdditionalDays: text("rescheduleNewAdditionalDays"), // proposed new additional days JSON
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
