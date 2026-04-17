@@ -11,7 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ScrollText, Download, RefreshCw, Search } from "lucide-react";
+import { ScrollText, RefreshCw, Search } from "lucide-react";
 
 function getCourseLabel(courseType: string, language: string): string {
   const langLower = (language ?? "").toLowerCase();
@@ -118,7 +118,6 @@ export default function Certificates() {
                 <TableHead>Language</TableHead>
                 <TableHead>Issued</TableHead>
                 <TableHead>Graded By</TableHead>
-                <TableHead className="text-right">PDF</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -153,22 +152,7 @@ export default function Certificates() {
                   <TableCell className="text-sm text-muted-foreground">
                     {cert.issuerName ?? "—"}
                   </TableCell>
-                  <TableCell className="text-right">
-                    {cert.pdfUrl ? (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        asChild
-                      >
-                        <a href={cert.pdfUrl} target="_blank" rel="noopener noreferrer">
-                          <Download className="h-4 w-4 mr-1" />
-                          Download
-                        </a>
-                      </Button>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">Not available</span>
-                    )}
-                  </TableCell>
+
                 </TableRow>
               ))}
             </TableBody>
