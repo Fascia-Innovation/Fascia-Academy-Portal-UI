@@ -1071,7 +1071,7 @@ export const appRouter = router({
       .input(z.object({ year: z.number(), month: z.number() }))
       .query(async ({ input, ctx }) => {
         const dashUser = (ctx as { dashUser: DashboardUser }).dashUser;
-        if (dashUser.role !== "admin" && dashUser.role !== "affiliate") {
+        if (dashUser.role !== "admin" && dashUser.role !== "affiliate" && !(dashUser.role === "course_leader" && dashUser.isAffiliate)) {
           throw new TRPCError({ code: "FORBIDDEN" });
         }
         const myCode = dashUser.affiliateCode;

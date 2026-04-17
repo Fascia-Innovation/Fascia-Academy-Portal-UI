@@ -479,7 +479,8 @@ export function calculateBreakdown(
   const vatAmount = paidAmountInclVAT - paidAmountExclVAT;
   const transactionFee = paidAmountInclVAT * TRANSACTION_FEE_RATE;
   const margin = currency === "SEK" ? FA_MARGIN[courseType].sek : FA_MARGIN[courseType].eur;
-  const affiliateCommission = affiliateCode ? paidAmountExclVAT * AFFILIATE_COMMISSION_RATE : 0;
+  // Affiliate commission only applies to intro courses (both SE and EN)
+  const affiliateCommission = (affiliateCode && courseType === "intro") ? paidAmountExclVAT * AFFILIATE_COMMISSION_RATE : 0;
   const affiliateDiscount = affiliateCode ? paidAmountInclVAT * AFFILIATE_DISCOUNT_RATE : 0;
   const courseLeaderPayout = paidAmountExclVAT - transactionFee - margin - affiliateCommission;
 

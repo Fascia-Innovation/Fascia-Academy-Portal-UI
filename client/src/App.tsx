@@ -82,7 +82,7 @@ function AppRoutes() {
         {(user.role === "course_leader" || user.role === "affiliate") && <Route path="/my-settlements" component={Settlements} />}
 
         {/* Affiliate routes */}
-        {(user.role === "admin" || user.role === "affiliate") && <Route path="/my-commissions" component={MyCommissions} />}
+        {(user.role === "admin" || user.role === "affiliate" || (user.role === "course_leader" && user.isAffiliate)) && <Route path="/my-commissions" component={MyCommissions} />}
 
         <Route component={NotFound} />
       </Switch>
