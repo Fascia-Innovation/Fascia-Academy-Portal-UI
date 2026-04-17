@@ -62,7 +62,6 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Settlements", href: "/settlements", icon: FileText, roles: ["admin"] },
   { label: "Pending Actions", href: "/pending-actions", icon: AlertTriangle, roles: ["admin"], badgeKey: "pending" },
   { label: "Exam Queue", href: "/exam-queue", icon: ClipboardCheck, roles: ["admin"] },
-  { label: "Certificates", href: "/certificates", icon: ScrollText, roles: ["admin"] },
   { label: "Settings", href: "/settings", icon: Settings, roles: ["admin"] },
   // Course Leader
   { label: "Home", href: "/my-overview", icon: LayoutDashboard, roles: ["course_leader"] },
@@ -71,7 +70,6 @@ const NAV_ITEMS: NavItem[] = [
   { label: "My Settlements", href: "/my-settlements", icon: FileText, roles: ["course_leader", "affiliate"] },
   // Examiner-only (any role with canExamineExams)
   { label: "Exam Queue", href: "/exam-queue", icon: ClipboardCheck, roles: [], examinerOnly: true },
-  { label: "Certificates", href: "/certificates", icon: ScrollText, roles: [], examinerOnly: true },
   // Affiliate
   { label: "My Commissions", href: "/my-commissions", icon: TrendingUp, roles: ["affiliate"] },
 ];

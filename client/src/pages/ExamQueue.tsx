@@ -147,7 +147,7 @@ export default function ExamQueue() {
         <div>
           <span className="font-medium text-foreground">{exam.examinedByName ?? "Unknown"}</span>
           <br />
-          <span>{new Date(exam.examinedAt).toLocaleString("sv-SE", { dateStyle: "short", timeStyle: "short" })}</span>
+          <span>{new Date(exam.examinedAt).toLocaleString("en-GB", { dateStyle: "short", timeStyle: "short" })}</span>
         </div>
       </div>
     );
@@ -274,10 +274,10 @@ export default function ExamQueue() {
         )}
       </section>
 
-      {/* Recently graded */}
+      {/* Exam History */}
         {filteredGraded.length > 0 && (
         <section>
-          <h2 className="text-lg font-semibold mb-3">Recently Graded</h2>
+          <h2 className="text-lg font-semibold mb-3">Exam History</h2>
           <div className="border rounded-xl overflow-hidden">
             <Table>
               <TableHeader>
