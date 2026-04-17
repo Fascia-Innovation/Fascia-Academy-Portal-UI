@@ -377,3 +377,17 @@
 - [x] Add "Upprepa kurs" button on historical/past courses in MyCourses view
 - [x] Pre-fills registration form with same calendar, venue, booking info — but requires new dates
 - [x] Works like copy but from the course leader's perspective (not admin duplicate)
+
+## Bug: Login issue for forsellvictor1@gmail.com
+- [ ] Investigate why course leader cannot log in after password change
+- [ ] Fix auth flow if needed
+
+## Round 17: View-by-View Review Fixes
+
+### My Overview Fixes
+- [x] Better error handling for GHL 429 rate limit (retry button instead of raw error)
+- [x] Upcoming Courses: check status='approved' instead of published=true
+- [x] Update Quick Links for course leaders (remove old GHL form links, point to in-app features)
+- [x] Improve calendar matching fallback when ghlContactId is null (also checks courseDates table)
+- [x] Add server-side GHL cache (calendars 5min, appointments 5min, contacts 10min) to reduce API calls and avoid 429 rate limits
+- [x] Optimize myOverview to reuse single calendar fetch and batch appointment fetches

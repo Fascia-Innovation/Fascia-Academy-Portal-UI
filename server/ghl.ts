@@ -36,6 +36,32 @@ export function detectCurrency(calendarName: string): "SEK" | "EUR" {
   return "SEK";
 }
 
+// ─── In-memory TTL cache ──────────────────────────────────────────────────────
+interface CacheEntry<T> {
+  data: T;
+  expiresAt: number;
+}
+
+const memCache = new Map<string, CacheEntry<unknown>>();
+
+function cacheGet<T>(key: string): T | null {
+  const entry = memCache.get(key);
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) {
+    memCache.delete(key);
+    return null;
+  }
+  return entry.data as T;
+}
+
+function cacheSet<T>(key: string, data: T, ttlMs: number): void {
+  memCache.set(key, { data, expiresAt: Date.now() + ttlMs });
+}
+
+const CACHE_TTL_CALENDARS = 5 * 60 * 1000;   // 5 minutes
+const CACHE_TTL_APPOINTMENTS = 5 * 60 * 1000; // 5 minutes
+const CACHE_TTL_CONTACTS = 10 * 60 * 1000;    // 10 minutes
+
 // ─── HTTP helper ──────────────────────────────────────────────────────────────
 async function ghlGet<T>(path: string, params: Record<string, string> = {}): Promise<T> {
   const url = new URL(`${GHL_BASE}${path}`);
@@ -290,10 +316,17 @@ export async function getCalendars(): Promise<GHLCalendar[]> {
     const mock = await getMockCache<GHLCalendar[]>("mock:calendars");
     if (mock) return mock;
   }
+  // Check in-memory cache first
+  const cacheKey = "ghl:calendars";
+  const cached = cacheGet<GHLCalendar[]>(cacheKey);
+  if (cached) return cached;
+
   const data = await ghlGet<{ calendars: GHLCalendar[] }>("/calendars/", {
     locationId: LOCATION_ID,
   });
-  return data.calendars ?? [];
+  const result = data.calendars ?? [];
+  cacheSet(cacheKey, result, CACHE_TTL_CALENDARS);
+  return result;
 }
 
 // ─── Appointments ─────────────────────────────────────────────────────────────
@@ -336,6 +369,11 @@ export async function getAllAppointments(
     }
   }
 
+  // Check in-memory cache first (keyed by date range)
+  const apptCacheKey = `ghl:appointments:${startDate}:${endDate}`;
+  const cachedAppts = cacheGet<GHLAppointment[]>(apptCacheKey);
+  if (cachedAppts) return cachedAppts;
+
   // Real GHL: must fetch per-calendar since the API requires calendarId
   // Use parallel fetching with concurrency limit to avoid timeouts
   const calendars = await getCalendars();
@@ -357,6 +395,8 @@ export async function getAllAppointments(
       if (r.status === "fulfilled") results.push(...r.value);
     }
   }
+
+  cacheSet(apptCacheKey, results, CACHE_TTL_APPOINTMENTS);
   return results;
 }
 
@@ -366,9 +406,16 @@ export async function getContact(contactId: string): Promise<GHLContact | null> 
     const contact = await getMockCache<GHLContact>(`mock:contact:${contactId}`);
     if (contact) return contact;
   }
+  // Check in-memory cache first
+  const contactCacheKey = `ghl:contact:${contactId}`;
+  const cachedContact = cacheGet<GHLContact | null>(contactCacheKey);
+  if (cachedContact !== null) return cachedContact;
+
   try {
     const data = await ghlGet<{ contact: GHLContact }>(`/contacts/${contactId}`);
-    return data.contact ?? null;
+    const result = data.contact ?? null;
+    if (result) cacheSet(contactCacheKey, result, CACHE_TTL_CONTACTS);
+    return result;
   } catch {
     return null;
   }

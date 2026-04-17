@@ -250,6 +250,7 @@ export const appRouter = router({
       .mutation(async ({ input }) => {
         const { id, password, ...updates } = input;
         const finalUpdates: Record<string, unknown> = { ...updates };
+        if (finalUpdates.email) finalUpdates.email = (finalUpdates.email as string).toLowerCase();
         if (password) finalUpdates.passwordHash = hashNewPassword(password);
         await updateDashboardUser(id, finalUpdates as Parameters<typeof updateDashboardUser>[1]);
         return { success: true };
@@ -655,8 +656,20 @@ export const appRouter = router({
       const calendarIdOverride = dashUser.ghlContactId;
       const calendars = await getCalendars();
       const calMap = new Map(calendars.map((c) => [c.id, c]));
+
+      // Also look up calendar IDs from courseDates registered by this leader
+      const dbRef = await import("./db").then((m) => m.getDb());
+      const myCourseDateCalIds = new Set<string>();
+      if (dbRef) {
+        const { courseDates: cdTable } = await import("../drizzle/schema");
+        const { eq: eqOp } = await import("drizzle-orm");
+        const cdRows = await dbRef.select({ calId: cdTable.ghlCalendarId }).from(cdTable).where(eqOp(cdTable.courseLeaderName, myName));
+        for (const r of cdRows) if (r.calId) myCourseDateCalIds.add(r.calId);
+      }
+
       const myCals = calendars.filter((c) => {
         if (calendarIdOverride && c.id === calendarIdOverride) return true;
+        if (myCourseDateCalIds.has(c.id)) return true;
         return extractCourseLeaderName(c.name).toLowerCase().trim() === myName.toLowerCase().trim();
       });
       const myCalIds = new Set(myCals.map((c) => c.id));
@@ -702,7 +715,7 @@ export const appRouter = router({
         const { courseDates: cdTable } = await import("../drizzle/schema");
         const { sql } = await import("drizzle-orm");
         const rows = await db.select().from(cdTable).where(
-          sql`${cdTable.courseLeaderName} = ${myName} AND ${cdTable.startDate} > NOW() AND ${cdTable.published} = true`
+          sql`${cdTable.courseLeaderName} = ${myName} AND ${cdTable.startDate} > NOW() AND (${cdTable.status} = 'approved' OR ${cdTable.published} = true)`
         );
         upcomingCount = rows.length;
       }

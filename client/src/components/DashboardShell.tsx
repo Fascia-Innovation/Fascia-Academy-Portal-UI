@@ -94,9 +94,9 @@ const ADMIN_QUICK_LINKS: QuickLink[] = [
 ];
 
 const LEADER_QUICK_LINKS: QuickLink[] = [
-  { title: "Course Registration", icon: CalendarPlus, action: "external", href: "https://api.leadconnectorhq.com/widget/form/Qj23wxZoloZ66rUOiGfK" },
-  { title: "Course Cancellation", icon: Calendar, action: "external", href: "https://api.leadconnectorhq.com/widget/form/zu6l7hiLRwgBam9qhJA7" },
-  { title: "Request New Location", icon: Globe, action: "external", href: "https://api.leadconnectorhq.com/widget/form/FPuy6eYkypRk4MpC7eF1" },
+  { title: "Register New Course", icon: CalendarPlus, action: "navigate", href: "/my-courses?register=1" },
+  { title: "My Courses", icon: BookOpen, action: "navigate", href: "/my-courses" },
+  { title: "My Settlements", icon: Banknote, action: "navigate", href: "/my-settlements" },
   { title: "Course Leader Community", icon: Users, action: "external", href: "https://member.fasciavibes.com/c/course-leader-information/" },
   { title: "Course Leader Handbook", icon: BookOpenCheck, action: "external", href: "https://member.fasciavibes.com/c/course-leader-handbook-fascia-academy/" },
   { title: "Onboarding (SE)", icon: BookOpen, action: "external", href: "https://member.fasciavibes.com/c/se-onboarding-och-kunskapsbank-kursledare/" },

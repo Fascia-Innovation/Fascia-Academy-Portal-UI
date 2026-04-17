@@ -7,8 +7,9 @@ import { trpc } from "@/lib/trpc";
 import { useDashAuth } from "@/contexts/DashAuthContext";
 import {
   Loader2, TrendingUp, Users, CalendarDays, Banknote,
-  ArrowUpRight, ArrowDownRight, Minus,
+  ArrowUpRight, ArrowDownRight, Minus, RefreshCw, AlertTriangle,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 function fmt(n: number, currency: string) {
   return new Intl.NumberFormat("en-SE", { style: "currency", currency, maximumFractionDigits: 0 }).format(n);
@@ -33,7 +34,7 @@ function TrendIndicator({ current, previous }: { current: number; previous: numb
 
 export default function MyOverview() {
   const { user } = useDashAuth();
-  const { data, isLoading, error } = trpc.courseLeader.myOverview.useQuery(undefined, { staleTime: 120_000 });
+  const { data, isLoading, error, refetch, isFetching } = trpc.courseLeader.myOverview.useQuery(undefined, { staleTime: 120_000, retry: 1 });
 
   if (isLoading) {
     return (
@@ -44,9 +45,32 @@ export default function MyOverview() {
   }
 
   if (error) {
+    const isRateLimit = error.message?.includes("429") || error.message?.includes("Too Many Requests");
     return (
       <div className="p-8 max-w-5xl mx-auto">
-        <div className="bg-destructive/10 text-destructive rounded-lg p-4 text-sm">{error.message}</div>
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 flex flex-col items-center gap-4 text-center">
+          <AlertTriangle className="h-10 w-10 text-amber-500" />
+          <div>
+            <h3 className="text-base font-semibold text-foreground mb-1">
+              {isRateLimit ? "Temporary data limit reached" : "Could not load overview"}
+            </h3>
+            <p className="text-sm text-muted-foreground max-w-md">
+              {isRateLimit
+                ? "The booking system is temporarily limiting requests. Please wait a moment and try again."
+                : "Something went wrong while loading your data. Please try again."}
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => refetch()}
+            disabled={isFetching}
+            className="gap-2"
+          >
+            {isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            Try again
+          </Button>
+        </div>
       </div>
     );
   }
