@@ -918,7 +918,13 @@ export const courseDatesRouter = router({
       .orderBy(asc(courseDates.startDate));
 
     // Filter to pending statuses in JS since drizzle doesn't have easy OR for enums
-    const pendingStatuses = ["pending_approval", "pending_cancellation", "pending_reschedule", "needs_revision"];
+    // Only show statuses that require admin action:
+    // - pending_approval: new registration awaiting review
+    // - pending_cancellation: leader requested cancellation
+    // - pending_reschedule: leader requested reschedule
+    // - resubmitted: leader resubmitted after revision request
+    // NOT needs_revision: that awaits the course leader, not admin
+    const pendingStatuses = ["pending_approval", "pending_cancellation", "pending_reschedule", "resubmitted"];
     return rows.filter((r) => pendingStatuses.includes(r.status));
   }),
 
@@ -948,7 +954,7 @@ export const courseDatesRouter = router({
           by: dashUser.name,
           byId: dashUser.id,
           at: new Date().toISOString(),
-          details: input.adminMessage || "Godkänd av admin",
+          details: input.adminMessage || "Approved by admin",
         });
 
         await db.update(courseDates).set({
@@ -965,7 +971,7 @@ export const courseDatesRouter = router({
           by: dashUser.name,
           byId: dashUser.id,
           at: new Date().toISOString(),
-          details: input.adminMessage || "Avbokning godkänd",
+          details: input.adminMessage || "Cancellation approved",
         });
 
         await db.update(courseDates).set({
@@ -982,7 +988,7 @@ export const courseDatesRouter = router({
           by: dashUser.name,
           byId: dashUser.id,
           at: new Date().toISOString(),
-          details: `Ombokning godkänd: ${course.rescheduleNewStart?.toISOString().slice(0, 10) ?? "?"}`,
+          details: `Reschedule approved: ${course.rescheduleNewStart?.toISOString().slice(0, 10) ?? "?"}`,
           oldStart: course.startDate.toISOString(),
           newStart: course.rescheduleNewStart?.toISOString() ?? null,
         });
@@ -1005,10 +1011,10 @@ export const courseDatesRouter = router({
       // Notify course leader via owner notification
       try {
         const { notifyOwner } = await import("../_core/notification");
-        const actionLabel = course.status === "pending_cancellation" ? "avbokning" : course.status === "pending_reschedule" ? "ombokning" : "kursregistrering";
+        const actionLabel = course.status === "pending_cancellation" ? "cancellation" : course.status === "pending_reschedule" ? "reschedule" : "course registration";
         await notifyOwner({
-          title: `${course.courseLeaderName}: Din ${actionLabel} har godkänts`,
-          content: `Admin har godkänt din ${actionLabel} för ${course.courseType} den ${course.startDate.toISOString().slice(0, 10)}.${input.adminMessage ? `\nMeddelande: ${input.adminMessage}` : ""}`,
+          title: `${course.courseLeaderName}: Your ${actionLabel} has been approved`,
+          content: `Admin has approved your ${actionLabel} for ${course.courseType} on ${course.startDate.toISOString().slice(0, 10)}.${input.adminMessage ? `\nMessage: ${input.adminMessage}` : ""}`,
         });
       } catch { /* non-blocking */ }
 

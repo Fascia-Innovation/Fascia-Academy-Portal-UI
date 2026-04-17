@@ -153,6 +153,23 @@ function NotificationBell({ user, pendingItems, leaderNotifications, setLocation
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
+  // localStorage-based read tracking for course leader notifications
+  const STORAGE_KEY = `fa-read-notifs-${user?.id ?? "guest"}`;
+  const [readIds, setReadIds] = useState<Set<string>>(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      return stored ? new Set<string>(JSON.parse(stored) as string[]) : new Set<string>();
+    } catch { return new Set<string>(); }
+  });
+
+  function markAllRead() {
+    if (!leaderNotifications) return;
+    const allIds = leaderNotifications.map((n) => n.id);
+    const newSet = new Set(Array.from(readIds).concat(allIds));
+    setReadIds(newSet);
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(newSet))); } catch { /* ignore */ }
+  }
+
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
@@ -279,7 +296,7 @@ function NotificationBell({ user, pendingItems, leaderNotifications, setLocation
 
   const pendingCount = pendingItems?.length ?? 0;
   const hasPendingActions = user?.role === "admin" && pendingCount > 0;
-  const leaderNotifCount = leaderNotifications?.length ?? 0;
+  const leaderNotifCount = (leaderNotifications ?? []).filter((n) => !readIds.has(n.id)).length;
   const hasLeaderNotifs = user?.role === "course_leader" && leaderNotifCount > 0;
 
   return (
@@ -307,9 +324,19 @@ function NotificationBell({ user, pendingItems, leaderNotifications, setLocation
         <div className="absolute right-0 top-full mt-1 w-80 bg-card border border-border rounded-xl shadow-lg z-50 py-2">
           <div className="px-4 py-2 border-b border-border flex items-center justify-between">
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Notifications</span>
-            {hasPendingActions && (
-              <span className="text-xs font-bold text-red-500">{pendingCount} pending</span>
-            )}
+            <div className="flex items-center gap-2">
+              {hasPendingActions && (
+                <span className="text-xs font-bold text-red-500">{pendingCount} pending</span>
+              )}
+              {hasLeaderNotifs && (
+                <button
+                  onClick={markAllRead}
+                  className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
+                >
+                  Mark all as read
+                </button>
+              )}
+            </div>
           </div>
           <div className="max-h-[400px] overflow-y-auto">
             {notifications.length === 0 ? (
