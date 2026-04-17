@@ -65,8 +65,9 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Certificates", href: "/certificates", icon: ScrollText, roles: ["admin"] },
   { label: "Settings", href: "/settings", icon: Settings, roles: ["admin"] },
   // Course Leader
-  { label: "My Overview", href: "/my-overview", icon: LayoutDashboard, roles: ["course_leader"] },
+  { label: "Home", href: "/my-overview", icon: LayoutDashboard, roles: ["course_leader"] },
   { label: "My Courses", href: "/my-courses", icon: BookOpen, roles: ["course_leader"] },
+  { label: "My Statistics", href: "/my-statistics", icon: BarChart3, roles: ["course_leader"] },
   { label: "My Settlements", href: "/my-settlements", icon: FileText, roles: ["course_leader", "affiliate"] },
   // Examiner-only (any role with canExamineExams)
   { label: "Exam Queue", href: "/exam-queue", icon: ClipboardCheck, roles: [], examinerOnly: true },

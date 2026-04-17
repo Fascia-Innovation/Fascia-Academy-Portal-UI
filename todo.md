@@ -391,3 +391,15 @@
 - [x] Improve calendar matching fallback when ghlContactId is null (also checks courseDates table)
 - [x] Add server-side GHL cache (calendars 5min, appointments 5min, contacts 10min) to reduce API calls and avoid 429 rate limits
 - [x] Optimize myOverview to reuse single calendar fetch and batch appointment fetches
+
+### Welcome Page + My Overview Improvements
+- [x] Create lightweight "Home" page for course leaders (DB-only, no GHL calls)
+- [x] Show notifications: courses needing revision, pending count, recently approved/cancelled
+- [x] Show next upcoming course from courseDates table
+- [x] Quick stats: upcoming, completed, pending counts
+- [x] Quick action buttons (Register Course, My Courses, My Settlements, My Statistics)
+- [x] Empty state with CTA when no courses registered
+- [x] Rename "My Overview" → "My Statistics" in sidebar
+- [x] Fix "Participants (this month)" → "Showed (this month)" to clarify it's confirmed attendees
+- [x] Add empty state to My Statistics when all data is 0
+- [x] Update routing: /my-overview → LeaderHome, /my-statistics → MyOverview

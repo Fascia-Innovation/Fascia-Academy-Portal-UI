@@ -646,6 +646,79 @@ export const appRouter = router({
         return { courseLeaderName: myName, courses: Array.from(courseMap.values()) };
       }),
 
+    // ── Home: lightweight DB-only data for course leader home page ──
+    homeData: dashboardProcedure.query(async ({ ctx }) => {
+      const dashUser = (ctx as { dashUser: DashboardUser }).dashUser;
+      if (dashUser.role !== "admin" && dashUser.role !== "course_leader") {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+      const myName = dashUser.name;
+      const db = await import("./db").then((m) => m.getDb());
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      const { courseDates: cdTable } = await import("../drizzle/schema");
+      const { sql } = await import("drizzle-orm");
+      const { asc } = await import("drizzle-orm");
+
+      // All courses for this leader
+      const allRows = await db.select().from(cdTable).where(
+        sql`LOWER(TRIM(${cdTable.courseLeaderName})) = LOWER(TRIM(${myName}))`
+      ).orderBy(asc(cdTable.startDate));
+
+      const now = new Date();
+
+      // Courses needing attention (needs_revision)
+      const needsRevision = allRows
+        .filter((r) => r.status === "needs_revision")
+        .map((r) => ({ id: r.id, courseType: r.courseType, city: r.city, startDate: r.startDate, status: r.status }));
+
+      // Recently approved (last 30 days)
+      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      const recentlyApproved = allRows
+        .filter((r) => r.status === "approved" && r.updatedAt && r.updatedAt >= thirtyDaysAgo)
+        .sort((a, b) => (b.updatedAt?.getTime() ?? 0) - (a.updatedAt?.getTime() ?? 0))
+        .slice(0, 3)
+        .map((r) => ({ id: r.id, courseType: r.courseType, city: r.city, startDate: r.startDate, status: r.status }));
+
+      // Recently cancelled
+      const recentlyCancelled = allRows
+        .filter((r) => r.status === "cancelled" && r.updatedAt && r.updatedAt >= thirtyDaysAgo)
+        .sort((a, b) => (b.updatedAt?.getTime() ?? 0) - (a.updatedAt?.getTime() ?? 0))
+        .slice(0, 3)
+        .map((r) => ({ id: r.id, courseType: r.courseType, city: r.city, startDate: r.startDate, status: r.status }));
+
+      // Pending actions (awaiting admin)
+      const pendingStatuses = ["pending_approval", "pending_cancellation", "pending_reschedule"];
+      const pendingCount = allRows.filter((r) => pendingStatuses.includes(r.status)).length;
+
+      // Next upcoming course
+      const nextCourse = allRows.find((r) => r.startDate >= now && (r.status === "approved" || r.published));
+
+      // Total upcoming courses
+      const upcomingCount = allRows.filter((r) => r.startDate >= now && (r.status === "approved" || r.published)).length;
+
+      // Total past courses (completed)
+      const pastCount = allRows.filter((r) => r.startDate < now && r.status !== "cancelled").length;
+
+      return {
+        courseLeaderName: myName,
+        needsRevision,
+        recentlyApproved,
+        recentlyCancelled,
+        pendingCount,
+        nextCourse: nextCourse ? {
+          id: nextCourse.id,
+          courseType: nextCourse.courseType,
+          city: nextCourse.city,
+          venueName: nextCourse.venueName,
+          startDate: nextCourse.startDate,
+          endDate: nextCourse.endDate,
+        } : null,
+        upcomingCount,
+        pastCount,
+      };
+    }),
+
     // ── My Overview: motivational stats comparing with self over time ──
     myOverview: dashboardProcedure.query(async ({ ctx }) => {
       const dashUser = (ctx as { dashUser: DashboardUser }).dashUser;

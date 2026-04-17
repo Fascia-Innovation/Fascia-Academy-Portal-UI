@@ -14,6 +14,7 @@ import Students from "./pages/Students";
 import SettingsPage from "./pages/SettingsPage";
 import MyCourses from "./pages/MyCourses";
 import MyOverview from "./pages/MyOverview";
+import LeaderHome from "./pages/LeaderHome";
 import MyCommissions from "./pages/MyCommissions";
 import NotFound from "./pages/NotFound";
 import PublicCourses from "./pages/PublicCourses";
@@ -75,7 +76,8 @@ function AppRoutes() {
         {(user.role === "admin" || user.canExamineExams) && <Route path="/certificates" component={Certificates} />}
 
         {/* Course Leader routes */}
-        {user.role === "course_leader" && <Route path="/my-overview" component={MyOverview} />}
+        {user.role === "course_leader" && <Route path="/my-overview" component={LeaderHome} />}
+        {(user.role === "admin" || user.role === "course_leader") && <Route path="/my-statistics" component={MyOverview} />}
         {(user.role === "admin" || user.role === "course_leader") && <Route path="/my-courses" component={MyCourses} />}
         {(user.role === "course_leader" || user.role === "affiliate") && <Route path="/my-settlements" component={Settlements} />}
 

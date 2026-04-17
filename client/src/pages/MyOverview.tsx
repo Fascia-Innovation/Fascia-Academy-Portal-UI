@@ -83,17 +83,30 @@ export default function MyOverview() {
   // Find max participants for bar chart scaling
   const maxParticipants = Math.max(...months.map((m) => m.participants), 1);
 
+  // Check if all data is empty
+  const isEmpty = stats.totalParticipants === 0 && stats.totalPayoutSEK === 0 && stats.totalPayoutEUR === 0 && stats.upcomingCourses === 0;
+
   return (
     <div className="p-8 max-w-5xl mx-auto space-y-8">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-foreground" style={{ fontFamily: "'Playfair Display', serif" }}>
-          Welcome back, {user?.name?.split(" ")[0]}
+          My Statistics
         </h1>
         <p className="text-muted-foreground text-sm mt-1">
           Your personal performance overview — last 6 months
         </p>
       </div>
+
+      {isEmpty && (
+        <div className="bg-card rounded-xl border border-border p-8 text-center">
+          <TrendingUp className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+          <h3 className="text-base font-semibold text-foreground mb-1">No statistics yet</h3>
+          <p className="text-sm text-muted-foreground max-w-md mx-auto">
+            Statistics will appear here once participants attend your courses. Data is based on confirmed attendees (“showed”) from the booking system.
+          </p>
+        </div>
+      )}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -109,7 +122,7 @@ export default function MyOverview() {
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <Users className="h-3.5 w-3.5" />
-              Participants (this month)
+              Showed (this month)
             </div>
             {previousMonth && (
               <TrendIndicator current={currentMonth?.participants ?? 0} previous={previousMonth.participants} />
@@ -140,7 +153,7 @@ export default function MyOverview() {
         <div className="flex items-center gap-2 mb-6">
           <TrendingUp className="h-5 w-5 text-[oklch(0.72_0.12_75)]" />
           <h2 className="text-lg font-semibold text-foreground" style={{ fontFamily: "'Playfair Display', serif" }}>
-            Participants Over Time
+            Showed Over Time
           </h2>
         </div>
         <div className="flex items-end gap-3 h-48">
@@ -174,7 +187,7 @@ export default function MyOverview() {
             <thead className="bg-muted/20">
               <tr>
                 <th className="text-xs font-medium text-muted-foreground uppercase tracking-wider py-3 px-4 text-left">Month</th>
-                <th className="text-xs font-medium text-muted-foreground uppercase tracking-wider py-3 px-4 text-center">Participants</th>
+                <th className="text-xs font-medium text-muted-foreground uppercase tracking-wider py-3 px-4 text-center">Showed</th>
                 <th className="text-xs font-medium text-muted-foreground uppercase tracking-wider py-3 px-4 text-right">Payout (SEK)</th>
                 <th className="text-xs font-medium text-muted-foreground uppercase tracking-wider py-3 px-4 text-right">Payout (EUR)</th>
               </tr>
