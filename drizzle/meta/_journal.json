@@ -71,6 +71,13 @@
       "when": 1776416142642,
       "tag": "0009_shiny_black_widow",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "5",
+      "when": 1776454659334,
+      "tag": "0010_noisy_mesmero",
+      "breakpoints": true
     }
   ]
 }

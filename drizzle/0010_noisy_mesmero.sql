@@ -1,0 +1,1 @@
+ALTER TABLE `dashboard_users` ADD `ghlUserId` varchar(64);

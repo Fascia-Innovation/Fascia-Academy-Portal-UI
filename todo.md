@@ -431,3 +431,9 @@
 - [x] Handle cancelled courses: show in a "Cancelled courses" section
 - [x] Translate Home page, DashboardShell, MyOverview to English (all already in English)
 - [x] Translate all dialogs and toasts across the app to English (MyCourses fully translated)
+
+### Calendar Matching Fix
+- [x] Add ghlUserId column to dashboard_users table (migration applied)
+- [x] Update getCalendars to match on ghlUserId first, then name fallback
+- [x] Add GHL User ID field to User Management edit dialog
+- [x] Add ghlUserId to createDashboardUser and updateDashboardUser backend helpers

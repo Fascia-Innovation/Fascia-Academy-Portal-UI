@@ -44,6 +44,7 @@ export const dashboardUsers = mysqlTable("dashboard_users", {
   invoiceReference: varchar("invoiceReference", { length: 128 }), // unique payment reference for invoices (e.g. FK-001)
   isAffiliate: boolean("isAffiliate").default(false).notNull(), // true = also acts as affiliate (dual-role)
   canExamineExams: boolean("canExamineExams").default(false).notNull(), // true = can grade exams in exam queue
+  ghlUserId: varchar("ghlUserId", { length: 64 }), // GHL user ID — used to match this course leader's GHL calendars
   active: boolean("active").default(true).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),

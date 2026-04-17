@@ -231,13 +231,22 @@ export const courseDatesRouter = router({
     // Filter out template calendars and enrich with course type + user info
     let filtered = calendars.filter((c) => !c.name.startsWith("Template"));
 
-    // Course leaders only see their own calendars (matched by GHL user name)
+    // Course leaders only see their own calendars
+    // Match priority: 1) ghlUserId on dashUser (exact), 2) name fallback
     if (!isAdmin) {
+      const myGhlUserId = dashUser.ghlUserId?.trim() ?? null;
       const myName = dashUser.name.toLowerCase().trim();
       filtered = filtered.filter((c) => {
         const primaryMember = c.teamMembers?.find((m) => m.isPrimary) ?? c.teamMembers?.[0];
-        const user = primaryMember ? userMap.get(primaryMember.userId) : null;
-        return user?.name?.toLowerCase().trim() === myName;
+        if (!primaryMember) return false;
+        // Priority 1: match by GHL user ID (set by admin in User Management)
+        if (myGhlUserId && primaryMember.userId === myGhlUserId) return true;
+        // Priority 2: name fallback (only if ghlUserId not set)
+        if (!myGhlUserId) {
+          const user = userMap.get(primaryMember.userId);
+          return user?.name?.toLowerCase().trim() === myName;
+        }
+        return false;
       });
     }
 

@@ -29,12 +29,13 @@ type UserForm = {
   invoiceReference: string;
   isAffiliate: boolean;
   canExamineExams: boolean;
+  ghlUserId: string;
 };
 
 const EMPTY_FORM: UserForm = {
   email: "", password: "", name: "", role: "course_leader",
   ghlContactId: "", affiliateCode: "", profileUrl: "",
-  invoiceReference: "", isAffiliate: false, canExamineExams: false,
+  invoiceReference: "", isAffiliate: false, canExamineExams: false, ghlUserId: "",
 };
 
 const ROLE_LABELS: Record<string, string> = {
@@ -101,6 +102,7 @@ export default function SettingsPage() {
       invoiceReference: (user as any).invoiceReference ?? "",
       isAffiliate: (user as any).isAffiliate ?? false,
       canExamineExams: (user as any).canExamineExams ?? false,
+      ghlUserId: (user as any).ghlUserId ?? "",
     });
     setEditId(user.id);
   };
@@ -115,6 +117,7 @@ export default function SettingsPage() {
         profileUrl: form.profileUrl || undefined,
         invoiceReference: form.invoiceReference || undefined,
         isAffiliate: form.isAffiliate, canExamineExams: form.canExamineExams,
+        ghlUserId: form.ghlUserId || undefined,
         ...(form.password ? { password: form.password } : {}),
       });
     } else {
@@ -126,6 +129,7 @@ export default function SettingsPage() {
         profileUrl: form.profileUrl || undefined,
         invoiceReference: form.invoiceReference || undefined,
         isAffiliate: form.isAffiliate, canExamineExams: form.canExamineExams,
+        ghlUserId: form.ghlUserId || undefined,
       });
     }
   };
@@ -382,10 +386,17 @@ export default function SettingsPage() {
             {form.role === "course_leader" && (
               <>
                 <div className="space-y-1.5">
-                  <Label>GHL Calendar ID Override (optional)</Label>
+                  <Label>GHL User ID (required for calendar matching)</Label>
+                  <Input value={form.ghlUserId} onChange={(e) => setForm({ ...form, ghlUserId: e.target.value })} placeholder="e.g. abc123xyz" />
+                  <p className="text-xs text-muted-foreground">
+                    The GHL user ID for this course leader. Find it in GHL → Settings → Team Members → click the user → copy the ID from the URL. This is used to match their booking calendars.
+                  </p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>GHL Contact ID (optional)</Label>
                   <Input value={form.ghlContactId} onChange={(e) => setForm({ ...form, ghlContactId: e.target.value })} placeholder="e.g. abc123xyz" />
                   <p className="text-xs text-muted-foreground">
-                    Only needed for shared/multi-leader calendars. Leave blank if the GHL calendar name already contains this leader's name.
+                    GHL contact ID for scoped data access (commissions, etc.).
                   </p>
                 </div>
                 <div className="space-y-1.5">

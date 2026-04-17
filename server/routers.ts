@@ -229,6 +229,7 @@ export const appRouter = router({
         invoiceReference: z.string().optional(),
         isAffiliate: z.boolean().optional(),
         canExamineExams: z.boolean().optional(),
+        ghlUserId: z.string().optional(),
       }))
       .mutation(async ({ input }) => createDashboardUser(input)),
 
@@ -246,6 +247,7 @@ export const appRouter = router({
         canExamineExams: z.boolean().optional(),
         active: z.boolean().optional(),
         password: z.string().min(6).optional(),
+        ghlUserId: z.string().optional().nullable(),
       }))
       .mutation(async ({ input }) => {
         const { id, password, ...updates } = input;
