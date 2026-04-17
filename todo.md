@@ -421,3 +421,13 @@
 **Backend:**
 - [x] New tRPC procedure: leaderNotifications (DB-only, returns recent status changes)
 - [x] New tRPC procedure: leaderActionItems (DB-only, returns tasks needing attention)
+
+### My Courses Fixes + English Translation
+- [x] Translate all MyCourses UI text to English (labels, buttons, dialogs, toasts, empty states)
+- [x] Remove "Fasciaklinikerna Helsingborg" placeholder example text
+- [x] Admin fee notice: show both SEK (1 000 kr) and EUR (€100)
+- [x] Fix upcoming filter: remove published=true requirement, only check status='approved'
+- [x] Fix name matching: also match on submittedBy (user ID) not just courseLeaderName string
+- [x] Handle cancelled courses: show in a "Cancelled courses" section
+- [x] Translate Home page, DashboardShell, MyOverview to English (all already in English)
+- [x] Translate all dialogs and toasts across the app to English (MyCourses fully translated)

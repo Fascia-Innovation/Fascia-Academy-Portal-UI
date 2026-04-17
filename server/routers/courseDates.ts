@@ -186,16 +186,19 @@ export const courseDatesRouter = router({
       .from(courseDates)
       .orderBy(asc(courseDates.startDate));
 
+    // Match on both courseLeaderName (string) AND submittedBy (user ID)
     const mine = allRows.filter(
-      (r) => r.courseLeaderName.toLowerCase().trim() === myName.trim()
+      (r) =>
+        r.courseLeaderName.toLowerCase().trim() === myName.trim() ||
+        r.submittedBy === dashUser.id
     );
 
     // Pending/needs_revision courses (any status that needs attention)
     const pendingStatuses = ["pending_approval", "pending_cancellation", "pending_reschedule", "needs_revision"];
     const pending = mine.filter((r) => pendingStatuses.includes(r.status));
 
-    // Upcoming = future start date AND approved/published
-    const upcoming = mine.filter((r) => r.startDate >= now && r.status === "approved" && r.published);
+    // Upcoming = future start date AND approved (published flag not required — admin may approve before publishing)
+    const upcoming = mine.filter((r) => r.startDate >= now && r.status === "approved");
 
     // Past = past start date AND not cancelled
     const past = mine

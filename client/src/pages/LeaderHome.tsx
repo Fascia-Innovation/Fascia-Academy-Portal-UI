@@ -28,7 +28,7 @@ import {
 import { Button } from "@/components/ui/button";
 
 function formatDate(d: Date | string) {
-  return new Date(d).toLocaleDateString("sv-SE", { year: "numeric", month: "short", day: "numeric" });
+  return new Date(d).toLocaleDateString("en-SE", { year: "numeric", month: "short", day: "numeric" });
 }
 
 function courseTypeLabel(t: string) {
