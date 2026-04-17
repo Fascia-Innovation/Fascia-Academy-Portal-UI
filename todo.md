@@ -442,3 +442,17 @@
 - [ ] Translate Pending Actions admin page to English (all labels, badges, buttons)
 - [ ] Add Edit & Resubmit button to needs_revision course cards (course leader view)
 - [ ] Translate revision request email to English
+
+## Round N: Mark Participants as Showed (Section 3.2)
+- [x] Backend: ghlPut helper in ghl.ts for PUT /calendars/appointments/{id}
+- [ ] Backend: getCourseParticipants procedure — fetch GHL appointments for a course date by calendarId + date range
+- [ ] Backend: markParticipantShowed mutation — update GHL appointment status to showed/no_show
+- [x] Frontend: Participant list UI in MyCourses.tsx for past/approved courses (expandable section)
+- [x] Frontend: Mark as showed / undo buttons per participant with optimistic UI
+
+## Round N: Mark Participants as Showed (Section 3.2)
+- [x] Backend: ghlPut helper in ghl.ts for PUT /calendars/appointments/{id}
+- [x] Backend: getCourseParticipants procedure in courseDates.ts
+- [x] Backend: markParticipantShowed mutation in courseDates.ts
+- [x] Frontend: Participant list UI in MyCourses.tsx for past/approved courses
+- [x] Frontend: Mark as showed / undo buttons per participant

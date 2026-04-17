@@ -1238,6 +1238,144 @@ export const courseDatesRouter = router({
       return { success: true };
     }),
 
+  // ─── Course leader: get participants for a course date ─────────────────────
+  getCourseParticipants: dashboardProcedure
+    .input(z.object({ courseDateId: z.number().int() }))
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      const dashUser = (ctx as { dashUser: DashboardUser }).dashUser;
+
+      // Fetch the course date
+      const rows = await db.select().from(courseDates).where(eq(courseDates.id, input.courseDateId));
+      const course = rows[0];
+      if (!course) throw new TRPCError({ code: "NOT_FOUND" });
+
+      // Only admin or the owning course leader can see participants
+      if (
+        dashUser.role !== "admin" &&
+        course.courseLeaderName.toLowerCase().trim() !== dashUser.name.toLowerCase().trim() &&
+        course.submittedBy !== dashUser.id
+      ) {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+
+      // Fetch appointments from GHL for this calendar within the course date window
+      // Use a ±1 day window around startDate to catch all bookings
+      const startMs = new Date(course.startDate).getTime() - 24 * 60 * 60 * 1000;
+      const endMs = new Date(course.endDate).getTime() + 24 * 60 * 60 * 1000;
+
+      try {
+        const res = await fetch(
+          `${GHL_BASE}/calendars/events?calendarId=${course.ghlCalendarId}&locationId=${LOCATION_ID}&startTime=${startMs}&endTime=${endMs}`,
+          {
+            headers: {
+              Authorization: `Bearer ${API_KEY}`,
+              Version: "2021-04-15",
+              Accept: "application/json",
+            },
+          }
+        );
+        if (!res.ok) {
+          const body = await res.text();
+          console.error("[getCourseParticipants] GHL error:", res.status, body);
+          return { participants: [] };
+        }
+        const data = await res.json() as { events?: Array<{
+          id: string;
+          title?: string;
+          contactId?: string;
+          appointmentStatus?: string;
+          status?: string;
+          startTime?: string;
+          contact?: { firstName?: string; lastName?: string; email?: string; phone?: string };
+        }> };
+
+        const events = data.events ?? [];
+        // Exclude truly cancelled/invalid appointments
+        const active = events.filter((e) => {
+          const s = (e.appointmentStatus ?? e.status ?? "").toLowerCase();
+          return !["cancelled", "invalid"].includes(s);
+        });
+
+        const participants = active.map((e) => {
+          const firstName = e.contact?.firstName ?? "";
+          const lastName = e.contact?.lastName ?? "";
+          const name = [firstName, lastName].filter(Boolean).join(" ") || e.title || e.contactId || "Unknown";
+          const status = (e.appointmentStatus ?? e.status ?? "").toLowerCase();
+          return {
+            appointmentId: e.id,
+            contactId: e.contactId ?? "",
+            name,
+            email: e.contact?.email ?? "",
+            phone: e.contact?.phone ?? "",
+            showed: status === "showed" || status === "show",
+            noShow: status === "no_show" || status === "noshow",
+            status,
+          };
+        });
+
+        return { participants };
+      } catch (err) {
+        console.error("[getCourseParticipants] fetch error:", err);
+        return { participants: [] };
+      }
+    }),
+
+  // ─── Course leader: mark a participant as showed / undo ───────────────────
+  markParticipantShowed: dashboardProcedure
+    .input(
+      z.object({
+        courseDateId: z.number().int(),
+        appointmentId: z.string().min(1),
+        showed: z.boolean(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      const dashUser = (ctx as { dashUser: DashboardUser }).dashUser;
+
+      // Verify ownership
+      const rows = await db.select().from(courseDates).where(eq(courseDates.id, input.courseDateId));
+      const course = rows[0];
+      if (!course) throw new TRPCError({ code: "NOT_FOUND" });
+
+      if (
+        dashUser.role !== "admin" &&
+        course.courseLeaderName.toLowerCase().trim() !== dashUser.name.toLowerCase().trim() &&
+        course.submittedBy !== dashUser.id
+      ) {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+
+      // Update appointment status in GHL
+      const newStatus = input.showed ? "showed" : "confirmed";
+      const res = await fetch(`${GHL_BASE}/calendars/appointments/${input.appointmentId}`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${API_KEY}`,
+          Version: "2021-04-15",
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({ appointmentStatus: newStatus }),
+      });
+
+      if (!res.ok) {
+        const body = await res.text();
+        console.error("[markParticipantShowed] GHL error:", res.status, body);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: `GHL update failed: ${res.status}`,
+        });
+      }
+
+      return { success: true, appointmentId: input.appointmentId, showed: input.showed };
+    }),
+
   // ─── Get change log for a course date ──────────────────────────────────────
   getChangeLog: dashboardProcedure
     .input(z.object({ id: z.number().int() }))

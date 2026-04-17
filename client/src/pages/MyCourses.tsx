@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { trpc } from "@/lib/trpc";
 import { useDashAuth } from "@/contexts/DashAuthContext";
 import MonthPicker from "@/components/ui/MonthPicker";
@@ -14,6 +14,7 @@ import {
   CalendarDays, MapPin, Clock, ExternalLink, History, Banknote,
   Users, TrendingUp, Plus, Copy, XCircle, RefreshCw, Lock,
   AlertTriangle, CheckCircle, MessageSquare, Layers, RotateCcw, Pencil,
+  UserCheck, UserX, ListChecks,
 } from "lucide-react";
 
 // ─── Formatters ───────────────────────────────────────────────────────────────
@@ -861,6 +862,118 @@ function ChangeLogDialog({ open, onOpenChange, courseId }: {
   );
 }
 
+// ─── Participant Attendance List ─────────────────────────────────────────────
+function ParticipantAttendanceList({ courseId }: { courseId: number }) {
+  const [open, setOpen] = useState(false);
+
+  const { data, isLoading, refetch } = trpc.courseDates.getCourseParticipants.useQuery(
+    { courseDateId: courseId },
+    { enabled: open }
+  );
+
+  const markMutation = trpc.courseDates.markParticipantShowed.useMutation({
+    onSuccess: () => {
+      refetch();
+    },
+    onError: (err) => {
+      toast.error(`Failed to update: ${err.message}`);
+    },
+  });
+
+  const handleMark = useCallback(
+    (appointmentId: string, showed: boolean) => {
+      markMutation.mutate({ courseDateId: courseId, appointmentId, showed });
+    },
+    [courseId, markMutation]
+  );
+
+  const participants = data?.participants ?? [];
+  const showedCount = participants.filter((p) => p.showed).length;
+
+  return (
+    <div className="mt-2">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1.5 text-xs font-medium text-[oklch(0.22_0.04_255)] hover:underline"
+      >
+        <ListChecks className="h-3.5 w-3.5" />
+        Participants
+        {open ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+      </button>
+
+      {open && (
+        <div className="mt-3 border border-border rounded-lg overflow-hidden">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-6">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : participants.length === 0 ? (
+            <div className="py-6 text-center text-sm text-muted-foreground">
+              <Users className="h-8 w-8 mx-auto mb-2 text-muted-foreground/40" />
+              No bookings found for this course date.
+            </div>
+          ) : (
+            <>
+              <div className="bg-muted/40 px-4 py-2 flex items-center justify-between border-b border-border">
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  {participants.length} participant{participants.length !== 1 ? "s" : ""}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {showedCount}/{participants.length} marked as showed
+                </span>
+              </div>
+              <div className="divide-y divide-border">
+                {participants.map((p) => (
+                  <div key={p.appointmentId} className="flex items-center justify-between px-4 py-3 gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-foreground truncate">{p.name}</span>
+                        {p.showed && (
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-xs font-medium">
+                            <CheckCircle className="h-3 w-3" /> Showed
+                          </span>
+                        )}
+                        {p.noShow && (
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 text-xs font-medium">
+                            <XCircle className="h-3 w-3" /> No-show
+                          </span>
+                        )}
+                      </div>
+                      {p.email && <div className="text-xs text-muted-foreground mt-0.5">{p.email}</div>}
+                    </div>
+                    <div className="shrink-0">
+                      {p.showed ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs gap-1"
+                          disabled={markMutation.isPending}
+                          onClick={() => handleMark(p.appointmentId, false)}
+                        >
+                          <UserX className="h-3 w-3" /> Undo
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          className="h-7 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                          disabled={markMutation.isPending}
+                          onClick={() => handleMark(p.appointmentId, true)}
+                        >
+                          <UserCheck className="h-3 w-3" /> Mark showed
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Course Card ─────────────────────────────────────────────────────────────
 type CourseRow = {
   id: number;
@@ -970,15 +1083,18 @@ function CourseCard({ row, showActions, isPending, showRepeat, calendars }: { ro
           </div>
         )}
 
-        {/* Repeat button for past courses */}
+        {/* Repeat button + participant list for past courses */}
         {showRepeat && (
-          <div className="flex items-center gap-2 mt-1">
-            <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => setCopyOpen(true)}>
-              <RotateCcw className="h-3 w-3" /> Repeat course
-            </Button>
-            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setLogOpen(true)}>
-              <History className="h-3 w-3 mr-1" /> Log
-            </Button>
+          <div className="flex flex-col gap-2 mt-1">
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => setCopyOpen(true)}>
+                <RotateCcw className="h-3 w-3" /> Repeat course
+              </Button>
+              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setLogOpen(true)}>
+                <History className="h-3 w-3 mr-1" /> Log
+              </Button>
+            </div>
+            <ParticipantAttendanceList courseId={row.id} />
           </div>
         )}
       </div>
