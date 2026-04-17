@@ -364,3 +364,16 @@
 - [x] Status column showing pending/approved/needs_revision/cancelled/rescheduled
 - [x] Approval workflow integrated into existing Manage Dates tab
 - [x] Change log (Historik) dialog per course date in admin table
+
+## Round 16b: Notification Bell + Repeat Course
+
+### Admin Notification Bell — Real Pending Actions Alerts
+- [x] Wire notification bell to show real-time pending course actions (new registrations, cancellation requests, reschedule requests, revision resubmissions)
+- [x] Each pending item shows course leader name, course type, action type, and time since submitted
+- [x] Clicking a notification navigates to Pending Actions page
+- [x] Badge count reflects actual pending items
+
+### Course Leader — Repeat Course (Upprepa kurs)
+- [x] Add "Upprepa kurs" button on historical/past courses in MyCourses view
+- [x] Pre-fills registration form with same calendar, venue, booking info — but requires new dates
+- [x] Works like copy but from the course leader's perspective (not admin duplicate)

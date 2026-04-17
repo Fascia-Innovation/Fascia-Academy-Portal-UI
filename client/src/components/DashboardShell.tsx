@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { Link, useLocation } from "wouter";
 import { useDashAuth } from "@/contexts/DashAuthContext";
 import { trpc } from "@/lib/trpc";
@@ -35,6 +35,10 @@ import {
   DollarSign,
   CheckCircle2,
   AlertTriangle,
+  XCircle,
+  RefreshCw,
+  PlusCircle,
+  Clock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
@@ -103,13 +107,47 @@ const LEADER_QUICK_LINKS: QuickLink[] = [
 type NotifItem = {
   id: string;
   icon: React.ComponentType<{ className?: string }>;
+  iconColor: string;
+  iconBg: string;
   title: string;
   subtitle: string;
   time: string;
   href?: string;
 };
 
-function NotificationBell({ user, setLocation }: { user: ReturnType<typeof useDashAuth>["user"]; setLocation: (path: string) => void }) {
+const PENDING_STATUS_CONFIG: Record<string, { icon: React.ComponentType<{ className?: string }>; label: string; iconColor: string; iconBg: string }> = {
+  pending_approval: { icon: PlusCircle, label: "New course registration", iconColor: "text-blue-600", iconBg: "bg-blue-100" },
+  pending_cancellation: { icon: XCircle, label: "Cancellation request", iconColor: "text-red-600", iconBg: "bg-red-100" },
+  pending_reschedule: { icon: RefreshCw, label: "Reschedule request", iconColor: "text-amber-600", iconBg: "bg-amber-100" },
+  needs_revision: { icon: Clock, label: "Revision resubmitted", iconColor: "text-purple-600", iconBg: "bg-purple-100" },
+};
+
+const COURSE_TYPE_SHORT: Record<string, string> = {
+  intro: "Intro",
+  diplo: "Diplo",
+  cert: "Cert",
+  vidare: "Vidare",
+};
+
+function timeAgo(date: Date | string | null | undefined): string {
+  if (!date) return "";
+  const d = typeof date === "string" ? new Date(date) : date;
+  const diffMs = Date.now() - d.getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return "Just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return "Yesterday";
+  return `${days}d ago`;
+}
+
+function NotificationBell({ user, pendingItems, setLocation }: {
+  user: ReturnType<typeof useDashAuth>["user"];
+  pendingItems: any[] | undefined;
+  setLocation: (path: string) => void;
+}) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -121,46 +159,99 @@ function NotificationBell({ user, setLocation }: { user: ReturnType<typeof useDa
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Build notification items based on role
-  const notifications: NotifItem[] = [];
+  // Build notification items based on role + real data
+  const notifications: NotifItem[] = useMemo(() => {
+    const items: NotifItem[] = [];
 
-  // For course leaders: upcoming courses reminder
-  if (user?.role === "course_leader") {
-    notifications.push({
-      id: "welcome",
-      icon: CheckCircle2,
-      title: "Welcome to your dashboard",
-      subtitle: "Check My Overview for your latest stats",
-      time: "Now",
-      href: "/my-overview",
-    });
-  }
+    // Admin: real pending course actions
+    if (user?.role === "admin" && pendingItems && pendingItems.length > 0) {
+      // Sort by updatedAt descending (newest first)
+      const sorted = [...pendingItems].sort((a, b) => {
+        const aTime = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+        const bTime = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+        return bTime - aTime;
+      });
 
-  // For examiners: exam queue reminder
-  if (user?.canExamineExams) {
-    notifications.push({
-      id: "exams",
-      icon: ClipboardCheck,
-      title: "Exam Queue",
-      subtitle: "Check for new exams to grade",
-      time: "",
-      href: "/exam-queue",
-    });
-  }
+      // Show up to 8 individual items
+      const shown = sorted.slice(0, 8);
+      for (const item of shown) {
+        const cfg = PENDING_STATUS_CONFIG[item.status];
+        if (!cfg) continue;
+        const courseLabel = COURSE_TYPE_SHORT[item.courseType] || item.courseType;
+        items.push({
+          id: `pending-${item.id}`,
+          icon: cfg.icon,
+          iconColor: cfg.iconColor,
+          iconBg: cfg.iconBg,
+          title: cfg.label,
+          subtitle: `${item.courseLeaderName} — ${courseLabel}, ${item.city}`,
+          time: timeAgo(item.updatedAt),
+          href: "/pending-actions",
+        });
+      }
 
-  // For admin: general reminder
-  if (user?.role === "admin") {
-    notifications.push({
-      id: "admin-overview",
-      icon: BarChart3,
-      title: "Monthly overview ready",
-      subtitle: "Review this month's performance",
-      time: "",
-      href: "/",
-    });
-  }
+      // If there are more, add a summary
+      if (sorted.length > 8) {
+        items.push({
+          id: "pending-more",
+          icon: AlertTriangle,
+          iconColor: "text-amber-600",
+          iconBg: "bg-amber-100",
+          title: `+${sorted.length - 8} more pending`,
+          subtitle: "View all in Pending Actions",
+          time: "",
+          href: "/pending-actions",
+        });
+      }
+    }
 
-  const hasNotifications = notifications.length > 0;
+    // Admin with no pending: show all-clear
+    if (user?.role === "admin" && (!pendingItems || pendingItems.length === 0)) {
+      items.push({
+        id: "admin-clear",
+        icon: CheckCircle2,
+        iconColor: "text-emerald-600",
+        iconBg: "bg-emerald-100",
+        title: "All clear",
+        subtitle: "No pending actions to review",
+        time: "",
+        href: "/",
+      });
+    }
+
+    // For course leaders: welcome
+    if (user?.role === "course_leader") {
+      items.push({
+        id: "welcome",
+        icon: CheckCircle2,
+        iconColor: "text-[oklch(0.72_0.12_75)]",
+        iconBg: "bg-[oklch(0.72_0.12_75)]/10",
+        title: "Welcome to your dashboard",
+        subtitle: "Check My Overview for your latest stats",
+        time: "",
+        href: "/my-overview",
+      });
+    }
+
+    // For examiners: exam queue reminder
+    if (user?.canExamineExams) {
+      items.push({
+        id: "exams",
+        icon: ClipboardCheck,
+        iconColor: "text-[oklch(0.72_0.12_75)]",
+        iconBg: "bg-[oklch(0.72_0.12_75)]/10",
+        title: "Exam Queue",
+        subtitle: "Check for new exams to grade",
+        time: "",
+        href: "/exam-queue",
+      });
+    }
+
+    return items;
+  }, [user, pendingItems]);
+
+  const pendingCount = pendingItems?.length ?? 0;
+  const hasPendingActions = user?.role === "admin" && pendingCount > 0;
 
   return (
     <div ref={ref} className="relative">
@@ -169,42 +260,62 @@ function NotificationBell({ user, setLocation }: { user: ReturnType<typeof useDa
         className="relative flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
       >
         <Bell className="h-4 w-4" />
-        {hasNotifications && (
+        {hasPendingActions && (
+          <span className="absolute -top-1 -right-1 min-w-[16px] h-4 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center px-1">
+            {pendingCount > 99 ? "99+" : pendingCount}
+          </span>
+        )}
+        {!hasPendingActions && notifications.length > 0 && (
           <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-[oklch(0.72_0.12_75)]" />
         )}
       </button>
       {open && (
         <div className="absolute right-0 top-full mt-1 w-80 bg-card border border-border rounded-xl shadow-lg z-50 py-2">
-          <div className="px-4 py-2 border-b border-border">
+          <div className="px-4 py-2 border-b border-border flex items-center justify-between">
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Notifications</span>
+            {hasPendingActions && (
+              <span className="text-xs font-bold text-red-500">{pendingCount} pending</span>
+            )}
           </div>
-          {notifications.length === 0 ? (
-            <div className="px-4 py-6 text-center text-sm text-muted-foreground">
-              No new notifications
+          <div className="max-h-[400px] overflow-y-auto">
+            {notifications.length === 0 ? (
+              <div className="px-4 py-6 text-center text-sm text-muted-foreground">
+                No new notifications
+              </div>
+            ) : (
+              notifications.map((n) => {
+                const Icon = n.icon;
+                return (
+                  <button
+                    key={n.id}
+                    onClick={() => {
+                      setOpen(false);
+                      if (n.href) setLocation(n.href);
+                    }}
+                    className="flex items-start gap-3 w-full px-4 py-3 text-left hover:bg-muted transition-colors"
+                  >
+                    <div className={`w-8 h-8 rounded-full ${n.iconBg} flex items-center justify-center shrink-0 mt-0.5`}>
+                      <Icon className={`h-4 w-4 ${n.iconColor}`} />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium text-foreground">{n.title}</div>
+                      <div className="text-xs text-muted-foreground mt-0.5 truncate">{n.subtitle}</div>
+                      {n.time && <div className="text-xs text-muted-foreground/60 mt-1">{n.time}</div>}
+                    </div>
+                  </button>
+                );
+              })
+            )}
+          </div>
+          {hasPendingActions && (
+            <div className="px-4 py-2 border-t border-border">
+              <button
+                onClick={() => { setOpen(false); setLocation("/pending-actions"); }}
+                className="w-full text-center text-xs font-semibold text-blue-600 hover:text-blue-700 py-1"
+              >
+                View all pending actions →
+              </button>
             </div>
-          ) : (
-            notifications.map((n) => {
-              const Icon = n.icon;
-              return (
-                <button
-                  key={n.id}
-                  onClick={() => {
-                    setOpen(false);
-                    if (n.href) setLocation(n.href);
-                  }}
-                  className="flex items-start gap-3 w-full px-4 py-3 text-left hover:bg-muted transition-colors"
-                >
-                  <div className="w-8 h-8 rounded-full bg-[oklch(0.72_0.12_75)]/10 flex items-center justify-center shrink-0 mt-0.5">
-                    <Icon className="h-4 w-4 text-[oklch(0.72_0.12_75)]" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium text-foreground">{n.title}</div>
-                    <div className="text-xs text-muted-foreground mt-0.5">{n.subtitle}</div>
-                    {n.time && <div className="text-xs text-muted-foreground/60 mt-1">{n.time}</div>}
-                  </div>
-                </button>
-              );
-            })
           )}
         </div>
       )}
@@ -418,7 +529,7 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
             <div />
           )}
           <div className="flex items-center gap-2">
-            <NotificationBell user={user} setLocation={setLocation} />
+            <NotificationBell user={user} pendingItems={pendingItems as any[] | undefined} setLocation={setLocation} />
             <QuickLinksDropdown links={quickLinks} setLocation={setLocation} />
           </div>
         </div>

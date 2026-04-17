@@ -13,7 +13,7 @@ import {
   Loader2, BookOpen, ChevronDown, ChevronUp, Hash, Info,
   CalendarDays, MapPin, Clock, ExternalLink, History, Banknote,
   Users, TrendingUp, Plus, Copy, XCircle, RefreshCw, Lock,
-  AlertTriangle, CheckCircle, MessageSquare, Layers,
+  AlertTriangle, CheckCircle, MessageSquare, Layers, RotateCcw,
 } from "lucide-react";
 
 // ─── Formatters ───────────────────────────────────────────────────────────────
@@ -799,7 +799,7 @@ type CourseRow = {
   bookingInfo?: string | null;
 };
 
-function CourseCard({ row, showActions, isPending }: { row: CourseRow; showActions?: boolean; isPending?: boolean }) {
+function CourseCard({ row, showActions, isPending, showRepeat }: { row: CourseRow; showActions?: boolean; isPending?: boolean; showRepeat?: boolean }) {
   const label = COURSE_TYPE_LABELS[row.courseType] ?? row.courseType;
   const langFlag = row.language === "sv" ? "🇸🇪" : "🇬🇧";
   const bookUrl = `https://api.leadconnectorhq.com/widget/booking/${row.ghlCalendarId}`;
@@ -875,6 +875,18 @@ function CourseCard({ row, showActions, isPending }: { row: CourseRow; showActio
                 <XCircle className="h-3 w-3 mr-1" /> Avboka
               </Button>
             )}
+            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setLogOpen(true)}>
+              <History className="h-3 w-3 mr-1" /> Logg
+            </Button>
+          </div>
+        )}
+
+        {/* Repeat button for past courses */}
+        {showRepeat && (
+          <div className="flex items-center gap-2 mt-1">
+            <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => setCopyOpen(true)}>
+              <RotateCcw className="h-3 w-3" /> Upprepa kurs
+            </Button>
             <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setLogOpen(true)}>
               <History className="h-3 w-3 mr-1" /> Logg
             </Button>
@@ -1085,7 +1097,7 @@ export default function MyCourses() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {historyToShow.map((row) => (
-              <CourseCard key={row.id} row={row as unknown as CourseRow} />
+              <CourseCard key={row.id} row={row as unknown as CourseRow} showRepeat />
             ))}
           </div>
           {(schedule?.past?.length ?? 0) > 3 && (
