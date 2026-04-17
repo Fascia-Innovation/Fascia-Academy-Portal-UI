@@ -25,11 +25,11 @@ const COURSE_TYPE_COLORS: Record<string, string> = {
 };
 
 function fmt(n: number, currency: string) {
-  return new Intl.NumberFormat("en-SE", { style: "currency", currency, maximumFractionDigits: 0 }).format(n);
+  return new Intl.NumberFormat("en-GB", { style: "currency", currency, maximumFractionDigits: 0 }).format(n);
 }
 
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("sv-SE", { day: "numeric", month: "short", year: "numeric" });
+  return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 }
 
 type Student = {
@@ -39,8 +39,8 @@ type Student = {
   bookedCourses: Array<{ courseType: string; date: string; courseLeader: string }>;
   completedCourses: Array<{ courseType: string; date: string; courseLeader: string }>;
   certificates: Array<{ courseType: string; issuedAt: string | null }>;
-  totalSpend: number;
-  currency: string;
+  totalSpendSEK: number;
+  totalSpendEUR: number;
 };
 
 function StudentRow({ student }: { student: Student }) {
@@ -88,7 +88,12 @@ function StudentRow({ student }: { student: Student }) {
           )}
         </td>
         <td className="py-3 px-4 text-sm text-right font-medium text-foreground">
-          {student.totalSpend > 0 ? fmt(student.totalSpend, student.currency) : "-"}
+          {(student.totalSpendSEK > 0 || student.totalSpendEUR > 0) ? (
+            <div className="space-y-0.5">
+              {student.totalSpendSEK > 0 && <div>{fmt(student.totalSpendSEK, "SEK")}</div>}
+              {student.totalSpendEUR > 0 && <div>{fmt(student.totalSpendEUR, "EUR")}</div>}
+            </div>
+          ) : "-"}
         </td>
       </tr>
       {expanded && (
@@ -185,11 +190,12 @@ export default function Students() {
   );
 
   const stats = useMemo(() => {
-    if (!data) return { total: 0, withCerts: 0, totalSpend: 0 };
+    if (!data) return { total: 0, withCerts: 0, totalSpendSEK: 0, totalSpendEUR: 0 };
     return {
       total: data.length,
       withCerts: data.filter((s) => s.certificates.length > 0).length,
-      totalSpend: data.reduce((sum, s) => sum + s.totalSpend, 0),
+      totalSpendSEK: data.reduce((sum, s) => sum + s.totalSpendSEK, 0),
+      totalSpendEUR: data.reduce((sum, s) => sum + s.totalSpendEUR, 0),
     };
   }, [data]);
 
@@ -219,7 +225,11 @@ export default function Students() {
         </div>
         <div className="bg-card rounded-xl border border-border p-4">
           <div className="text-xs text-muted-foreground font-medium mb-1">Total Revenue</div>
-          <div className="text-2xl font-bold text-foreground">{fmt(stats.totalSpend, "SEK")}</div>
+          <div className="text-xl font-bold text-foreground">
+            {stats.totalSpendSEK > 0 && <div>{fmt(stats.totalSpendSEK, "SEK")}</div>}
+            {stats.totalSpendEUR > 0 && <div>{fmt(stats.totalSpendEUR, "EUR")}</div>}
+            {stats.totalSpendSEK === 0 && stats.totalSpendEUR === 0 && <span>—</span>}
+          </div>
         </div>
       </div>
 

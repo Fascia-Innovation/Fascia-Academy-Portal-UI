@@ -489,8 +489,8 @@ export const appRouter = router({
           name: string;
           email: string;
           courses: Array<{ calendarName: string; courseType: string; date: string; status: string; courseLeader: string }>;
-          totalSpend: number;
-          currency: string;
+          totalSpendSEK: number;
+          totalSpendEUR: number;
         };
         const studentMap = new Map<string, StudentRecord>();
 
@@ -511,8 +511,8 @@ export const appRouter = router({
               name,
               email: contact?.email ?? "",
               courses: [],
-              totalSpend: 0,
-              currency,
+              totalSpendSEK: 0,
+              totalSpendEUR: 0,
             });
           }
           const rec = studentMap.get(appt.contactId)!;
@@ -542,7 +542,8 @@ export const appRouter = router({
               else if (courseType === "cert") paid = currency === "SEK" ? 50000 : 5000;
               else paid = currency === "SEK" ? 3500 : 350;
             }
-            rec.totalSpend += paid;
+            if (currency === "SEK") rec.totalSpendSEK += paid;
+            else rec.totalSpendEUR += paid;
           }
         }
 
@@ -570,8 +571,8 @@ export const appRouter = router({
             bookedCourses: bookedCourses.map((c) => ({ courseType: c.courseType, date: c.date, courseLeader: c.courseLeader })),
             completedCourses: completedCourses.map((c) => ({ courseType: c.courseType, date: c.date, courseLeader: c.courseLeader })),
             certificates: certs.map((c) => ({ courseType: c.courseType, issuedAt: c.issuedAt?.toISOString() ?? null })),
-            totalSpend: s.totalSpend,
-            currency: s.currency,
+            totalSpendSEK: s.totalSpendSEK,
+            totalSpendEUR: s.totalSpendEUR,
           };
         });
 
