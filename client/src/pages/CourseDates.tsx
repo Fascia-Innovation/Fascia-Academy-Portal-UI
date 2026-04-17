@@ -112,18 +112,18 @@ function ChangeLogDialog({ courseId, onClose }: { courseId: number; onClose: () 
   const { data, isLoading } = trpc.courseDates.getChangeLog.useQuery({ id: courseId });
 
   const LOG_ACTION_LABELS: Record<string, { label: string; color: string }> = {
-    registered: { label: "Registrerad", color: "text-blue-600" },
-    approved: { label: "Godkänd", color: "text-emerald-600" },
-    cancellation_requested: { label: "Avbokning begärd", color: "text-red-600" },
-    cancellation_approved: { label: "Avbokning godkänd", color: "text-red-700" },
-    cancellation_denied: { label: "Avbokning nekad", color: "text-amber-600" },
-    reschedule_requested: { label: "Ombokning begärd", color: "text-amber-600" },
-    reschedule_approved: { label: "Ombokning godkänd", color: "text-emerald-600" },
-    reschedule_denied: { label: "Ombokning nekad", color: "text-red-600" },
-    revision_requested: { label: "Komplettering begärd", color: "text-purple-600" },
-    resubmitted: { label: "Komplettering inskickad", color: "text-blue-600" },
-    rejected: { label: "Avvisad", color: "text-red-700" },
-    copied: { label: "Kopierad", color: "text-gray-600" },
+    registered: { label: "Registered", color: "text-blue-600" },
+    approved: { label: "Approved", color: "text-emerald-600" },
+    cancellation_requested: { label: "Cancellation requested", color: "text-red-600" },
+    cancellation_approved: { label: "Cancellation approved", color: "text-red-700" },
+    cancellation_denied: { label: "Cancellation denied", color: "text-amber-600" },
+    reschedule_requested: { label: "Reschedule requested", color: "text-amber-600" },
+    reschedule_approved: { label: "Reschedule approved", color: "text-emerald-600" },
+    reschedule_denied: { label: "Reschedule denied", color: "text-red-600" },
+    revision_requested: { label: "Revision requested", color: "text-purple-600" },
+    resubmitted: { label: "Revision resubmitted", color: "text-blue-600" },
+    rejected: { label: "Rejected", color: "text-red-700" },
+    copied: { label: "Copied", color: "text-gray-600" },
   };
 
   return (
@@ -131,7 +131,7 @@ function ChangeLogDialog({ courseId, onClose }: { courseId: number; onClose: () 
       <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <History className="h-5 w-5" /> Historik (kurs #{courseId})
+            <History className="h-5 w-5" /> History (course #{courseId})
           </DialogTitle>
         </DialogHeader>
         {isLoading ? (
@@ -142,18 +142,18 @@ function ChangeLogDialog({ courseId, onClose }: { courseId: number; onClose: () 
           <div className="space-y-3">
             {data?.adminMessage && (
               <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 text-sm">
-                <span className="font-semibold text-purple-700 text-xs">Senaste admin-meddelande:</span>
+                <span className="font-semibold text-purple-700 text-xs">Latest admin message:</span>
                 <p className="text-purple-800 mt-0.5">{data.adminMessage}</p>
               </div>
             )}
             {data?.leaderMessage && (
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
-                <span className="font-semibold text-blue-700 text-xs">Senaste kursledar-meddelande:</span>
+                <span className="font-semibold text-blue-700 text-xs">Latest leader message:</span>
                 <p className="text-blue-800 mt-0.5">{data.leaderMessage}</p>
               </div>
             )}
             {(!data?.log || data.log.length === 0) ? (
-              <p className="text-sm text-muted-foreground text-center py-6">Ingen historik registrerad.</p>
+              <p className="text-sm text-muted-foreground text-center py-6">No history recorded.</p>
             ) : (
               <div className="relative pl-6 space-y-4">
                 {/* Timeline line */}
@@ -165,9 +165,9 @@ function ChangeLogDialog({ courseId, onClose }: { courseId: number; onClose: () 
                       <div className="absolute -left-3.5 top-1 w-2 h-2 rounded-full bg-border border-2 border-background" />
                       <div className="text-sm">
                         <span className={`font-semibold ${cfg.color}`}>{cfg.label}</span>
-                        <span className="text-muted-foreground"> av {entry.by}</span>
+                        <span className="text-muted-foreground"> by {entry.by}</span>
                         <div className="text-xs text-muted-foreground mt-0.5">
-                          {entry.at ? new Date(entry.at).toLocaleString("sv-SE") : ""}
+                          {entry.at ? new Date(entry.at).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: false }) : ""}
                         </div>
                         {entry.details && entry.details !== cfg.label && (
                           <p className="text-xs text-muted-foreground mt-1 bg-muted/30 rounded px-2 py-1">{entry.details}</p>

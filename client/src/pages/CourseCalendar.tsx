@@ -33,7 +33,7 @@ function detectLang(name: string): string {
 }
 
 function formatSlotDate(iso: string) {
-  return new Date(iso).toLocaleDateString("sv-SE", {
+  return new Date(iso).toLocaleDateString("en-GB", {
     weekday: "long",
     day: "numeric",
     month: "long",
@@ -42,9 +42,10 @@ function formatSlotDate(iso: string) {
 }
 
 function formatSlotTime(iso: string) {
-  return new Date(iso).toLocaleTimeString("sv-SE", {
+  return new Date(iso).toLocaleTimeString("en-GB", {
     hour: "2-digit",
     minute: "2-digit",
+    hour12: false,
   });
 }
 
@@ -206,7 +207,7 @@ export default function CourseCalendar({ embedded = false }: { embedded?: boolea
     return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
   }, [filtered]);
 
-  const windowLabel = `${new Date(windowStart).toLocaleDateString("sv-SE", { day: "numeric", month: "short" })} – ${new Date(windowEnd).toLocaleDateString("sv-SE", { day: "numeric", month: "short", year: "numeric" })}`;
+  const windowLabel = `${new Date(windowStart).toLocaleDateString("en-GB", { day: "numeric", month: "short" })} – ${new Date(windowEnd).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`;
 
   return (
     <div className={embedded ? "" : "p-8 max-w-5xl mx-auto"}>
@@ -311,7 +312,7 @@ export default function CourseCalendar({ embedded = false }: { embedded?: boolea
             <div key={date}>
               <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
                 <CalendarDays className="h-3.5 w-3.5" />
-                {new Date(date + "T12:00:00").toLocaleDateString("sv-SE", {
+                {new Date(date + "T12:00:00").toLocaleDateString("en-GB", {
                   weekday: "long",
                   day: "numeric",
                   month: "long",
