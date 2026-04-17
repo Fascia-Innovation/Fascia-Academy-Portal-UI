@@ -43,9 +43,9 @@ function getCourseLabel(courseType: string, language: string): string {
 }
 
 const LANG_LABELS: Record<string, string> = {
-  sv: "Svenska",
-  Svenska: "Svenska",
-  se: "Svenska",
+  sv: "Swedish",
+  Svenska: "Swedish",
+  se: "Swedish",
   en: "English",
   English: "English",
 };
@@ -232,7 +232,7 @@ export default function ExamQueue() {
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">{LANG_LABELS[exam.language] ?? exam.language}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {new Date(exam.createdAt).toLocaleDateString("sv-SE")}
+                      {new Date(exam.createdAt).toLocaleDateString("en-GB")}
                     </TableCell>
                     <TableCell>
                       <LogCell exam={exam} />

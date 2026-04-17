@@ -26,10 +26,10 @@ function getCourseLabel(courseType: string, language: string): string {
 }
 
 const CERT_TYPE_LABELS: Record<string, string> = {
-  intro: "Intyg",
-  diplo: "Diplombevis",
-  cert: "Certifiering",
-  vidare: "Intyg",
+  intro: "Certificate",
+  diplo: "Diploma",
+  cert: "Certification",
+  vidare: "Certificate",
 };
 
 type Certificate = {
@@ -69,16 +69,16 @@ export default function Certificates() {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-foreground" style={{ fontFamily: "'Playfair Display', serif" }}>
-              Utfärdade Bevis
+              Issued Certificates
             </h1>
             <p className="text-sm text-muted-foreground">
-              {certs.length} bevis utfärdade totalt
+              {certs.length} certificates issued in total
             </p>
           </div>
         </div>
         <Button variant="outline" size="sm" onClick={() => refetch()}>
           <RefreshCw className="h-4 w-4 mr-2" />
-          Uppdatera
+          Refresh
         </Button>
       </div>
 
@@ -86,7 +86,7 @@ export default function Certificates() {
       <div className="relative max-w-sm">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
-          placeholder="Sök på namn, e-post eller kurs..."
+          placeholder="Search by name, email or course..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="pl-9"
@@ -95,14 +95,14 @@ export default function Certificates() {
 
       {/* Table */}
       {isLoading ? (
-        <div className="text-muted-foreground text-sm py-10 text-center">Laddar...</div>
+          <div className="text-muted-foreground text-sm py-10 text-center">Loading...</div>
       ) : filtered.length === 0 ? (
         <div className="border rounded-xl p-10 text-center text-muted-foreground bg-muted/30">
           <ScrollText className="h-10 w-10 mx-auto mb-3 opacity-40" />
-          <p className="font-medium">{search ? "Inga träffar" : "Inga bevis utfärdade ännu"}</p>
+          <p className="font-medium">{search ? "No results found" : "No certificates issued yet"}</p>
           {!search && (
             <p className="text-sm mt-1">
-              Bevis skapas automatiskt när ett prov godkänns eller när en kurs markeras som genomförd i GHL.
+              Certificates are created automatically when an exam is approved or when a course is marked as completed in GHL.
             </p>
           )}
         </div>
@@ -111,13 +111,13 @@ export default function Certificates() {
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/40">
-                <TableHead>Deltagare</TableHead>
-                <TableHead>E-post</TableHead>
-                <TableHead>Kurstyp</TableHead>
-                <TableHead>Bevistyp</TableHead>
-                <TableHead>Språk</TableHead>
-                <TableHead>Utfärdat</TableHead>
-                <TableHead>Rättat av</TableHead>
+                <TableHead>Participant</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Course Type</TableHead>
+                <TableHead>Certificate Type</TableHead>
+                <TableHead>Language</TableHead>
+                <TableHead>Issued</TableHead>
+                <TableHead>Graded By</TableHead>
                 <TableHead className="text-right">PDF</TableHead>
               </TableRow>
             </TableHeader>
@@ -141,14 +141,14 @@ export default function Certificates() {
                           : "bg-emerald-100 text-emerald-700 border-emerald-200"
                       }
                     >
-                      {CERT_TYPE_LABELS[cert.courseType] ?? "Intyg"}
+                      {CERT_TYPE_LABELS[cert.courseType] ?? "Certificate"}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {(cert.language ?? "").toLowerCase() === "en" || (cert.language ?? "").toLowerCase() === "english" ? "EN" : "SE"}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
-                    {new Date(cert.issuedAt).toLocaleDateString("sv-SE")}
+                      {new Date(cert.issuedAt).toLocaleDateString("en-GB")}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {cert.issuerName ?? "—"}
@@ -162,11 +162,11 @@ export default function Certificates() {
                       >
                         <a href={cert.pdfUrl} target="_blank" rel="noopener noreferrer">
                           <Download className="h-4 w-4 mr-1" />
-                          Ladda ner
+                          Download
                         </a>
                       </Button>
                     ) : (
-                      <span className="text-xs text-muted-foreground">Ej tillgänglig</span>
+                      <span className="text-xs text-muted-foreground">Not available</span>
                     )}
                   </TableCell>
                 </TableRow>
