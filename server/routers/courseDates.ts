@@ -1351,9 +1351,20 @@ export const courseDatesRouter = router({
         throw new TRPCError({ code: "FORBIDDEN" });
       }
 
-      // Update appointment status in GHL
+      // First fetch appointment details (needed for required PUT fields + snapshot)
+      const apptRes = await fetch(`${GHL_BASE}/calendars/events/appointments/${input.appointmentId}`, {
+        headers: { Authorization: `Bearer ${API_KEY}`, Version: "2021-04-15", Accept: "application/json" },
+      });
+      if (!apptRes.ok) {
+        console.error("[markParticipantShowed] Failed to fetch appointment:", apptRes.status);
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to fetch appointment details" });
+      }
+      const apptData = await apptRes.json();
+      const appt = apptData?.appointment || apptData;
+
+      // Update appointment status in GHL (must include calendarId, startTime, endTime)
       const newStatus = input.showed ? "showed" : "confirmed";
-      const res = await fetch(`${GHL_BASE}/calendars/appointments/${input.appointmentId}`, {
+      const res = await fetch(`${GHL_BASE}/calendars/events/appointments/${input.appointmentId}`, {
         method: "PUT",
         headers: {
           Authorization: `Bearer ${API_KEY}`,
@@ -1361,7 +1372,12 @@ export const courseDatesRouter = router({
           "Content-Type": "application/json",
           Accept: "application/json",
         },
-        body: JSON.stringify({ appointmentStatus: newStatus }),
+        body: JSON.stringify({
+          calendarId: appt.calendarId || course.ghlCalendarId,
+          startTime: appt.startTime,
+          endTime: appt.endTime,
+          appointmentStatus: newStatus,
+        }),
       });
 
       if (!res.ok) {
@@ -1376,24 +1392,21 @@ export const courseDatesRouter = router({
       // Snapshot participant data when marking as showed
       if (input.showed) {
         try {
-          // Fetch appointment details to get contact info
-          const apptRes = await fetch(`${GHL_BASE}/calendars/appointments/${input.appointmentId}`, {
-            headers: { Authorization: `Bearer ${API_KEY}`, Version: "2021-04-15", Accept: "application/json" },
+          const contact = appt.contact || {};
+          const meta = appt.appointmentMeta?.defaultFormDetails || {};
+          const contactId = appt.contactId || contact.id || "";
+          const firstName = contact.firstName || meta.firstName || "";
+          const lastName = contact.lastName || meta.lastName || "";
+          const name = [firstName, lastName].filter(Boolean).join(" ") || "Unknown";
+          await db.insert(participantSnapshots).values({
+            courseDateId: input.courseDateId,
+            ghlAppointmentId: input.appointmentId,
+            ghlContactId: contactId,
+            participantName: name,
+            participantPhone: contact.phone || meta.phone || null,
+            participantEmail: contact.email || meta.email || null,
+            status: "showed",
           });
-          if (apptRes.ok) {
-            const apptData = await apptRes.json();
-            const contact = apptData?.contact || apptData?.appointment?.contact || {};
-            const contactId = contact.id || apptData?.appointment?.contactId || apptData?.contactId || "";
-            await db.insert(participantSnapshots).values({
-              courseDateId: input.courseDateId,
-              ghlAppointmentId: input.appointmentId,
-              ghlContactId: contactId,
-              participantName: contact.name || contact.firstName ? `${contact.firstName || ""} ${contact.lastName || ""}`.trim() : "Unknown",
-              participantPhone: contact.phone || null,
-              participantEmail: contact.email || null,
-              status: "showed",
-            });
-          }
         } catch (snapErr) {
           console.error("[markParticipantShowed] snapshot error (non-fatal):", snapErr);
         }
@@ -1429,8 +1442,19 @@ export const courseDatesRouter = router({
         throw new TRPCError({ code: "FORBIDDEN" });
       }
 
-      // Update appointment status in GHL to "noshow"
-      const res = await fetch(`${GHL_BASE}/calendars/appointments/${input.appointmentId}`, {
+      // First fetch appointment details (needed for required PUT fields + snapshot)
+      const apptRes = await fetch(`${GHL_BASE}/calendars/events/appointments/${input.appointmentId}`, {
+        headers: { Authorization: `Bearer ${API_KEY}`, Version: "2021-04-15", Accept: "application/json" },
+      });
+      if (!apptRes.ok) {
+        console.error("[markParticipantNoShow] Failed to fetch appointment:", apptRes.status);
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to fetch appointment details" });
+      }
+      const apptData = await apptRes.json();
+      const appt = apptData?.appointment || apptData;
+
+      // Update appointment status in GHL to "noshow" (must include calendarId, startTime, endTime)
+      const res = await fetch(`${GHL_BASE}/calendars/events/appointments/${input.appointmentId}`, {
         method: "PUT",
         headers: {
           Authorization: `Bearer ${API_KEY}`,
@@ -1438,7 +1462,12 @@ export const courseDatesRouter = router({
           "Content-Type": "application/json",
           Accept: "application/json",
         },
-        body: JSON.stringify({ appointmentStatus: "noshow" }),
+        body: JSON.stringify({
+          calendarId: appt.calendarId || course.ghlCalendarId,
+          startTime: appt.startTime,
+          endTime: appt.endTime,
+          appointmentStatus: "noshow",
+        }),
       });
 
       if (!res.ok) {
@@ -1452,23 +1481,21 @@ export const courseDatesRouter = router({
 
       // Snapshot participant data when marking as no-show
       try {
-        const apptRes = await fetch(`${GHL_BASE}/calendars/appointments/${input.appointmentId}`, {
-          headers: { Authorization: `Bearer ${API_KEY}`, Version: "2021-04-15", Accept: "application/json" },
+        const contact = appt.contact || {};
+        const meta = appt.appointmentMeta?.defaultFormDetails || {};
+        const contactId = appt.contactId || contact.id || "";
+        const firstName = contact.firstName || meta.firstName || "";
+        const lastName = contact.lastName || meta.lastName || "";
+        const name = [firstName, lastName].filter(Boolean).join(" ") || "Unknown";
+        await db.insert(participantSnapshots).values({
+          courseDateId: input.courseDateId,
+          ghlAppointmentId: input.appointmentId,
+          ghlContactId: contactId,
+          participantName: name,
+          participantPhone: contact.phone || meta.phone || null,
+          participantEmail: contact.email || meta.email || null,
+          status: "noshow",
         });
-        if (apptRes.ok) {
-          const apptData = await apptRes.json();
-          const contact = apptData?.contact || apptData?.appointment?.contact || {};
-          const contactId = contact.id || apptData?.appointment?.contactId || apptData?.contactId || "";
-          await db.insert(participantSnapshots).values({
-            courseDateId: input.courseDateId,
-            ghlAppointmentId: input.appointmentId,
-            ghlContactId: contactId,
-            participantName: contact.name || contact.firstName ? `${contact.firstName || ""} ${contact.lastName || ""}`.trim() : "Unknown",
-            participantPhone: contact.phone || null,
-            participantEmail: contact.email || null,
-            status: "noshow",
-          });
-        }
       } catch (snapErr) {
         console.error("[markParticipantNoShow] snapshot error (non-fatal):", snapErr);
       }
