@@ -20,6 +20,7 @@
  *   "language": "sv" | "en"   // optional custom field
  * }
  */
+import { randomUUID } from "crypto";
 import type { Express, Request, Response } from "express";
 import { getDb } from "./db";
 import { exams, certificates } from "../drizzle/schema";
@@ -89,6 +90,7 @@ export function registerGhlWebhookRoutes(app: Express): void {
         }
 
         await db.insert(certificates).values({
+          uuid: randomUUID().replace(/-/g, ""),
           ghlContactId: contactId,
           contactName,
           contactEmail: email ?? undefined,

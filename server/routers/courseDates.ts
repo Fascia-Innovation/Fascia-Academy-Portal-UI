@@ -12,6 +12,7 @@ import { courseDates, dashboardUsers, participantSnapshots, courseLeaderMessages
 import type { DashboardUser } from "../../drizzle/schema";
 import { parse as parseCookies } from "cookie";
 import { getSessionUser } from "../dashboardAuth";
+import { issueCertificateForParticipant } from "./certificatesRouter";
 
 const DASH_SESSION = "fa_dash_session";
 
@@ -1410,9 +1411,33 @@ export const courseDatesRouter = router({
         } catch (snapErr) {
           console.error("[markParticipantShowed] snapshot error (non-fatal):", snapErr);
         }
+        // Auto-issue certificate for intro and vidare courses
+        try {
+          const contact = appt.contact || {};
+          const meta = appt.appointmentMeta?.defaultFormDetails || {};
+          const contactId = appt.contactId || contact.id || "";
+          const firstName = contact.firstName || meta.firstName || "";
+          const lastName = contact.lastName || meta.lastName || "";
+          const name = [firstName, lastName].filter(Boolean).join(" ") || "Unknown";
+          const email = contact.email || meta.email || null;
+          // Use course type and language directly from the course record
+          const courseTypeForCert = course.courseType as "intro" | "diplo" | "cert" | "vidare";
+          const langForCert = (course.language as "sv" | "en" | undefined) ?? "sv";
+          if ((courseTypeForCert === "intro" || courseTypeForCert === "vidare") && contactId) {
+            await issueCertificateForParticipant({
+              ghlContactId: contactId,
+              contactName: name,
+              contactEmail: email,
+              courseType: courseTypeForCert,
+              language: langForCert,
+              issuedBy: dashUser.id,
+            });
+          }
+        } catch (certErr) {
+          console.error("[markParticipantShowed] certificate issue failed (non-fatal):", certErr);
+        }
       }
-
-      return { success: true, appointmentId: input.appointmentId, showed: input.showed };
+      return { success: true, appointmentId: input.appointmentId, showed: input.showed };;
     }),
 
   // ─── Course leader: mark a participant as no-show ────────────────────────

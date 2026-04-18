@@ -34,6 +34,7 @@ import type { DashboardUser } from "../drizzle/schema";
 import { courseDatesRouter } from "./routers/courseDates";
 import { settlementsRouter } from "./routers/settlements";
 import { examsRouter } from "./routers/exams";
+import { certificatesRouter } from "./routers/certificatesRouter";
 
 // ─── Session cookie name for dashboard ───────────────────────────────────────
 const DASH_SESSION = "fa_dash_session";
@@ -1097,6 +1098,7 @@ export const appRouter = router({
   courseDates: courseDatesRouter,
   settlements: settlementsRouter,
   exams: examsRouter,
+  certificates: certificatesRouter,
 });
 
 export type AppRouter = typeof appRouter;

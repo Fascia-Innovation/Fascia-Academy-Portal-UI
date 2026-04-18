@@ -22,6 +22,9 @@ import Settlements from "./pages/Settlements";
 import ResetPassword from "./pages/ResetPassword";
 import ExamQueue from "./pages/ExamQueue";
 import PendingActions from "./pages/PendingActions";
+import CertificatePublic from "./pages/CertificatePublic";
+import CertificateTemplates from "./pages/CertificateTemplates";
+import IssuedCertificates from "./pages/IssuedCertificates";
 import { Loader2 } from "lucide-react";
 
 function AppRoutes() {
@@ -43,6 +46,11 @@ function AppRoutes() {
 
   if (location === "/reset-password" || location.startsWith("/reset-password?")) {
     return <ResetPassword />;
+  }
+
+  // Public certificate page — accessible without login
+  if (location.startsWith("/certificate/")) {
+    return <CertificatePublic />;
   }
 
   if (location === "/login") {
@@ -71,6 +79,8 @@ function AppRoutes() {
         {user.role === "admin" && <Route path="/settlements" component={Settlements} />}
         {user.role === "admin" && <Route path="/pending-actions" component={PendingActions} />}
         {user.role === "admin" && <Route path="/settings" component={SettingsPage} />}
+        {user.role === "admin" && <Route path="/certificate-templates" component={CertificateTemplates} />}
+        {user.role === "admin" && <Route path="/issued-certificates" component={IssuedCertificates} />}
         {(user.role === "admin" || user.canExamineExams) && <Route path="/exam-queue" component={ExamQueue} />}
         {/* Course Leader routes */}
         {user.role === "course_leader" && <Route path="/my-overview" component={LeaderHome} />}

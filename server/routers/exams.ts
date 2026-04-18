@@ -6,6 +6,7 @@
  *   - canExamineExams: can list/grade pending exams and view certificates
  *   - course_leader: no access
  */
+import { randomUUID } from "crypto";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { parse as parseCookies } from "cookie";
@@ -150,6 +151,7 @@ export const examsRouter = router({
 
       // Create certificate record
       const [cert] = await db.insert(certificates).values({
+        uuid: randomUUID().replace(/-/g, ""),
         ghlContactId: exam.ghlContactId,
         contactName: exam.contactName,
         contactEmail: exam.contactEmail ?? undefined,

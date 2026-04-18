@@ -85,6 +85,13 @@
       "when": 1776536752244,
       "tag": "0011_serious_adam_warlock",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "5",
+      "when": 1776544299867,
+      "tag": "0012_confused_manta",
+      "breakpoints": true
     }
   ]
 }

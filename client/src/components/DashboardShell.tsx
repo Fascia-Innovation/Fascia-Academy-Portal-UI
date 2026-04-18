@@ -39,6 +39,7 @@ import {
   RefreshCw,
   PlusCircle,
   Clock,
+  Scroll,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
@@ -63,6 +64,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Pending Actions", href: "/pending-actions", icon: AlertTriangle, roles: ["admin"], badgeKey: "pending" },
   { label: "Exam Queue", href: "/exam-queue", icon: ClipboardCheck, roles: ["admin"] },
   { label: "Settings", href: "/settings", icon: Settings, roles: ["admin"] },
+  { label: "Certificates", href: "/issued-certificates", icon: Scroll, roles: ["admin"] },
   // Course Leader
   { label: "Home", href: "/my-overview", icon: LayoutDashboard, roles: ["course_leader"] },
   { label: "My Courses", href: "/my-courses", icon: BookOpen, roles: ["course_leader"] },

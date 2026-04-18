@@ -231,6 +231,7 @@ export type InsertExam = typeof exams.$inferInsert;
  */
 export const certificates = mysqlTable("certificates", {
   id: int("id").autoincrement().primaryKey(),
+  uuid: varchar("uuid", { length: 64 }).notNull().unique(), // public URL token
   ghlContactId: varchar("ghlContactId", { length: 64 }).notNull(),
   contactName: varchar("contactName", { length: 255 }).notNull(),
   contactEmail: varchar("contactEmail", { length: 320 }),
@@ -240,6 +241,8 @@ export const certificates = mysqlTable("certificates", {
   pdfUrl: varchar("pdfUrl", { length: 1024 }), // S3 URL, null until generated
   issuedBy: int("issuedBy"),        // dashboard_users.id who triggered issuance (null = auto)
   examId: int("examId"),            // references exams.id for diplo/cert
+  templateId: int("templateId"),    // references certificate_templates.id
+  emailSentAt: timestamp("emailSentAt"), // when certificate email was sent
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
@@ -291,3 +294,33 @@ export const courseLeaderMessages = mysqlTable("course_leader_messages", {
 
 export type CourseLeaderMessage = typeof courseLeaderMessages.$inferSelect;
 export type InsertCourseLeaderMessage = typeof courseLeaderMessages.$inferInsert;
+
+/**
+ * Certificate templates — one row per course type + language combination.
+ * Admin can design the template in the portal. The template is rendered as HTML
+ * and converted to PDF for download. Fields use {{participant_name}}, {{date}},
+ * {{course_label}}, {{instructor_name}} as placeholders.
+ */
+export const certificateTemplates = mysqlTable("certificate_templates", {
+  id: int("id").autoincrement().primaryKey(),
+  courseType: mysqlEnum("courseType", ["intro", "diplo", "cert", "vidare"]).notNull(),
+  language: mysqlEnum("language", ["sv", "en"]).notNull().default("sv"),
+  title: varchar("title", { length: 255 }).notNull(),         // e.g. "DIPLOM" or "INTYG"
+  courseLabel: varchar("courseLabel", { length: 255 }).notNull(), // e.g. "Diplomerad Fasciaspecialist"
+  bodyText: text("bodyText").notNull(),                        // main description paragraph
+  bulletPoints: text("bulletPoints"),                          // JSON array of bullet points
+  instructorName: varchar("instructorName", { length: 255 }).notNull().default("Ivar Bohlin"),
+  instructorTitle: varchar("instructorTitle", { length: 255 }).notNull().default("Ansvarig lärare Ivar Bohlin"),
+  faLogoUrl: varchar("faLogoUrl", { length: 1024 }),           // Fascia Academy logo URL
+  atlasLogoUrl: varchar("atlasLogoUrl", { length: 1024 }),     // Atlasbalans logo URL
+  // Email settings
+  emailSubject: varchar("emailSubject", { length: 500 }).notNull(),
+  emailBody: text("emailBody").notNull(),                      // HTML email body with {{certificate_url}} placeholder
+  active: boolean("active").default(true).notNull(),
+  updatedBy: int("updatedBy"),                                 // admin who last edited
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type CertificateTemplate = typeof certificateTemplates.$inferSelect;
+export type InsertCertificateTemplate = typeof certificateTemplates.$inferInsert;

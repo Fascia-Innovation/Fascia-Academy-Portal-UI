@@ -798,3 +798,51 @@ export function getPreviousMonths(count: number): Array<{ year: number; month: n
   }
   return result;
 }
+
+/**
+ * Send a certificate/diploma email directly via GHL Conversations API.
+ * Used by the portal-owned certificate system (no GHL Membership Credentials needed).
+ */
+export async function sendCertificateEmail(opts: {
+  toEmail: string;
+  toName: string;
+  subject: string;
+  htmlBody: string;
+}): Promise<void> {
+  const { toEmail, toName, subject, htmlBody } = opts;
+
+  // Try to find the GHL contact by email to get a contactId
+  let contactId: string | null = null;
+  try {
+    const contact = await searchContactByEmail(toEmail);
+    if (contact) contactId = contact.id;
+  } catch {
+    // non-fatal
+  }
+
+  const body: Record<string, unknown> = {
+    type: "Email",
+    emailTo: toEmail,
+    emailFrom: "info@fasciaacademy.com",
+    subject,
+    html: htmlBody,
+    status: "pending",
+  };
+  if (contactId) body.contactId = contactId;
+
+  const url = `${GHL_BASE}/conversations/messages`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${API_KEY}`,
+      Version: "2021-04-15",
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`GHL sendCertificateEmail error ${res.status}: ${text}`);
+  }
+}

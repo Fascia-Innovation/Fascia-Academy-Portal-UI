@@ -4,6 +4,7 @@ import { createServer } from "http";
 import net from "net";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
+import { registerStorageProxy } from "./storageProxy";
 import { registerGhlWebhookRoutes } from "../ghlWebhook";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
@@ -61,6 +62,8 @@ async function startServer() {
     );
     next();
   });
+  // Storage proxy for uploaded assets
+  registerStorageProxy(app);
   // OAuth callback under /api/oauth/callback
   registerOAuthRoutes(app);
   // GHL webhook for course completion events
