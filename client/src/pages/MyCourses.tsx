@@ -14,7 +14,7 @@ import {
   CalendarDays, MapPin, Clock, ExternalLink, History, Banknote,
   Users, TrendingUp, Plus, Copy, XCircle, RefreshCw, Lock,
   AlertTriangle, CheckCircle, MessageSquare, Layers, RotateCcw, Pencil,
-  UserCheck, UserX, ListChecks,
+  UserCheck, UserX, ListChecks, Mail, Send,
 } from "lucide-react";
 
 // ─── Formatters ───────────────────────────────────────────────────────────────
@@ -863,7 +863,7 @@ function ChangeLogDialog({ open, onOpenChange, courseId }: {
 }
 
 // ─── Participant Attendance List ─────────────────────────────────────────────
-function ParticipantAttendanceList({ courseId, readOnly = false }: { courseId: number; readOnly?: boolean }) {
+function ParticipantAttendanceList({ courseId, readOnly = false, isPast = false }: { courseId: number; readOnly?: boolean; isPast?: boolean }) {
   const [open, setOpen] = useState(false);
 
   const { data, isLoading, refetch } = trpc.courseDates.getCourseParticipants.useQuery(
@@ -908,7 +908,32 @@ function ParticipantAttendanceList({ courseId, readOnly = false }: { courseId: n
 
   const participants = data?.participants ?? [];
   const showedCount = participants.filter((p) => p.showed).length;
+  const unmarkedCount = participants.filter((p) => !p.showed && !p.noShow).length;
   const isMutating = markMutation.isPending || noShowMutation.isPending;
+  const [confirmAction, setConfirmAction] = useState<{ type: "showed" | "noshow" | "undo" | "reset" | "batchShowed"; appointmentId?: string } | null>(null);
+
+  const executeConfirmedAction = useCallback(() => {
+    if (!confirmAction) return;
+    if (confirmAction.type === "batchShowed") {
+      // Mark all unmarked as showed
+      participants.filter((p) => !p.showed && !p.noShow).forEach((p) => {
+        markMutation.mutate({ courseDateId: courseId, appointmentId: p.appointmentId, showed: true });
+      });
+    } else if (confirmAction.appointmentId) {
+      if (confirmAction.type === "showed") handleMark(confirmAction.appointmentId, true);
+      else if (confirmAction.type === "undo" || confirmAction.type === "reset") handleMark(confirmAction.appointmentId, false);
+      else if (confirmAction.type === "noshow") handleNoShow(confirmAction.appointmentId);
+    }
+    setConfirmAction(null);
+  }, [confirmAction, participants, courseId, markMutation, handleMark, handleNoShow]);
+
+  // Data privacy: course leaders see phone only for upcoming courses, never email.
+  // After course completion (isPast), only first name + last name visible.
+  const maskContact = (p: { name: string; phone: string; email: string }) => {
+    if (isPast) return { displayName: p.name, showPhone: false, showEmail: false };
+    // Upcoming: show name + phone, never email
+    return { displayName: p.name, showPhone: !!p.phone, showEmail: false };
+  };
 
   return (
     <div className="mt-2">
@@ -938,80 +963,263 @@ function ParticipantAttendanceList({ courseId, readOnly = false }: { courseId: n
                 <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                   {participants.length} booking{participants.length !== 1 ? "s" : ""}
                 </span>
-                {!readOnly && (
-                  <span className="text-xs text-muted-foreground">
-                    {showedCount}/{participants.length} marked as showed
-                  </span>
-                )}
+                <div className="flex items-center gap-2">
+                  {!readOnly && unmarkedCount > 1 && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-6 text-[10px] gap-1"
+                      disabled={isMutating}
+                      onClick={() => setConfirmAction({ type: "batchShowed" })}
+                    >
+                      <UserCheck className="h-3 w-3" /> Mark all showed
+                    </Button>
+                  )}
+                  {!readOnly && (
+                    <span className="text-xs text-muted-foreground">
+                      {showedCount}/{participants.length} marked as showed
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="divide-y divide-border">
-                {participants.map((p) => (
-                  <div key={p.appointmentId} className="flex items-center justify-between px-4 py-3 gap-3">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-foreground truncate">{p.name}</span>
-                        {p.showed && (
-                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-xs font-medium">
-                            <CheckCircle className="h-3 w-3" /> Showed
-                          </span>
-                        )}
-                        {p.noShow && (
-                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 text-xs font-medium">
-                            <XCircle className="h-3 w-3" /> No-show
-                          </span>
-                        )}
+                {participants.map((p) => {
+                  const { displayName, showPhone } = maskContact(p);
+                  return (
+                    <div key={p.appointmentId} className="flex items-center justify-between px-4 py-3 gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-foreground truncate">{displayName}</span>
+                          {p.showed && (
+                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-xs font-medium">
+                              <CheckCircle className="h-3 w-3" /> Showed
+                            </span>
+                          )}
+                          {p.noShow && (
+                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 text-xs font-medium">
+                              <XCircle className="h-3 w-3" /> No-show
+                            </span>
+                          )}
+                        </div>
+                        {showPhone && p.phone && <div className="text-xs text-muted-foreground mt-0.5">{p.phone}</div>}
                       </div>
-                      {p.email && <div className="text-xs text-muted-foreground mt-0.5">{p.email}</div>}
-                    </div>
-                    {!readOnly && (
-                      <div className="shrink-0 flex items-center gap-1.5">
-                        {p.showed ? (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-7 text-xs gap-1"
-                            disabled={isMutating}
-                            onClick={() => handleMark(p.appointmentId, false)}
-                          >
-                            <UserX className="h-3 w-3" /> Undo
-                          </Button>
-                        ) : p.noShow ? (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-7 text-xs gap-1"
-                            disabled={isMutating}
-                            onClick={() => handleMark(p.appointmentId, false)}
-                          >
-                            <RotateCcw className="h-3 w-3" /> Reset
-                          </Button>
-                        ) : (
-                          <>
-                            <Button
-                              size="sm"
-                              className="h-7 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
-                              disabled={isMutating}
-                              onClick={() => handleMark(p.appointmentId, true)}
-                            >
-                              <UserCheck className="h-3 w-3" /> Showed
-                            </Button>
+                      {!readOnly && (
+                        <div className="shrink-0 flex items-center gap-1.5">
+                          {p.showed ? (
                             <Button
                               variant="outline"
                               size="sm"
-                              className="h-7 text-xs gap-1 text-red-600 hover:text-red-700 border-red-200 hover:border-red-300"
+                              className="h-7 text-xs gap-1"
                               disabled={isMutating}
-                              onClick={() => handleNoShow(p.appointmentId)}
+                              onClick={() => setConfirmAction({ type: "undo", appointmentId: p.appointmentId })}
                             >
-                              <UserX className="h-3 w-3" /> No-show
+                              <UserX className="h-3 w-3" /> Undo
                             </Button>
-                          </>
-                        )}
+                          ) : p.noShow ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs gap-1"
+                              disabled={isMutating}
+                              onClick={() => setConfirmAction({ type: "reset", appointmentId: p.appointmentId })}
+                            >
+                              <RotateCcw className="h-3 w-3" /> Reset
+                            </Button>
+                          ) : (
+                            <>
+                              <Button
+                                size="sm"
+                                className="h-7 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                                disabled={isMutating}
+                                onClick={() => setConfirmAction({ type: "showed", appointmentId: p.appointmentId })}
+                              >
+                                <UserCheck className="h-3 w-3" /> Showed
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 text-xs gap-1 text-red-600 hover:text-red-700 border-red-200 hover:border-red-300"
+                                disabled={isMutating}
+                                onClick={() => setConfirmAction({ type: "noshow", appointmentId: p.appointmentId })}
+                              >
+                                <UserX className="h-3 w-3" /> No-show
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Confirmation dialog */}
+      <Dialog open={!!confirmAction} onOpenChange={(v) => !v && setConfirmAction(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {confirmAction?.type === "batchShowed" ? "Mark all as showed?" :
+               confirmAction?.type === "showed" ? "Mark as showed?" :
+               confirmAction?.type === "noshow" ? "Mark as no-show?" :
+               confirmAction?.type === "undo" ? "Undo showed status?" :
+               "Reset status?"}
+            </DialogTitle>
+            <DialogDescription>
+              {confirmAction?.type === "batchShowed"
+                ? `This will mark ${unmarkedCount} participant${unmarkedCount !== 1 ? "s" : ""} as showed. This action updates their status in GHL and may trigger certificate workflows.`
+                : confirmAction?.type === "showed"
+                ? "This will update the participant's status to 'showed' in GHL. This may trigger certificate and completion workflows."
+                : confirmAction?.type === "noshow"
+                ? "This will mark the participant as a no-show in GHL."
+                : "This will reset the participant's status back to 'confirmed' in GHL."}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setConfirmAction(null)}>Cancel</Button>
+            <Button
+              className={confirmAction?.type === "noshow" ? "bg-red-600 hover:bg-red-700 text-white" : confirmAction?.type === "showed" || confirmAction?.type === "batchShowed" ? "bg-emerald-600 hover:bg-emerald-700 text-white" : ""}
+              onClick={executeConfirmedAction}
+              disabled={isMutating}
+            >
+              {isMutating && <Loader2 className="h-3 w-3 animate-spin mr-1" />}
+              Confirm
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+// ─── Message Composer (send email to participants via admin approval) ─────────
+function MessageComposer({ courseId, courseName }: { courseId: number; courseName: string }) {
+  const [open, setOpen] = useState(false);
+  const [subject, setSubject] = useState("");
+  const [body, setBody] = useState("");
+  const [submitted, setSubmitted] = useState(false);
+
+  const createDraft = trpc.courseDates.createMessageDraft.useMutation({
+    onSuccess: (data) => {
+      // Immediately submit for approval
+      submitForApproval.mutate({ messageId: data.messageId });
+    },
+    onError: (err) => toast.error(`Failed to create draft: ${err.message}`),
+  });
+
+  const submitForApproval = trpc.courseDates.submitMessageForApproval.useMutation({
+    onSuccess: () => {
+      toast.success("Message sent for admin approval");
+      setSubmitted(true);
+      setSubject("");
+      setBody("");
+    },
+    onError: (err) => toast.error(`Failed to submit: ${err.message}`),
+  });
+
+  const messagesQuery = trpc.courseDates.listMessages.useQuery(
+    { courseDateId: courseId },
+    { enabled: open }
+  );
+
+  const isPending = createDraft.isPending || submitForApproval.isPending;
+  const messages = messagesQuery.data ?? [];
+
+  const statusBadge = (status: string) => {
+    const map: Record<string, { label: string; cls: string }> = {
+      draft: { label: "Draft", cls: "bg-gray-100 text-gray-600" },
+      pending_approval: { label: "Awaiting approval", cls: "bg-amber-100 text-amber-800" },
+      approved: { label: "Sent", cls: "bg-emerald-100 text-emerald-700" },
+      rejected: { label: "Rejected", cls: "bg-red-100 text-red-700" },
+    };
+    const s = map[status] || map.draft;
+    return <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${s.cls}`}>{s.label}</span>;
+  };
+
+  return (
+    <div className="mt-2">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1.5 text-xs font-medium text-[oklch(0.22_0.04_255)] hover:underline"
+      >
+        <Mail className="h-3.5 w-3.5" />
+        Send message to participants
+        {open ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+      </button>
+
+      {open && (
+        <div className="mt-3 border border-border rounded-lg p-4 space-y-4">
+          <p className="text-xs text-muted-foreground">
+            Write a message to all participants of this course. The message will be reviewed by admin before being sent from <strong>info@fasciaacademy.com</strong>.
+          </p>
+
+          {!submitted ? (
+            <div className="space-y-3">
+              <div>
+                <Label className="text-xs">Subject</Label>
+                <Input
+                  value={subject}
+                  onChange={(e) => setSubject(e.target.value)}
+                  placeholder={`Message about ${courseName}`}
+                  className="mt-1 h-8 text-sm"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Message</Label>
+                <Textarea
+                  value={body}
+                  onChange={(e) => setBody(e.target.value)}
+                  placeholder="Write your message to participants here..."
+                  className="mt-1 text-sm min-h-[100px]"
+                />
+              </div>
+              <Button
+                size="sm"
+                className="h-8 text-xs gap-1.5"
+                disabled={!subject.trim() || !body.trim() || isPending}
+                onClick={() => createDraft.mutate({ courseDateId: courseId, subject, body })}
+              >
+                {isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+                Submit for approval
+              </Button>
+            </div>
+          ) : (
+            <div className="text-center py-4">
+              <CheckCircle className="h-8 w-8 mx-auto mb-2 text-emerald-600" />
+              <p className="text-sm font-medium">Message submitted for admin review</p>
+              <p className="text-xs text-muted-foreground mt-1">You will be notified when it's approved and sent.</p>
+              <Button variant="outline" size="sm" className="mt-3 h-7 text-xs" onClick={() => setSubmitted(false)}>
+                Write another message
+              </Button>
+            </div>
+          )}
+
+          {messages.length > 0 && (
+            <div className="border-t border-border pt-3">
+              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Previous messages</h4>
+              <div className="space-y-2">
+                {messages.map((m) => (
+                  <div key={m.id} className="flex items-start justify-between gap-2 p-2 rounded bg-muted/30">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-medium truncate">{m.subject}</span>
+                        {statusBadge(m.status)}
                       </div>
-                    )}
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        {new Date(m.createdAt).toLocaleDateString("en-SE")}
+                        {m.sentAt && ` · Sent to ${m.recipientCount} recipient${m.recipientCount !== 1 ? "s" : ""}`}
+                      </p>
+                      {m.adminNote && m.status === "rejected" && (
+                        <p className="text-[10px] text-red-600 mt-1">Admin note: {m.adminNote}</p>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
-            </>
+            </div>
           )}
         </div>
       )}
@@ -1130,7 +1338,10 @@ function CourseCard({ row, showActions, isPending, showRepeat, calendars }: { ro
 
         {/* Read-only participant list for upcoming approved courses */}
         {showActions && row.status === "approved" && (
-          <ParticipantAttendanceList courseId={row.id} readOnly />
+          <>
+            <ParticipantAttendanceList courseId={row.id} readOnly />
+            <MessageComposer courseId={row.id} courseName={`${label} ${fmtDateShort(row.startDate)}`} />
+          </>
         )}
 
         {/* Repeat button + participant list for past courses */}
@@ -1144,7 +1355,8 @@ function CourseCard({ row, showActions, isPending, showRepeat, calendars }: { ro
                 <History className="h-3 w-3 mr-1" /> Log
               </Button>
             </div>
-            <ParticipantAttendanceList courseId={row.id} />
+            <ParticipantAttendanceList courseId={row.id} isPast />
+            <MessageComposer courseId={row.id} courseName={`${label} ${fmtDateShort(row.startDate)}`} />
           </div>
         )}
       </div>

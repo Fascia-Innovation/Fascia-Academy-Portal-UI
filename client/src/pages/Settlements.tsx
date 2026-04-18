@@ -14,7 +14,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { CheckCircle, AlertCircle, Clock, ChevronRight, Plus, RefreshCw, Edit, Download } from "lucide-react";
+import { CheckCircle, AlertCircle, Clock, ChevronRight, Plus, RefreshCw, Edit, Download, FileDown } from "lucide-react";
+import { generateSettlementPdf } from "@/lib/settlementPdf";
 import { useDashAuth } from "@/contexts/DashAuthContext";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -151,6 +152,9 @@ function SettlementDetail({
               <Edit className="w-3 h-3 mr-1" />Amend
             </Button>
           )}
+          <Button size="sm" variant="outline" onClick={() => generateSettlementPdf({ settlement, lines, adjustments, faCompany })}>
+            <FileDown className="w-3 h-3 mr-1" />PDF
+          </Button>
         </div>
       </div>
 

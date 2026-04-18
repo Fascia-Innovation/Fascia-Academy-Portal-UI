@@ -245,3 +245,49 @@ export const certificates = mysqlTable("certificates", {
 
 export type Certificate = typeof certificates.$inferSelect;
 export type InsertCertificate = typeof certificates.$inferInsert;
+
+/**
+ * Participant snapshots — frozen copy of participant data at course completion.
+ * Created when a course leader marks "showed" so that the data is preserved
+ * even if the GHL contact is later deleted or modified.
+ * Data protection: only stores name and phone (no email for course leaders).
+ */
+export const participantSnapshots = mysqlTable("participant_snapshots", {
+  id: int("id").autoincrement().primaryKey(),
+  courseDateId: int("courseDateId").notNull(),       // references course_dates.id
+  ghlAppointmentId: varchar("ghlAppointmentId", { length: 64 }).notNull(),
+  ghlContactId: varchar("ghlContactId", { length: 64 }).notNull(),
+  participantName: varchar("participantName", { length: 255 }).notNull(),
+  participantPhone: varchar("participantPhone", { length: 64 }),
+  participantEmail: varchar("participantEmail", { length: 320 }), // stored but only visible to admin
+  status: mysqlEnum("status", ["showed", "noshow", "confirmed", "cancelled"]).notNull(),
+  snapshotAt: timestamp("snapshotAt").defaultNow().notNull(),
+});
+
+export type ParticipantSnapshot = typeof participantSnapshots.$inferSelect;
+export type InsertParticipantSnapshot = typeof participantSnapshots.$inferInsert;
+
+/**
+ * Course leader message drafts — course leaders can draft messages to their
+ * course participants. Admin reviews, optionally edits, then approves.
+ * Messages are sent from info@fasciaacademy.com via GHL Conversations API.
+ * status: draft → pending_approval → approved (sent) | rejected
+ */
+export const courseLeaderMessages = mysqlTable("course_leader_messages", {
+  id: int("id").autoincrement().primaryKey(),
+  courseDateId: int("courseDateId").notNull(),       // which course's participants
+  authorId: int("authorId").notNull(),               // dashboard_users.id (course leader)
+  subject: varchar("subject", { length: 500 }).notNull(),
+  body: text("body").notNull(),
+  status: mysqlEnum("status", ["draft", "pending_approval", "approved", "rejected"]).notNull().default("draft"),
+  adminNote: text("adminNote"),                      // admin feedback if rejected or edited
+  reviewedBy: int("reviewedBy"),                     // admin who reviewed
+  reviewedAt: timestamp("reviewedAt"),
+  sentAt: timestamp("sentAt"),                       // when emails were actually sent
+  recipientCount: int("recipientCount").default(0),  // how many emails were sent
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type CourseLeaderMessage = typeof courseLeaderMessages.$inferSelect;
+export type InsertCourseLeaderMessage = typeof courseLeaderMessages.$inferInsert;

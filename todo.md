@@ -462,3 +462,44 @@
 - [x] Frontend: Add explicit No-show button to participant attendance list
 - [x] Verify webhook flow: showed trigger → certificate/exam creation in code
 - [x] Write comprehensive improvement recommendations document (Markdown)
+
+## Round N+1: Full Improvement Session
+### Phase 1: Test Booking
+- [ ] Make test booking on Sollentuna/Victor course (victor.forsell@live.se, admin100off)
+- [ ] Verify booking appears in GHL Appointment List View
+### Phase 2: Showed Trigger Verification & Fix
+- [ ] Test if "showed" via Portal API triggers GHL workflows
+- [ ] If not: implement fallback (set completion tags + trigger workflow)
+- [ ] Ensure showed via Portal = showed via GHL (same effect on invoicing + certificates)
+### Phase 3: Data Privacy for Course Leaders
+- [ ] Course leaders see phone but NOT email during active course
+- [ ] After course completion: course leaders see only first + last name (no phone, no email)
+- [ ] PDF exports: only first + last name, never email
+### Phase 4: Confirmation Dialog + Batch Mark
+- [ ] Add confirmation dialog before marking "showed" (irreversible action)
+- [ ] Add "Mark all as showed" batch button with select all/deselect
+### Phase 5: GHL API Robustness
+- [ ] Add retry with exponential backoff for GHL write operations
+- [ ] Move hardcoded values to env variables (ADMIN_CONTACT_ID, portal URL)
+### Phase 6: Settlement PDF Export
+- [ ] Generate settlement PDF with FA company details, line items, totals
+- [ ] Only first + last name in PDF (data protection)
+### Phase 7: SEO + Booking Page
+- [ ] Add SEO metadata (title, description, OG tags) per language
+- [ ] Simplify seat display ("12 platser kvar" instead of "12/12")
+- [ ] Add structured data (JSON-LD) for courses
+### Phase 8: Admin Improvements
+- [ ] Add Certificates to admin sidebar navigation
+- [ ] Add CSV export for settlements, students, courses
+- [ ] Data protection: only first + last name in exports
+- [ ] Bulk settlement generation button
+### Phase 9: Snapshot Participant Data
+- [ ] Store participant records in Portal DB at course completion
+- [ ] Use snapshots for historical data instead of live GHL fetch
+### Phase 10: Mail-to-Participants Feature
+- [ ] DB: course_messages table (courseDateId, senderId, subject, body, status, adminNote, sentAt)
+- [ ] Course leader writes email (subject + body) to all participants in a course
+- [ ] Email goes to admin approval queue (approve/revise/reject)
+- [ ] Approved email sent via info@fasciaacademy.com (GHL Conversations API)
+- [ ] Course leader sees status (pending/approved/sent/rejected)
+- [ ] Course leader never sees participant email addresses

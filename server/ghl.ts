@@ -62,20 +62,68 @@ const CACHE_TTL_CALENDARS = 5 * 60 * 1000;   // 5 minutes
 const CACHE_TTL_APPOINTMENTS = 5 * 60 * 1000; // 5 minutes
 const CACHE_TTL_CONTACTS = 10 * 60 * 1000;    // 10 minutes
 
-// ─── HTTP helper ──────────────────────────────────────────────────────────────
+// ─── HTTP helper with retry ───────────────────────────────────────────────────
+const GHL_MAX_RETRIES = 3;
+const GHL_RETRY_DELAYS = [500, 1500, 3000]; // ms between retries (exponential-ish)
+
+async function ghlFetchWithRetry(url: string, init: RequestInit, label: string): Promise<Response> {
+  for (let attempt = 0; attempt <= GHL_MAX_RETRIES; attempt++) {
+    try {
+      const res = await fetch(url, init);
+      // Retry on 429 (rate limit) or 5xx (server error)
+      if ((res.status === 429 || res.status >= 500) && attempt < GHL_MAX_RETRIES) {
+        const delay = GHL_RETRY_DELAYS[attempt] ?? 3000;
+        console.warn(`[GHL] ${label} returned ${res.status}, retrying in ${delay}ms (attempt ${attempt + 1}/${GHL_MAX_RETRIES})`);
+        await new Promise((r) => setTimeout(r, delay));
+        continue;
+      }
+      return res;
+    } catch (err) {
+      if (attempt < GHL_MAX_RETRIES) {
+        const delay = GHL_RETRY_DELAYS[attempt] ?? 3000;
+        console.warn(`[GHL] ${label} network error, retrying in ${delay}ms (attempt ${attempt + 1}/${GHL_MAX_RETRIES}):`, err);
+        await new Promise((r) => setTimeout(r, delay));
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw new Error(`[GHL] ${label} exhausted all retries`);
+}
+
 async function ghlGet<T>(path: string, params: Record<string, string> = {}): Promise<T> {
   const url = new URL(`${GHL_BASE}${path}`);
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
-  const res = await fetch(url.toString(), {
+  const res = await ghlFetchWithRetry(url.toString(), {
     headers: {
       Authorization: `Bearer ${API_KEY}`,
       Version: "2021-04-15",
       Accept: "application/json",
     },
-  });
+  }, `GET ${path}`);
   if (!res.ok) {
     const body = await res.text();
     throw new Error(`GHL API error ${res.status} for ${path}: ${body}`);
+  }
+  return res.json() as Promise<T>;
+}
+
+/** PUT helper with retry for updating appointments etc. */
+export async function ghlPut<T>(path: string, body: Record<string, unknown>): Promise<T> {
+  const url = `${GHL_BASE}${path}`;
+  const res = await ghlFetchWithRetry(url, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${API_KEY}`,
+      Version: "2021-04-15",
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(body),
+  }, `PUT ${path}`);
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`GHL API error ${res.status} for PUT ${path}: ${text}`);
   }
   return res.json() as Promise<T>;
 }

@@ -6,7 +6,8 @@
  */
 import { useState, useMemo } from "react";
 import { trpc } from "@/lib/trpc";
-import { Loader2, GraduationCap, Search, ChevronDown, ChevronUp, Award, BookOpen, Calendar } from "lucide-react";
+import { Loader2, GraduationCap, Search, ChevronDown, ChevronUp, Award, BookOpen, Calendar, Download } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 
@@ -211,6 +212,33 @@ export default function Students() {
             Participant overview - booked and completed courses, certificates, and spend
           </p>
         </div>
+        {data && data.length > 0 && (
+          <Button variant="outline" size="sm" onClick={() => {
+            // CSV export with data protection: names only, no email addresses
+            const rows = (data as Student[]).map((s) => ({
+              Name: s.name,
+              "Booked Courses": s.bookedCourses.map((c) => `${c.courseType} (${c.date})`).join("; "),
+              "Completed Courses": s.completedCourses.map((c) => `${c.courseType} (${c.date})`).join("; "),
+              Certificates: s.certificates.map((c) => c.courseType).join("; "),
+              "Spend SEK": s.totalSpendSEK,
+              "Spend EUR": s.totalSpendEUR,
+            }));
+            const headers = Object.keys(rows[0]);
+            const csv = [headers.join(","), ...rows.map((r) => headers.map((h) => {
+              const val = String((r as Record<string, unknown>)[h] ?? "");
+              return val.includes(",") || val.includes('"') ? `"${val.replace(/"/g, '""')}"` : val;
+            }).join(","))].join("\n");
+            const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `students_export_${new Date().toISOString().slice(0, 10)}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+          }}>
+            <Download className="w-4 h-4 mr-2" />Export CSV
+          </Button>
+        )}
       </div>
 
       {/* Stats */}

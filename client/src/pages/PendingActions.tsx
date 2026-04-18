@@ -10,7 +10,7 @@ import {
 import {
   Loader2, CheckCircle2, XCircle, AlertTriangle, RefreshCw,
   CalendarDays, MapPin, Users, Clock, MessageSquare, History,
-  ChevronDown, ChevronUp, FileEdit,
+  ChevronDown, ChevronUp, FileEdit, Mail, Send, Eye,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -342,6 +342,149 @@ export default function PendingActions() {
           }}
         />
       )}
+
+      {/* Pending messages from course leaders */}
+      <PendingMessagesSection />
+    </div>
+  );
+}
+
+// ─── Pending Messages Section ────────────────────────────────────────────────
+function PendingMessagesSection() {
+  const { data: messages, isLoading, refetch } = trpc.courseDates.listPendingMessages.useQuery();
+  const [reviewMsg, setReviewMsg] = useState<any | null>(null);
+  const [editedSubject, setEditedSubject] = useState("");
+  const [editedBody, setEditedBody] = useState("");
+  const [adminNote, setAdminNote] = useState("");
+
+  const reviewMutation = trpc.courseDates.reviewMessage.useMutation({
+    onSuccess: (data) => {
+      toast.success(data.action === "approved" ? "Message approved and sent" : "Message rejected");
+      setReviewMsg(null);
+      refetch();
+    },
+    onError: (err) => toast.error(`Failed: ${err.message}`),
+  });
+
+  if (isLoading || !messages || messages.length === 0) return null;
+
+  const COURSE_LABELS: Record<string, string> = {
+    intro: "Intro", diplo: "Diplo", cert: "Cert", vidare: "Vidare",
+  };
+
+  return (
+    <div className="space-y-3 mt-6">
+      <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+        <Mail className="h-5 w-5" /> Pending Messages ({messages.length})
+      </h2>
+      <p className="text-sm text-muted-foreground">
+        Course leaders have submitted messages for review. Approved messages will be sent from info@fasciaacademy.com.
+      </p>
+      <div className="space-y-2">
+        {messages.map((msg: any) => (
+          <div key={msg.id} className="border border-border rounded-lg p-4 bg-card">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm font-semibold">{msg.subject}</span>
+                  <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-xs">
+                    Awaiting approval
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  From <strong>{msg.authorName}</strong> · {COURSE_LABELS[msg.courseType] || msg.courseType} {msg.courseCity}
+                  {msg.courseDate && ` · ${new Date(msg.courseDate).toLocaleDateString("en-SE", { month: "short", day: "numeric" })}`}
+                </p>
+                <p className="text-sm text-foreground mt-2 whitespace-pre-wrap line-clamp-3">{msg.body}</p>
+              </div>
+              <div className="shrink-0 flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 text-xs gap-1"
+                  onClick={() => {
+                    setReviewMsg(msg);
+                    setEditedSubject(msg.subject);
+                    setEditedBody(msg.body);
+                    setAdminNote("");
+                  }}
+                >
+                  <Eye className="h-3 w-3" /> Review
+                </Button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Review dialog */}
+      <Dialog open={!!reviewMsg} onOpenChange={(v) => !v && setReviewMsg(null)}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Review Message</DialogTitle>
+            <DialogDescription>
+              From {reviewMsg?.authorName}. You can edit the message before approving. It will be sent from info@fasciaacademy.com.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium block mb-1">Subject</label>
+              <input
+                className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background"
+                value={editedSubject}
+                onChange={(e) => setEditedSubject(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium block mb-1">Message body</label>
+              <Textarea
+                value={editedBody}
+                onChange={(e) => setEditedBody(e.target.value)}
+                rows={6}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium block mb-1">Admin note (optional, visible to course leader)</label>
+              <Textarea
+                value={adminNote}
+                onChange={(e) => setAdminNote(e.target.value)}
+                rows={2}
+                placeholder="Reason for rejection or feedback..."
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setReviewMsg(null)}>Cancel</Button>
+            <Button
+              variant="outline"
+              className="text-red-600 border-red-200 hover:bg-red-50"
+              disabled={reviewMutation.isPending}
+              onClick={() => reviewMutation.mutate({
+                messageId: reviewMsg.id,
+                action: "reject",
+                adminNote: adminNote || undefined,
+              })}
+            >
+              {reviewMutation.isPending && <Loader2 className="h-3 w-3 animate-spin mr-1" />}
+              Reject
+            </Button>
+            <Button
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              disabled={reviewMutation.isPending || !editedSubject.trim() || !editedBody.trim()}
+              onClick={() => reviewMutation.mutate({
+                messageId: reviewMsg.id,
+                action: "approve",
+                editedSubject: editedSubject !== reviewMsg.subject ? editedSubject : undefined,
+                editedBody: editedBody !== reviewMsg.body ? editedBody : undefined,
+                adminNote: adminNote || undefined,
+              })}
+            >
+              {reviewMutation.isPending && <Loader2 className="h-3 w-3 animate-spin mr-1" />}
+              <Send className="h-3 w-3 mr-1" /> Approve & Send
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

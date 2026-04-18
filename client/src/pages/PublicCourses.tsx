@@ -1092,6 +1092,14 @@ export default function PublicCourses() {
   const [lang, setLang] = useState<Lang>(urlLang);
   const t = T[lang];
 
+  // Dynamic page title + html lang attribute for SEO
+  useEffect(() => {
+    document.title = lang === "sv"
+      ? "Fascia Academy – Hitta en kurs nära dig"
+      : "Fascia Academy – Find a course near you";
+    document.documentElement.lang = lang;
+  }, [lang]);
+
   const [viewMode, setViewMode] = useState<ViewMode>("calendar");
   const [filterType, setFilterType] = useState<CourseType | "all">("all");
   const [filterLeader, setFilterLeader] = useState<string>(urlLeader);

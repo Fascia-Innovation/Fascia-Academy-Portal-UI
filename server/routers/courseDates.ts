@@ -8,7 +8,7 @@ import { z } from "zod";
 import { eq, gte, lte, and, asc, desc } from "drizzle-orm";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { courseDates, dashboardUsers } from "../../drizzle/schema";
+import { courseDates, dashboardUsers, participantSnapshots, courseLeaderMessages } from "../../drizzle/schema";
 import type { DashboardUser } from "../../drizzle/schema";
 import { parse as parseCookies } from "cookie";
 import { getSessionUser } from "../dashboardAuth";
@@ -1373,6 +1373,32 @@ export const courseDatesRouter = router({
         });
       }
 
+      // Snapshot participant data when marking as showed
+      if (input.showed) {
+        try {
+          // Fetch appointment details to get contact info
+          const apptRes = await fetch(`${GHL_BASE}/calendars/appointments/${input.appointmentId}`, {
+            headers: { Authorization: `Bearer ${API_KEY}`, Version: "2021-04-15", Accept: "application/json" },
+          });
+          if (apptRes.ok) {
+            const apptData = await apptRes.json();
+            const contact = apptData?.contact || apptData?.appointment?.contact || {};
+            const contactId = contact.id || apptData?.appointment?.contactId || apptData?.contactId || "";
+            await db.insert(participantSnapshots).values({
+              courseDateId: input.courseDateId,
+              ghlAppointmentId: input.appointmentId,
+              ghlContactId: contactId,
+              participantName: contact.name || contact.firstName ? `${contact.firstName || ""} ${contact.lastName || ""}`.trim() : "Unknown",
+              participantPhone: contact.phone || null,
+              participantEmail: contact.email || null,
+              status: "showed",
+            });
+          }
+        } catch (snapErr) {
+          console.error("[markParticipantShowed] snapshot error (non-fatal):", snapErr);
+        }
+      }
+
       return { success: true, appointmentId: input.appointmentId, showed: input.showed };
     }),
 
@@ -1424,6 +1450,29 @@ export const courseDatesRouter = router({
         });
       }
 
+      // Snapshot participant data when marking as no-show
+      try {
+        const apptRes = await fetch(`${GHL_BASE}/calendars/appointments/${input.appointmentId}`, {
+          headers: { Authorization: `Bearer ${API_KEY}`, Version: "2021-04-15", Accept: "application/json" },
+        });
+        if (apptRes.ok) {
+          const apptData = await apptRes.json();
+          const contact = apptData?.contact || apptData?.appointment?.contact || {};
+          const contactId = contact.id || apptData?.appointment?.contactId || apptData?.contactId || "";
+          await db.insert(participantSnapshots).values({
+            courseDateId: input.courseDateId,
+            ghlAppointmentId: input.appointmentId,
+            ghlContactId: contactId,
+            participantName: contact.name || contact.firstName ? `${contact.firstName || ""} ${contact.lastName || ""}`.trim() : "Unknown",
+            participantPhone: contact.phone || null,
+            participantEmail: contact.email || null,
+            status: "noshow",
+          });
+        }
+      } catch (snapErr) {
+        console.error("[markParticipantNoShow] snapshot error (non-fatal):", snapErr);
+      }
+
       return { success: true, appointmentId: input.appointmentId };
     }),
 
@@ -1449,5 +1498,221 @@ export const courseDatesRouter = router({
         adminMessage: course.adminMessage,
         leaderMessage: course.leaderMessage,
       };
+    }),
+
+  // ─── Course leader: create/update a message draft ─────────────────────────
+  createMessageDraft: dashboardProcedure
+    .input(
+      z.object({
+        courseDateId: z.number().int(),
+        subject: z.string().min(1).max(500),
+        body: z.string().min(1),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const dashUser = (ctx as { dashUser: DashboardUser }).dashUser;
+
+      // Verify ownership
+      const rows = await db.select().from(courseDates).where(eq(courseDates.id, input.courseDateId));
+      const course = rows[0];
+      if (!course) throw new TRPCError({ code: "NOT_FOUND" });
+      if (
+        dashUser.role !== "admin" &&
+        course.courseLeaderName.toLowerCase().trim() !== dashUser.name.toLowerCase().trim() &&
+        course.submittedBy !== dashUser.id
+      ) {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+
+      const result = await db.insert(courseLeaderMessages).values({
+        courseDateId: input.courseDateId,
+        authorId: dashUser.id,
+        subject: input.subject,
+        body: input.body,
+        status: "draft",
+      });
+
+      return { success: true, messageId: Number(result[0].insertId) };
+    }),
+
+  // ─── Course leader: submit draft for admin approval ───────────────────────
+  submitMessageForApproval: dashboardProcedure
+    .input(z.object({ messageId: z.number().int() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const dashUser = (ctx as { dashUser: DashboardUser }).dashUser;
+
+      const rows = await db.select().from(courseLeaderMessages).where(eq(courseLeaderMessages.id, input.messageId));
+      const msg = rows[0];
+      if (!msg) throw new TRPCError({ code: "NOT_FOUND" });
+      if (msg.authorId !== dashUser.id && dashUser.role !== "admin") {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+      if (msg.status !== "draft" && msg.status !== "rejected") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Message is not in draft/rejected status" });
+      }
+
+      await db.update(courseLeaderMessages)
+        .set({ status: "pending_approval" })
+        .where(eq(courseLeaderMessages.id, input.messageId));
+
+      return { success: true };
+    }),
+
+  // ─── List messages for a course date ──────────────────────────────────────
+  listMessages: dashboardProcedure
+    .input(z.object({ courseDateId: z.number().int() }))
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const dashUser = (ctx as { dashUser: DashboardUser }).dashUser;
+
+      // Verify ownership
+      const courseRows = await db.select().from(courseDates).where(eq(courseDates.id, input.courseDateId));
+      const course = courseRows[0];
+      if (!course) throw new TRPCError({ code: "NOT_FOUND" });
+      if (
+        dashUser.role !== "admin" &&
+        course.courseLeaderName.toLowerCase().trim() !== dashUser.name.toLowerCase().trim() &&
+        course.submittedBy !== dashUser.id
+      ) {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+
+      return db.select().from(courseLeaderMessages)
+        .where(eq(courseLeaderMessages.courseDateId, input.courseDateId))
+        .orderBy(desc(courseLeaderMessages.createdAt));
+    }),
+
+  // ─── Admin: list all pending messages ──────────────────────────────────────
+  listPendingMessages: adminProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    const messages = await db.select().from(courseLeaderMessages)
+      .where(eq(courseLeaderMessages.status, "pending_approval"))
+      .orderBy(asc(courseLeaderMessages.createdAt));
+    // Enrich with course info and author name
+    const enriched = [];
+    for (const msg of messages) {
+      const courseRows = await db.select().from(courseDates).where(eq(courseDates.id, msg.courseDateId));
+      const authorRows = await db.select().from(dashboardUsers).where(eq(dashboardUsers.id, msg.authorId));
+      enriched.push({
+        ...msg,
+        courseType: courseRows[0]?.courseType ?? "unknown",
+        courseCity: courseRows[0]?.city ?? "",
+        courseDate: courseRows[0]?.startDate ?? null,
+        authorName: authorRows[0]?.name ?? "Unknown",
+      });
+    }
+    return enriched;
+  }),
+
+  // ─── Admin: review message (approve/reject/edit) ──────────────────────────
+  reviewMessage: dashboardProcedure
+    .input(
+      z.object({
+        messageId: z.number().int(),
+        action: z.enum(["approve", "reject"]),
+        adminNote: z.string().optional(),
+        editedSubject: z.string().optional(),
+        editedBody: z.string().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const dashUser = (ctx as { dashUser: DashboardUser }).dashUser;
+      if (dashUser.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
+
+      const rows = await db.select().from(courseLeaderMessages).where(eq(courseLeaderMessages.id, input.messageId));
+      const msg = rows[0];
+      if (!msg) throw new TRPCError({ code: "NOT_FOUND" });
+      if (msg.status !== "pending_approval") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Message is not pending approval" });
+      }
+
+      if (input.action === "reject") {
+        await db.update(courseLeaderMessages)
+          .set({
+            status: "rejected",
+            adminNote: input.adminNote || null,
+            reviewedBy: dashUser.id,
+            reviewedAt: new Date(),
+          })
+          .where(eq(courseLeaderMessages.id, input.messageId));
+        return { success: true, action: "rejected" };
+      }
+
+      // Approve — optionally update subject/body if admin edited
+      const updates: Record<string, unknown> = {
+        status: "approved" as const,
+        reviewedBy: dashUser.id,
+        reviewedAt: new Date(),
+        adminNote: input.adminNote || null,
+      };
+      if (input.editedSubject) updates.subject = input.editedSubject;
+      if (input.editedBody) updates.body = input.editedBody;
+
+      await db.update(courseLeaderMessages)
+        .set(updates)
+        .where(eq(courseLeaderMessages.id, input.messageId));
+
+      // Send emails to all participants via GHL
+      try {
+        const finalMsg = { ...msg, ...updates };
+        // Get participants from GHL
+        const course = (await db.select().from(courseDates).where(eq(courseDates.id, msg.courseDateId)))[0];
+        if (course) {
+          const startStr = course.startDate.toISOString().split("T")[0];
+          const endStr = course.endDate.toISOString().split("T")[0];
+          const apptRes = await fetch(
+            `${GHL_BASE}/calendars/appointments?calendarId=${course.ghlCalendarId}&startDate=${startStr}&endDate=${endStr}&status=confirmed,showed`,
+            { headers: { Authorization: `Bearer ${API_KEY}`, Version: "2021-04-15", Accept: "application/json" } }
+          );
+          if (apptRes.ok) {
+            const apptData = await apptRes.json();
+            const appointments = apptData?.appointments || apptData?.data?.appointments || [];
+            let sentCount = 0;
+            for (const appt of appointments) {
+              const email = appt?.contact?.email || appt?.email;
+              if (!email) continue;
+              // Send email via GHL Conversations API
+              try {
+                const contactId = appt?.contact?.id || appt?.contactId;
+                if (contactId) {
+                  await fetch(`${GHL_BASE}/conversations/messages`, {
+                    method: "POST",
+                    headers: {
+                      Authorization: `Bearer ${API_KEY}`,
+                      Version: "2021-04-15",
+                      "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                      type: "Email",
+                      contactId,
+                      subject: finalMsg.subject,
+                      html: `<div>${String(finalMsg.body).replace(/\n/g, "<br>")}</div>`,
+                      emailFrom: "info@fasciaacademy.com",
+                    }),
+                  });
+                  sentCount++;
+                }
+              } catch (sendErr) {
+                console.error("[reviewMessage] send email error:", sendErr);
+              }
+            }
+            await db.update(courseLeaderMessages)
+              .set({ sentAt: new Date(), recipientCount: sentCount })
+              .where(eq(courseLeaderMessages.id, input.messageId));
+          }
+        }
+      } catch (sendErr) {
+        console.error("[reviewMessage] batch send error:", sendErr);
+      }
+
+      return { success: true, action: "approved" };
     }),
 });
