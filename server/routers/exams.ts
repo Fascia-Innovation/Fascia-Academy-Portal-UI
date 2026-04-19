@@ -14,11 +14,12 @@ import { publicProcedure, router } from "../_core/trpc";
 import { getSessionUser } from "../dashboardAuth";
 import type { DashboardUser } from "../../drizzle/schema";
 import { getDb } from "../db";
-import { exams, certificates } from "../../drizzle/schema";
-import { eq, desc, inArray } from "drizzle-orm";
+import { exams, certificates, participantSnapshots, courseDates } from "../../drizzle/schema";
+import { eq, desc, inArray, and } from "drizzle-orm";
 import { dashboardUsers } from "../../drizzle/schema";
 import { generateCertificatePdf } from "../certificatePdf";
 import { setGhlTag, sendExamResultEmail, searchContactByEmail } from "../ghl";
+import { issueCertificateForParticipant } from "./certificatesRouter";
 
 const DASH_SESSION = "fa_dash_session";
 
@@ -53,6 +54,40 @@ const adminProcedure = dashboardProcedure.use(({ ctx, next }) => {
   return next({ ctx });
 });
 
+/**
+ * Look up whether a contact has a 'showed' snapshot for any diplo/cert course.
+ * Returns the most recent showed snapshot's courseDateId (or null).
+ */
+async function getShowedStatusForContact(
+  db: Awaited<ReturnType<typeof getDb>>,
+  ghlContactId: string,
+  courseType: "diplo" | "cert"
+): Promise<{ showed: boolean; courseDateId: number | null }> {
+  if (!db) return { showed: false, courseDateId: null };
+  // Find participantSnapshots with status='showed' for this contact,
+  // joined with course_dates to filter by courseType
+  const rows = await db
+    .select({
+      snapshotId: participantSnapshots.id,
+      courseDateId: participantSnapshots.courseDateId,
+      courseType: courseDates.courseType,
+    })
+    .from(participantSnapshots)
+    .innerJoin(courseDates, eq(participantSnapshots.courseDateId, courseDates.id))
+    .where(
+      and(
+        eq(participantSnapshots.ghlContactId, ghlContactId),
+        eq(participantSnapshots.status, "showed"),
+        eq(courseDates.courseType, courseType)
+      )
+    )
+    .limit(1);
+  if (rows.length > 0) {
+    return { showed: true, courseDateId: rows[0].courseDateId };
+  }
+  return { showed: false, courseDateId: null };
+}
+
 // Helper: enrich exam rows with examiner display names
 async function enrichWithExaminerNames(
   db: Awaited<ReturnType<typeof getDb>>,
@@ -84,7 +119,15 @@ export const examsRouter = router({
       .from(exams)
       .where(eq(exams.status, "pending"))
       .orderBy(exams.createdAt);
-    return enrichWithExaminerNames(db, rows);
+    const enriched = await enrichWithExaminerNames(db, rows);
+    // Enrich with showed status
+    const withShowed = await Promise.all(
+      enriched.map(async (exam) => {
+        const { showed } = await getShowedStatusForContact(db, exam.ghlContactId, exam.courseType as "diplo" | "cert");
+        return { ...exam, isShowed: showed };
+      })
+    );
+    return withShowed;
   }),
 
   // ── List all exams (admin/examiner overview) ──────────────────────────────
@@ -98,7 +141,16 @@ export const examsRouter = router({
         .from(exams)
         .orderBy(desc(exams.createdAt))
         .limit(input.limit);
-      return enrichWithExaminerNames(db, rows);
+      const enriched = await enrichWithExaminerNames(db, rows);
+      // Enrich with showed status for pending exams only (performance)
+      const withShowed = await Promise.all(
+        enriched.map(async (exam) => {
+          if (exam.status !== "pending") return { ...exam, isShowed: null as boolean | null };
+          const { showed } = await getShowedStatusForContact(db, exam.ghlContactId, exam.courseType as "diplo" | "cert");
+          return { ...exam, isShowed: showed };
+        })
+      );
+      return withShowed;
     }),
 
   // ── Delete exam (admin only) ──────────────────────────────────────────────
@@ -136,21 +188,35 @@ export const examsRouter = router({
         })
         .where(eq(exams.id, input.examId));
 
-      // Generate PDF certificate
+      // Check if participant has been showed — required for diplo/cert certificate
+      const { showed: isShowed } = await getShowedStatusForContact(db, exam.ghlContactId, exam.courseType as "diplo" | "cert");
+
+      let certId: number | null = null;
       let pdfUrl: string | null = null;
-      try {
-        pdfUrl = await generateCertificatePdf({
-          contactName: exam.contactName,
-          courseType: exam.courseType as "diplo" | "cert",
-          language: exam.language,
-          issuedAt: new Date(),
-        });
-      } catch (e) {
-        console.error("[exams] PDF generation failed:", e);
+
+      if (isShowed) {
+        // Both conditions met — issue certificate now
+        try {
+          const certResult = await issueCertificateForParticipant({
+            ghlContactId: exam.ghlContactId,
+            contactName: exam.contactName,
+            contactEmail: exam.contactEmail,
+            courseType: exam.courseType as "diplo" | "cert",
+            language: exam.language,
+            issuedBy: dashUser.id,
+            examId: exam.id,
+          });
+          certId = certResult.id;
+          console.log(`[exams] Certificate issued for ${exam.contactName} (showed + passed)`);
+        } catch (e) {
+          console.error("[exams] Certificate issuance failed:", e);
+        }
+      } else {
+        console.log(`[exams] Exam passed for ${exam.contactName} but not showed yet — certificate deferred`);
       }
 
-      // Create certificate record
-      const [cert] = await db.insert(certificates).values({
+      // Legacy: keep a stub certificate record for backward compat if needed
+      const [cert] = certId ? [{ id: certId }] : await db.insert(certificates).values({
         uuid: randomUUID().replace(/-/g, ""),
         ghlContactId: exam.ghlContactId,
         contactName: exam.contactName,
@@ -213,7 +279,7 @@ export const examsRouter = router({
         }
       }
 
-      return { success: true, certificateId: cert.id, pdfUrl };
+      return { success: true, certificateId: cert.id, pdfUrl, certificateIssued: isShowed };
     }),
 
   // ── Mark exam as failed ───────────────────────────────────────────────────
@@ -322,5 +388,38 @@ export const examsRouter = router({
         .where(eq(certificates.id, input.certificateId));
 
       return { pdfUrl };
+    }),
+
+  // ── Get exam status for a list of contacts (for participant overview) ─────────────
+  getExamStatusByContacts: examinerProcedure
+    .input(z.object({
+      contactIds: z.array(z.string()),
+      courseType: z.enum(["diplo", "cert"]),
+    }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return {} as Record<string, { examId: number; status: string }>;
+      if (input.contactIds.length === 0) return {} as Record<string, { examId: number; status: string }>;
+      const rows = await db
+        .select({
+          id: exams.id,
+          ghlContactId: exams.ghlContactId,
+          status: exams.status,
+        })
+        .from(exams)
+        .where(
+          and(
+            eq(exams.courseType, input.courseType),
+            inArray(exams.ghlContactId, input.contactIds)
+          )
+        );
+      // Return map: contactId -> { examId, status } (prefer latest by id)
+      const result: Record<string, { examId: number; status: string }> = {};
+      for (const row of rows) {
+        if (!result[row.ghlContactId] || row.id > result[row.ghlContactId].examId) {
+          result[row.ghlContactId] = { examId: row.id, status: row.status };
+        }
+      }
+      return result;
     }),
 });

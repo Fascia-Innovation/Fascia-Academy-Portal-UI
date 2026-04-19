@@ -8,7 +8,7 @@ import { z } from "zod";
 import { eq, gte, lte, and, asc, desc } from "drizzle-orm";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { courseDates, dashboardUsers, participantSnapshots, courseLeaderMessages } from "../../drizzle/schema";
+import { courseDates, dashboardUsers, participantSnapshots, courseLeaderMessages, exams } from "../../drizzle/schema";
 import type { DashboardUser } from "../../drizzle/schema";
 import { parse as parseCookies } from "cookie";
 import { getSessionUser } from "../dashboardAuth";
@@ -1317,14 +1317,13 @@ export const courseDatesRouter = router({
           };
         });
 
-        return { participants };
+        return { participants, courseType: course.courseType };
       } catch (err) {
         console.error("[getCourseParticipants] fetch error:", err);
-        return { participants: [] };
+        return { participants: [], courseType: course.courseType };
       }
     }),
-
-  // ─── Course leader: mark a participant as showed / undo ───────────────────
+  // ─── Course leader: mark a participant as showed / undo ────────────────────
   markParticipantShowed: dashboardProcedure
     .input(
       z.object({
@@ -1424,6 +1423,7 @@ export const courseDatesRouter = router({
           const courseTypeForCert = course.courseType as "intro" | "diplo" | "cert" | "vidare";
           const langForCert = (course.language as "sv" | "en" | undefined) ?? "sv";
           if ((courseTypeForCert === "intro" || courseTypeForCert === "vidare") && contactId) {
+            // Intro/Vidare: issue certificate immediately on showed
             await issueCertificateForParticipant({
               ghlContactId: contactId,
               contactName: name,
@@ -1432,6 +1432,36 @@ export const courseDatesRouter = router({
               language: langForCert,
               issuedBy: dashUser.id,
             });
+          } else if ((courseTypeForCert === "diplo" || courseTypeForCert === "cert") && contactId) {
+            // Diplo/Cert: only issue certificate if participant also has a passed exam
+            const db2 = await getDb();
+            if (db2) {
+              const passedExam = await db2
+                .select()
+                .from(exams)
+                .where(
+                  and(
+                    eq(exams.ghlContactId, contactId),
+                    eq(exams.courseType, courseTypeForCert),
+                    eq(exams.status, "passed")
+                  )
+                )
+                .limit(1);
+              if (passedExam.length > 0) {
+                console.log(`[markParticipantShowed] ${name} has passed exam for ${courseTypeForCert} — issuing certificate`);
+                await issueCertificateForParticipant({
+                  ghlContactId: contactId,
+                  contactName: name,
+                  contactEmail: email,
+                  courseType: courseTypeForCert,
+                  language: langForCert,
+                  issuedBy: dashUser.id,
+                  examId: passedExam[0].id,
+                });
+              } else {
+                console.log(`[markParticipantShowed] ${name} showed for ${courseTypeForCert} but no passed exam yet — certificate deferred`);
+              }
+            }
           }
         } catch (certErr) {
           console.error("[markParticipantShowed] certificate issue failed (non-fatal):", certErr);
