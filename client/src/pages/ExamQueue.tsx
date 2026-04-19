@@ -31,7 +31,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
-import { ClipboardCheck, CheckCircle2, XCircle, Clock, RefreshCw, Mail, ExternalLink, Trash2, User, Search } from "lucide-react";
+import { ClipboardCheck, CheckCircle2, XCircle, Clock, RefreshCw, Mail, ExternalLink, Trash2, User, Search, UserCheck, AlertTriangle } from "lucide-react";
+import { useEffect, useRef, useMemo } from "react";
 
 function getCourseLabel(courseType: string, language: string): string {
   const isSv = language === "sv" || language === "Svenska" || language === "se";
@@ -63,12 +64,26 @@ type Exam = {
   examinedAt?: Date | null;
   examinedBy?: number | null;
   examinedByName?: string | null;
+  isShowed?: boolean | null;
 };
 
 export default function ExamQueue() {
   const utils = trpc.useUtils();
   const { data: pending = [], isLoading, refetch } = trpc.exams.listPending.useQuery();
   const { data: all = [] } = trpc.exams.listAll.useQuery({ limit: 100 });
+
+  // Support ?examId=123 URL param — highlight and scroll to that exam
+  const highlightExamId = useMemo(() => {
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get("examId");
+    return id ? parseInt(id, 10) : null;
+  }, []);
+  const highlightRef = useRef<HTMLTableRowElement | null>(null);
+  useEffect(() => {
+    if (highlightRef.current) {
+      highlightRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [pending, all]);
 
   const [gradeDialog, setGradeDialog] = useState<{ exam: Exam; result: "passed" | "failed" } | null>(null);
   const [feedback, setFeedback] = useState("");
@@ -214,14 +229,19 @@ export default function ExamQueue() {
                   <TableHead>Email</TableHead>
                   <TableHead>Course</TableHead>
                   <TableHead>Language</TableHead>
+                  <TableHead>Attendance</TableHead>
                   <TableHead>Submitted</TableHead>
                   <TableHead>Log</TableHead>
                   <TableHead className="text-right">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredPending.map((exam) => (
-                  <TableRow key={exam.id}>
+                  {filteredPending.map((exam) => (
+                  <TableRow
+                    key={exam.id}
+                    ref={exam.id === highlightExamId ? highlightRef : undefined}
+                    className={exam.id === highlightExamId ? "bg-amber-50 ring-2 ring-amber-400 ring-inset" : ""}
+                  >
                     <TableCell className="font-medium">{exam.contactName}</TableCell>
                     <TableCell className="text-muted-foreground text-sm">{exam.contactEmail ?? "—"}</TableCell>
                     <TableCell>
@@ -231,6 +251,17 @@ export default function ExamQueue() {
 
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">{LANG_LABELS[exam.language] ?? exam.language}</TableCell>
+                    <TableCell>
+                      {exam.isShowed === true ? (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">
+                          <UserCheck className="h-3 w-3" /> Showed
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">
+                          <AlertTriangle className="h-3 w-3" /> Not showed yet
+                        </span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {new Date(exam.createdAt).toLocaleDateString("en-GB")}
                     </TableCell>
@@ -346,13 +377,22 @@ export default function ExamQueue() {
                 {gradeDialog.exam.contactEmail && (
                   <p className="text-sm text-muted-foreground">{gradeDialog.exam.contactEmail}</p>
                 )}
-              </div>
-              {gradeDialog.result === "passed" && (
-                <div className="text-sm text-emerald-700 bg-emerald-50 rounded-lg p-3 space-y-2">
-                  <p>A result email will be sent to the student. The GHL tag <strong>{gradeDialog.exam.courseType === "cert" ? ((gradeDialog.exam.language ?? "").toLowerCase() === "en" || (gradeDialog.exam.language ?? "").toLowerCase() === "english" ? "exam-passed-certified-fs-en" : "exam-passed-certifierad-fs-se") : ((gradeDialog.exam.language ?? "").toLowerCase() === "en" || (gradeDialog.exam.language ?? "").toLowerCase() === "english" ? "exam-passed-qualified-fs-en" : "exam-passed-diplomerad-fs-se")}</strong> will be set on the contact.</p>
-                  <div className="flex items-start gap-2 bg-emerald-100 rounded-md p-2">
-                    <ExternalLink className="h-4 w-4 mt-0.5 shrink-0" />
-                    <p><strong>Remember:</strong> After confirming, go to <strong>GHL Certificates</strong> and issue the certificate manually for this student.</p>
+              </div>              {gradeDialog?.result === "passed" && (
+                <div className="space-y-2">
+                  {gradeDialog.exam.isShowed === false && (
+                    <div className="flex items-start gap-2 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                      <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                      <p><strong>Attendance not confirmed yet.</strong> The exam will be marked as passed, but the certificate will only be issued once the course leader marks this participant as showed.</p>
+                    </div>
+                  )}
+                  {gradeDialog.exam.isShowed === true && (
+                    <div className="flex items-start gap-2 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg p-3">
+                      <UserCheck className="h-4 w-4 mt-0.5 shrink-0" />
+                      <p><strong>Attendance confirmed.</strong> The certificate will be issued automatically when you approve this exam.</p>
+                    </div>
+                  )}
+                  <div className="text-sm text-muted-foreground bg-muted/40 rounded-lg p-3">
+                    <p>A result email will be sent to the student. The GHL tag <strong>{gradeDialog.exam.courseType === "cert" ? ((gradeDialog.exam.language ?? "").toLowerCase() === "en" || (gradeDialog.exam.language ?? "").toLowerCase() === "english" ? "exam-passed-certified-fs-en" : "exam-passed-certifierad-fs-se") : ((gradeDialog.exam.language ?? "").toLowerCase() === "en" || (gradeDialog.exam.language ?? "").toLowerCase() === "english" ? "exam-passed-qualified-fs-en" : "exam-passed-diplomerad-fs-se")}</strong> will be set on the contact.</p>
                   </div>
                 </div>
               )}
