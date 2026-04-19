@@ -863,11 +863,8 @@ function ChangeLogDialog({ open, onOpenChange, courseId }: {
 }
 
 // ─── Participant Attendance List ─────────────────────────────────────────────
-function ParticipantAttendanceList({ courseId, readOnly = false, isPast = false, courseType }: { courseId: number; readOnly?: boolean; isPast?: boolean; courseType?: string }) {
+function ParticipantAttendanceList({ courseId, readOnly = false, isPast = false }: { courseId: number; readOnly?: boolean; isPast?: boolean }) {
   const [open, setOpen] = useState(false);
-  const { user } = useDashAuth();
-  const isDiploOrCert = courseType === "diplo" || courseType === "cert";
-  const canSeeExams = user?.role === "admin" || user?.canExamineExams;
 
   const { data, isLoading, refetch } = trpc.courseDates.getCourseParticipants.useQuery(
     { courseDateId: courseId },
@@ -912,13 +909,6 @@ function ParticipantAttendanceList({ courseId, readOnly = false, isPast = false,
   const participants = data?.participants ?? [];
   const showedCount = participants.filter((p) => p.showed).length;
   const unmarkedCount = participants.filter((p) => !p.showed && !p.noShow).length;
-
-  // Fetch exam status for diplo/cert courses
-  const contactIds = useMemo(() => participants.map((p) => p.contactId).filter(Boolean), [participants]);
-  const { data: examStatusMap } = trpc.exams.getExamStatusByContacts.useQuery(
-    { contactIds, courseType: (courseType ?? "diplo") as "diplo" | "cert" },
-    { enabled: open && isDiploOrCert && canSeeExams && contactIds.length > 0 }
-  );
   const isMutating = markMutation.isPending || noShowMutation.isPending;
   const [confirmAction, setConfirmAction] = useState<{ type: "showed" | "noshow" | "undo" | "reset" | "batchShowed"; appointmentId?: string } | null>(null);
 
@@ -995,13 +985,10 @@ function ParticipantAttendanceList({ courseId, readOnly = false, isPast = false,
               <div className="divide-y divide-border">
                 {participants.map((p) => {
                   const { displayName, showPhone } = maskContact(p);
-                  const examInfo = isDiploOrCert && canSeeExams ? examStatusMap?.[p.contactId] : undefined;
-                  const examStatusLabel = examInfo?.status === "passed" ? "Exam ✓" : examInfo?.status === "failed" ? "Exam ✗" : examInfo ? "Exam pending" : null;
-                  const examStatusColor = examInfo?.status === "passed" ? "bg-emerald-100 text-emerald-700" : examInfo?.status === "failed" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700";
                   return (
                     <div key={p.appointmentId} className="flex items-center justify-between px-4 py-3 gap-3">
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
+                        <div className="flex items-center gap-2">
                           <span className="text-sm font-medium text-foreground truncate">{displayName}</span>
                           {p.showed && (
                             <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-xs font-medium">
@@ -1012,21 +999,6 @@ function ParticipantAttendanceList({ courseId, readOnly = false, isPast = false,
                             <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 text-xs font-medium">
                               <XCircle className="h-3 w-3" /> No-show
                             </span>
-                          )}
-                          {isDiploOrCert && canSeeExams && (
-                            examStatusLabel ? (
-                              <a
-                                href={`/exam-queue?examId=${examInfo?.examId}`}
-                                className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs font-medium hover:opacity-80 transition-opacity ${examStatusColor}`}
-                                title="Click to view exam"
-                              >
-                                <ExternalLink className="h-3 w-3" /> {examStatusLabel}
-                              </a>
-                            ) : (
-                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500 text-xs font-medium">
-                                No exam yet
-                              </span>
-                            )
                           )}
                         </div>
                         {showPhone && p.phone && <div className="text-xs text-muted-foreground mt-0.5">{p.phone}</div>}
@@ -1367,7 +1339,7 @@ function CourseCard({ row, showActions, isPending, showRepeat, calendars }: { ro
         {/* Read-only participant list for upcoming approved courses */}
         {showActions && row.status === "approved" && (
           <>
-            <ParticipantAttendanceList courseId={row.id} readOnly courseType={row.courseType} />
+            <ParticipantAttendanceList courseId={row.id} readOnly />
             <MessageComposer courseId={row.id} courseName={`${label} ${fmtDateShort(row.startDate)}`} />
           </>
         )}
@@ -1383,7 +1355,7 @@ function CourseCard({ row, showActions, isPending, showRepeat, calendars }: { ro
                 <History className="h-3 w-3 mr-1" /> Log
               </Button>
             </div>
-            <ParticipantAttendanceList courseId={row.id} isPast courseType={row.courseType} />
+            <ParticipantAttendanceList courseId={row.id} isPast />
             <MessageComposer courseId={row.id} courseName={`${label} ${fmtDateShort(row.startDate)}`} />
           </div>
         )}
