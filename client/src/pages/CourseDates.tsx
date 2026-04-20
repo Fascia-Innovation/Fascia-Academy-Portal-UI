@@ -64,8 +64,10 @@ import {
   RefreshCw,
   FileEdit,
   CheckCircle2,
+  Wifi,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { format } from "date-fns";
 
 // ─── Status badge for admin table ──────────────────────────────────────────
@@ -973,8 +975,20 @@ export default function CourseDates({ embedded = false }: { embedded?: boolean }
                       </div>
                     </td>
                     <td className="px-4 py-3 text-center">
-                      <span className="font-medium">{(row as any).bookedSeats ?? 0}</span>
-                      <span className="text-muted-foreground text-xs">/{row.maxSeats}</span>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="inline-flex items-center gap-1 cursor-default">
+                              <span className="font-medium">{(row as any).bookedSeats ?? 0}</span>
+                              <span className="text-muted-foreground text-xs">/{row.maxSeats}</span>
+                              <Wifi className="h-3 w-3 text-emerald-500" />
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="text-xs max-w-[180px] text-center">
+                            Live from GHL — refreshed every 2 min
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     </td>
                     <td className="px-4 py-3">
                       <CourseStatusBadge status={(row as any).status} published={row.published} />

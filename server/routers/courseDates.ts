@@ -92,13 +92,31 @@ interface GhlCalendar {
   teamMembers?: Array<{ userId: string; meetingLocation?: string; isPrimary?: boolean }>;
 }
 
-// Fetch live booked seat counts from GHL for a list of course rows
+// Per-course TTL cache for live booked seat counts (2-minute TTL)
+const liveSeatsCache = new Map<number, { count: number; fetchedAt: number }>();
+const LIVE_SEATS_TTL_MS = 2 * 60 * 1000; // 2 minutes
+
+// Fetch live booked seat counts from GHL for a list of course rows (with per-course TTL cache)
 async function getLiveBookedSeats(
   rows: Array<{ id: number; ghlCalendarId: string; startDate: Date; endDate: Date }>
 ): Promise<Map<number, number>> {
   const result = new Map<number, number>();
+  const now = Date.now();
+  // Separate rows that need a fresh fetch from those that can use the cache
+  const stale = rows.filter((row) => {
+    const cached = liveSeatsCache.get(row.id);
+    return !cached || now - cached.fetchedAt >= LIVE_SEATS_TTL_MS;
+  });
+  // Serve cached values immediately
+  for (const row of rows) {
+    const cached = liveSeatsCache.get(row.id);
+    if (cached && now - cached.fetchedAt < LIVE_SEATS_TTL_MS) {
+      result.set(row.id, cached.count);
+    }
+  }
+  // Fetch stale rows in parallel
   await Promise.all(
-    rows.map(async (row) => {
+    stale.map(async (row) => {
       try {
         const startMs = new Date(row.startDate).getTime() - 24 * 60 * 60 * 1000;
         const endMs = new Date(row.endDate).getTime() + 24 * 60 * 60 * 1000;
@@ -112,7 +130,7 @@ async function getLiveBookedSeats(
             },
           }
         );
-        if (!res.ok) { result.set(row.id, 0); return; }
+        if (!res.ok) { result.set(row.id, 0); liveSeatsCache.set(row.id, { count: 0, fetchedAt: now }); return; }
         const data = await res.json() as { events?: Array<{ appointmentStatus?: string; status?: string }> };
         const events = data.events ?? [];
         const booked = events.filter((e) => {
@@ -120,8 +138,10 @@ async function getLiveBookedSeats(
           return !["cancelled", "invalid", "no_show", "noshow"].includes(s);
         }).length;
         result.set(row.id, booked);
+        liveSeatsCache.set(row.id, { count: booked, fetchedAt: now });
       } catch {
         result.set(row.id, 0);
+        liveSeatsCache.set(row.id, { count: 0, fetchedAt: now });
       }
     })
   );
@@ -254,7 +274,24 @@ export const courseDatesRouter = router({
       .sort((a, b) => b.startDate.getTime() - a.startDate.getTime())
       .slice(0, 5);
 
-    return { upcoming, past, pending, cancelled };
+    // Enrich all groups with live booked/max seats from GHL
+    const allMine = Array.from(new Map([...upcoming, ...past, ...pending, ...cancelled].map((r) => [r.id, r])).values());
+    const calendars = await getGhlCalendars();
+    const calMap = new Map(calendars.map((c) => [c.id, c]));
+    const liveBooked = await getLiveBookedSeats(allMine);
+    const enrich = <T extends { id: number; ghlCalendarId: string }>(rows: T[]) =>
+      rows.map((r) => ({
+        ...r,
+        bookedSeats: liveBooked.get(r.id) ?? 0,
+        maxSeats: calMap.get(r.ghlCalendarId)?.appoinmentPerSlot ?? 20,
+      }));
+
+    return {
+      upcoming: enrich(upcoming),
+      past: enrich(past),
+      pending: enrich(pending),
+      cancelled: enrich(cancelled),
+    };
   }),
 
   // ─── Public: get GHL team members with profile photos ───────────────────────

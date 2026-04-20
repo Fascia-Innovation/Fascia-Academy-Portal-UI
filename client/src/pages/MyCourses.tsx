@@ -14,8 +14,9 @@ import {
   CalendarDays, MapPin, Clock, ExternalLink, History, Banknote,
   Users, TrendingUp, Plus, Copy, XCircle, RefreshCw, Lock,
   AlertTriangle, CheckCircle, MessageSquare, Layers, RotateCcw, Pencil,
-  UserCheck, UserX, ListChecks, Mail, Send,
+  UserCheck, UserX, ListChecks, Mail, Send, Wifi,
 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 // ─── Formatters ───────────────────────────────────────────────────────────────
 function fmt(n: number, currency: string) {
@@ -1267,6 +1268,7 @@ type CourseRow = {
   startDate: Date | string;
   endDate: Date | string;
   maxSeats: number;
+  bookedSeats?: number;
   ghlCalendarId: string;
   notes: string | null;
   status: string;
@@ -1310,8 +1312,24 @@ function CourseCard({ row, showActions, isPending, showRepeat, calendars }: { ro
             </div>
           </div>
           <div className="text-right shrink-0">
-            <div className="text-xs text-muted-foreground">Max seats</div>
-            <div className="text-lg font-bold text-foreground">{row.maxSeats}</div>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="cursor-default">
+                    <div className="text-xs text-muted-foreground flex items-center gap-1 justify-end">
+                      Booked <Wifi className="h-2.5 w-2.5 text-emerald-500" />
+                    </div>
+                    <div className="text-lg font-bold text-foreground">
+                      {row.bookedSeats ?? 0}
+                      <span className="text-sm font-normal text-muted-foreground">/{row.maxSeats}</span>
+                    </div>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="left" className="text-xs max-w-[180px] text-center">
+                  Live from GHL — refreshed every 2 min
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         </div>
 
