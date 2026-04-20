@@ -589,8 +589,6 @@ type FormData = {
   courseLeaderPhone: string;
   startDate: string;
   endDate: string;
-  maxSeats: string;
-  bookedSeats: string;
   notes: string;
   bookingInfo: string; // optional: directions, parking, extra info shown on booking page
   additionalDays: AdditionalDay[]; // extra course days beyond day 1
@@ -611,8 +609,6 @@ const emptyForm = (): FormData => ({
   courseLeaderPhone: "",
   startDate: defaultStartDate(),
   endDate: defaultEndDate(),
-  maxSeats: "12",
-  bookedSeats: "0",
   notes: "",
   bookingInfo: "",
   additionalDays: [],
@@ -751,8 +747,6 @@ export default function CourseDates({ embedded = false }: { embedded?: boolean }
       courseLeaderPhone: (row as any).courseLeaderPhone ?? "",
       startDate: format(new Date(row.startDate), "yyyy-MM-dd'T'HH:mm"),
       endDate: format(new Date(row.endDate), "yyyy-MM-dd'T'HH:mm"),
-      maxSeats: String(row.maxSeats),
-      bookedSeats: String((row as any).bookedSeats ?? 0),
       notes: row.notes ?? "",
       bookingInfo: (row as any).bookingInfo ?? "",
       additionalDays: parsedAdditionalDays,
@@ -779,8 +773,6 @@ export default function CourseDates({ embedded = false }: { embedded?: boolean }
       courseLeaderPhone: form.courseLeaderPhone || undefined,
       startDate: new Date(form.startDate).toISOString(),
       endDate: new Date(form.endDate).toISOString(),
-      maxSeats: parseInt(form.maxSeats, 10) || 12,
-      bookedSeats: parseInt(form.bookedSeats, 10) || 0,
       notes: form.notes || undefined,
       bookingInfo: form.bookingInfo || undefined,
       additionalDays: form.additionalDays.length > 0
@@ -1216,33 +1208,13 @@ export default function CourseDates({ embedded = false }: { embedded?: boolean }
               />
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-1.5 col-span-2">
+            <div className="grid grid-cols-1 gap-4">
+              <div className="space-y-1.5">
                 <Label>City</Label>
                 <Input
                   value={form.city}
                   onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
                   placeholder="e.g. Helsingborg"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Max Seats</Label>
-                <Input
-                  type="number"
-                  min={1}
-                  max={500}
-                  value={form.maxSeats}
-                  onChange={(e) => setForm((f) => ({ ...f, maxSeats: e.target.value }))}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Booked Seats <span className="text-muted-foreground font-normal text-xs">(updated manually — auto-sync coming soon)</span></Label>
-                <Input
-                  type="number"
-                  min={0}
-                  max={500}
-                  value={form.bookedSeats}
-                  onChange={(e) => setForm((f) => ({ ...f, bookedSeats: e.target.value }))}
                 />
               </div>
             </div>

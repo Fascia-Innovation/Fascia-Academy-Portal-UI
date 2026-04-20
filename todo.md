@@ -521,3 +521,8 @@
 - [ ] Participant list: Add combined status column for diplo/cert courses showing: showed + exam status
 - [ ] Participant list: Add direct link from participant row to their exam in exam queue (if exam exists)
 - [ ] Participant list: Status badges: 🔴 No showed, no exam | 🟡 Showed, no exam | 🟡 Exam in, not showed | 🟠 Exam failed | 🟢 Certificate issued
+
+## Round 19: Live GHL Seats Sync
+- [ ] Backend: fetch live bookedSeats and maxSeats from GHL in getCourseList (remove DB dependency)
+- [ ] Frontend: remove Max Seats and Booked Seats fields from Add/Edit Course Date form
+- [ ] Frontend: show live booked/max in course overview list from GHL data

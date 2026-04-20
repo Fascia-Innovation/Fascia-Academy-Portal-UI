@@ -92,6 +92,42 @@ interface GhlCalendar {
   teamMembers?: Array<{ userId: string; meetingLocation?: string; isPrimary?: boolean }>;
 }
 
+// Fetch live booked seat counts from GHL for a list of course rows
+async function getLiveBookedSeats(
+  rows: Array<{ id: number; ghlCalendarId: string; startDate: Date; endDate: Date }>
+): Promise<Map<number, number>> {
+  const result = new Map<number, number>();
+  await Promise.all(
+    rows.map(async (row) => {
+      try {
+        const startMs = new Date(row.startDate).getTime() - 24 * 60 * 60 * 1000;
+        const endMs = new Date(row.endDate).getTime() + 24 * 60 * 60 * 1000;
+        const res = await fetch(
+          `${GHL_BASE}/calendars/events?calendarId=${row.ghlCalendarId}&locationId=${LOCATION_ID}&startTime=${startMs}&endTime=${endMs}`,
+          {
+            headers: {
+              Authorization: `Bearer ${API_KEY}`,
+              Version: "2021-04-15",
+              Accept: "application/json",
+            },
+          }
+        );
+        if (!res.ok) { result.set(row.id, 0); return; }
+        const data = await res.json() as { events?: Array<{ appointmentStatus?: string; status?: string }> };
+        const events = data.events ?? [];
+        const booked = events.filter((e) => {
+          const s = (e.appointmentStatus ?? e.status ?? "").toLowerCase();
+          return !["cancelled", "invalid", "no_show", "noshow"].includes(s);
+        }).length;
+        result.set(row.id, booked);
+      } catch {
+        result.set(row.id, 0);
+      }
+    })
+  );
+  return result;
+}
+
 async function getGhlCalendars(): Promise<GhlCalendar[]> {
   const now = Date.now();
   if (ghlCalendarsCache && now - ghlCalendarsCache.fetchedAt < 10 * 60 * 1000) {
@@ -164,11 +200,16 @@ export const courseDatesRouter = router({
         dashUsers.map((u) => [u.name.toLowerCase(), u.profileUrl ?? null])
       );
 
+      // Fetch live booked seats and max seats from GHL
+      const calendars = await getGhlCalendars();
+      const calMap = new Map(calendars.map((c) => [c.id, c]));
+      const liveBooked = await getLiveBookedSeats(filtered);
       return filtered.map((row) => ({
         ...row,
         profilePhoto: row.ghlUserId ? (userMap.get(row.ghlUserId)?.profilePhoto ?? null) : null,
         profileUrl: profileUrlByName.get(row.courseLeaderName.toLowerCase()) ?? null,
-        bookedSeats: row.bookedSeats ?? 0,
+        bookedSeats: liveBooked.get(row.id) ?? 0,
+        maxSeats: calMap.get(row.ghlCalendarId)?.appoinmentPerSlot ?? 20,
       }));
     }),
 
@@ -315,10 +356,15 @@ export const courseDatesRouter = router({
 
     const ghlUsers = await getGhlUsers();
     const userMap = new Map(ghlUsers.map((u) => [u.id, u]));
+    const calendars = await getGhlCalendars();
+    const calMap = new Map(calendars.map((c) => [c.id, c]));
+    const liveBooked = await getLiveBookedSeats(rows);
 
     return rows.map((row) => ({
       ...row,
       profilePhoto: row.ghlUserId ? (userMap.get(row.ghlUserId)?.profilePhoto ?? null) : null,
+      bookedSeats: liveBooked.get(row.id) ?? 0,
+      maxSeats: calMap.get(row.ghlCalendarId)?.appoinmentPerSlot ?? 20,
     }));
   }),
 
