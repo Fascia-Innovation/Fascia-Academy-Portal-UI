@@ -20,6 +20,7 @@ function CertificateRender({
     courseType: string;
     language: string;
     issuedAt: Date | string;
+    verificationCode?: string | null;
   };
   template: {
     title: string;
@@ -187,9 +188,21 @@ function CertificateRender({
             {instructorName}
           </p>
         </div>
-        <p style={{ fontSize: "12px", fontWeight: "bold", color: DARK, margin: "0 0 32px 0", textAlign: "left" }}>
+        <p style={{ fontSize: "12px", fontWeight: "bold", color: DARK, margin: "0 0 24px 0", textAlign: "left" }}>
           {instructorTitle}
         </p>
+
+        {/* Verification code */}
+        {cert.verificationCode && (
+          <div style={{ borderTop: "1px solid #e5e5e5", paddingTop: "12px", marginTop: "4px" }}>
+            <p style={{ fontSize: "10px", color: "#888", margin: 0, textAlign: "center", letterSpacing: "0.5px" }}>
+              {lang === "sv" ? "Verifikationsnummer" : "Verification number"}:{" "}
+              <span style={{ fontFamily: "monospace", fontWeight: "bold", color: DARK }}>
+                {cert.verificationCode}
+              </span>
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Logos footer */}
@@ -297,9 +310,14 @@ export default function CertificatePublic() {
         <CertificateRender cert={data.cert} template={data.template} />
 
         {/* Footer */}
-        <div className="no-print text-center mt-6 text-sm text-gray-400">
+        <div className="no-print text-center mt-6 text-sm text-gray-400 space-y-1">
+          {data.cert.verificationCode && (
+            <p className="font-mono text-xs text-gray-500">
+              Verifikation: <span className="font-bold text-gray-700">{data.cert.verificationCode}</span>
+            </p>
+          )}
           <p>
-            Issued by{" "}
+            Utfärdat av{" "}
             <a
               href="https://www.fasciaacademy.com"
               target="_blank"

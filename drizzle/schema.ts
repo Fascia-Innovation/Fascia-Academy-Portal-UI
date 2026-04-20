@@ -243,6 +243,15 @@ export const certificates = mysqlTable("certificates", {
   examId: int("examId"),            // references exams.id for diplo/cert
   templateId: int("templateId"),    // references certificate_templates.id
   emailSentAt: timestamp("emailSentAt"), // when certificate email was sent
+  // Send-gating: certificates start as 'draft' and are only emailed when admin sends them
+  status: mysqlEnum("status", ["draft", "sent"]).notNull().default("draft"),
+  sentAt: timestamp("sentAt"),      // when admin triggered the send
+  sentBy: int("sentBy"),            // dashboard_users.id who sent it
+  // Verification system: unique human-readable code FA-YYYY-NNNNN
+  verificationCode: varchar("verificationCode", { length: 20 }).unique(),
+  // Date tracking for correct issuedAt logic
+  showedAt: timestamp("showedAt"),  // when participant was marked showed
+  examPassedAt: timestamp("examPassedAt"), // when exam was passed (diplo/cert)
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 

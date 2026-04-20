@@ -20,7 +20,7 @@ import {
   certificateTemplates,
   dashboardUsers,
 } from "../../drizzle/schema";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, max, sql, inArray } from "drizzle-orm";
 import { sendCertificateEmail } from "../ghl";
 
 const DASH_SESSION = "fa_dash_session";
@@ -209,9 +209,30 @@ const DEFAULT_TEMPLATES: Array<{
 const FA_LOGO = "/manus-storage/fa-logo_9f3873fa.png";
 const ATLAS_LOGO = "/manus-storage/atlasbalans-logo_3f37aa31.png";
 
+// ─── Verification code generator ─────────────────────────────────────────────
+async function generateVerificationCode(db: Awaited<ReturnType<typeof getDb>>): Promise<string> {
+  if (!db) throw new Error("DB not available");
+  const year = new Date().getFullYear();
+  const prefix = `FA-${year}-`;
+  // Get the highest existing number for this year
+  const [row] = await db
+    .select({ maxCode: max(certificates.verificationCode) })
+    .from(certificates)
+    .where(sql`${certificates.verificationCode} LIKE ${prefix + "%"}`);
+  const maxCode = row?.maxCode;
+  let nextNum = 1;
+  if (maxCode) {
+    const parts = maxCode.split("-");
+    const num = parseInt(parts[2] ?? "0", 10);
+    if (!isNaN(num)) nextNum = num + 1;
+  }
+  return `${prefix}${String(nextNum).padStart(5, "0")}`;
+}
+
 /**
- * Standalone helper — issue a certificate and optionally send email.
+ * Standalone helper — issue a certificate as DRAFT (no email sent).
  * Called from markParticipantShowed (intro/vidare) and exams.markPassed (diplo/cert).
+ * Admin must explicitly send via sendCertificates mutation.
  */
 export async function issueCertificateForParticipant(opts: {
   ghlContactId: string;
@@ -221,9 +242,10 @@ export async function issueCertificateForParticipant(opts: {
   language: "sv" | "en";
   issuedBy?: number;
   examId?: number;
-  sendEmail?: boolean;
+  showedAt?: Date;
+  examPassedAt?: Date;
   origin?: string;
-}): Promise<{ uuid: string; certUrl: string; id: number }> {
+}): Promise<{ uuid: string; certUrl: string; id: number; verificationCode: string }> {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
 
@@ -240,6 +262,16 @@ export async function issueCertificateForParticipant(opts: {
   const template = tmplRows[0] ?? null;
 
   const uuid = randomUUID().replace(/-/g, "");
+  const verificationCode = await generateVerificationCode(db);
+
+  // For diplo/cert: issuedAt = max(showedAt, examPassedAt); for intro/vidare: showedAt or now
+  let issuedAt: Date;
+  if ((opts.courseType === "diplo" || opts.courseType === "cert") && opts.showedAt && opts.examPassedAt) {
+    issuedAt = opts.showedAt > opts.examPassedAt ? opts.showedAt : opts.examPassedAt;
+  } else {
+    issuedAt = opts.showedAt ?? new Date();
+  }
+
   const [inserted] = await db.insert(certificates).values({
     uuid,
     ghlContactId: opts.ghlContactId,
@@ -250,30 +282,17 @@ export async function issueCertificateForParticipant(opts: {
     issuedBy: opts.issuedBy ?? null,
     examId: opts.examId ?? null,
     templateId: template?.id ?? null,
+    verificationCode,
+    status: "draft",
+    issuedAt,
+    showedAt: opts.showedAt ?? null,
+    examPassedAt: opts.examPassedAt ?? null,
   }).$returningId();
 
   const origin = opts.origin ?? process.env.VITE_OAUTH_PORTAL_URL?.replace("/login", "") ?? "https://fascidash-9qucsw5g.manus.space";
   const certUrl = `${origin}/certificate/${uuid}`;
 
-  if ((opts.sendEmail ?? true) && opts.contactEmail && template) {
-    try {
-      await sendCertificateEmail({
-        toEmail: opts.contactEmail,
-        toName: opts.contactName,
-        subject: template.emailSubject,
-        htmlBody: template.emailBody
-          .replace(/\{\{participant_name\}\}/g, opts.contactName)
-          .replace(/\{\{certificate_url\}\}/g, certUrl),
-      });
-      await db.update(certificates)
-        .set({ emailSentAt: new Date() })
-        .where(eq(certificates.id, inserted.id));
-    } catch (emailErr) {
-      console.error("[issueCertificateForParticipant] email send failed (non-fatal):", emailErr);
-    }
-  }
-
-  return { uuid, certUrl, id: inserted.id };
+  return { uuid, certUrl, id: inserted.id, verificationCode };
 }
 
 export const certificatesRouter = router({
@@ -323,12 +342,14 @@ export const certificatesRouter = router({
       return rows;
     }),
 
-  // ── Admin: resend certificate email ─────────────────────────────────────
+  // ── Admin: send / resend certificate email ─────────────────────────────
+  // Works for both draft→sent (first send) and re-send of already sent certs.
   resendEmail: adminProcedure
     .input(z.object({ certificateId: z.number().int() }))
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const dashUser = (ctx as { dashUser: DashboardUser }).dashUser;
       const rows = await db
         .select()
         .from(certificates)
@@ -361,10 +382,78 @@ export const certificatesRouter = router({
           .replace(/\{\{participant_name\}\}/g, cert.contactName)
           .replace(/\{\{certificate_url\}\}/g, certUrl),
       });
+      const now = new Date();
       await db.update(certificates)
-        .set({ emailSentAt: new Date() })
+        .set({ emailSentAt: now, status: "sent", sentAt: now, sentBy: dashUser.id })
         .where(eq(certificates.id, cert.id));
       return { success: true };
+    }),
+
+  // ── Admin: bulk send certificates (draft → sent) ─────────────────────────
+  // Pass certificateIds = [] to send ALL pending drafts.
+  sendCertificates: adminProcedure
+    .input(z.object({
+      certificateIds: z.array(z.number().int()),  // empty = send all drafts
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const dashUser = (ctx as { dashUser: DashboardUser }).dashUser;
+      const origin = process.env.VITE_OAUTH_PORTAL_URL?.replace("/login", "") ?? "https://fascidash-9qucsw5g.manus.space";
+
+      // Fetch target certs
+      let certs;
+      if (input.certificateIds.length > 0) {
+        certs = await db.select().from(certificates)
+          .where(inArray(certificates.id, input.certificateIds));
+      } else {
+        // All drafts with an email address
+        certs = await db.select().from(certificates)
+          .where(and(eq(certificates.status, "draft")))
+          .orderBy(desc(certificates.createdAt));
+      }
+
+      const results: { id: number; success: boolean; error?: string }[] = [];
+
+      for (const cert of certs) {
+        if (!cert.contactEmail) {
+          results.push({ id: cert.id, success: false, error: "No email on file" });
+          continue;
+        }
+        try {
+          const tmplRows = await db.select().from(certificateTemplates)
+            .where(and(
+              eq(certificateTemplates.courseType, cert.courseType),
+              eq(certificateTemplates.language, cert.language)
+            )).limit(1);
+          const template = tmplRows[0];
+          if (!template) {
+            results.push({ id: cert.id, success: false, error: "No template" });
+            continue;
+          }
+          const certUrl = `${origin}/certificate/${cert.uuid}`;
+          await sendCertificateEmail({
+            toEmail: cert.contactEmail,
+            toName: cert.contactName,
+            subject: template.emailSubject,
+            htmlBody: template.emailBody
+              .replace(/\{\{participant_name\}\}/g, cert.contactName)
+              .replace(/\{\{certificate_url\}\}/g, certUrl),
+          });
+          const now = new Date();
+          await db.update(certificates)
+            .set({ emailSentAt: now, status: "sent", sentAt: now, sentBy: dashUser.id })
+            .where(eq(certificates.id, cert.id));
+          results.push({ id: cert.id, success: true });
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          results.push({ id: cert.id, success: false, error: msg });
+        }
+      }
+
+      const sent = results.filter(r => r.success).length;
+      const failed = results.filter(r => !r.success).length;
+      return { sent, failed, results };
     }),
 
   // ── Admin: list templates ────────────────────────────────────────────────
@@ -438,7 +527,7 @@ export const certificatesRouter = router({
       return { success: true };
     }),
 
-  // ── Internal: issue a certificate (called from courseDates router) ───────
+  // ── Internal: issue a certificate as draft (called from courseDates router) ───
   issueCertificate: dashboardProcedure
     .input(z.object({
       ghlContactId: z.string(),
@@ -448,61 +537,15 @@ export const certificatesRouter = router({
       language: z.enum(["sv", "en"]),
       issuedBy: z.number().int().optional(),
       examId: z.number().int().optional(),
-      sendEmail: z.boolean().default(true),
+      showedAt: z.date().optional(),
+      examPassedAt: z.date().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
       const dashUser = (ctx as { dashUser: DashboardUser }).dashUser;
-
-      // Find template
-      const tmplRows = await db
-        .select()
-        .from(certificateTemplates)
-        .where(
-          and(
-            eq(certificateTemplates.courseType, input.courseType),
-            eq(certificateTemplates.language, input.language)
-          )
-        )
-        .limit(1);
-      const template = tmplRows[0] ?? null;
-
-      const uuid = randomUUID().replace(/-/g, "");
-      const [inserted] = await db.insert(certificates).values({
-        uuid,
-        ghlContactId: input.ghlContactId,
-        contactName: input.contactName,
-        contactEmail: input.contactEmail,
-        courseType: input.courseType,
-        language: input.language,
+      const result = await issueCertificateForParticipant({
+        ...input,
         issuedBy: input.issuedBy ?? dashUser.id,
-        examId: input.examId ?? null,
-        templateId: template?.id ?? null,
-      }).$returningId();
-
-      const origin = process.env.VITE_OAUTH_PORTAL_URL?.replace("/login", "") ?? "https://fascidash-9qucsw5g.manus.space";
-      const certUrl = `${origin}/certificate/${uuid}`;
-
-      // Send email if we have template + email
-      if (input.sendEmail && input.contactEmail && template) {
-        try {
-          await sendCertificateEmail({
-            toEmail: input.contactEmail,
-            toName: input.contactName,
-            subject: template.emailSubject,
-            htmlBody: template.emailBody
-              .replace(/\{\{participant_name\}\}/g, input.contactName)
-              .replace(/\{\{certificate_url\}\}/g, certUrl),
-          });
-          await db.update(certificates)
-            .set({ emailSentAt: new Date() })
-            .where(eq(certificates.id, inserted.id));
-        } catch (emailErr) {
-          console.error("[issueCertificate] email send failed (non-fatal):", emailErr);
-        }
-      }
-
-      return { success: true, uuid, certUrl, id: inserted.id };
+      });
+      return { success: true, ...result };
     }),
 });
