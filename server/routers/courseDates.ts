@@ -13,6 +13,7 @@ import type { DashboardUser } from "../../drizzle/schema";
 import { parse as parseCookies } from "cookie";
 import { getSessionUser } from "../dashboardAuth";
 import { issueCertificateForParticipant } from "./certificatesRouter";
+import { setGhlTag } from "../ghl";
 
 const DASH_SESSION = "fa_dash_session";
 
@@ -1405,6 +1406,7 @@ export const courseDatesRouter = router({
           return !["cancelled", "invalid"].includes(s);
         });
 
+        const isAdmin = dashUser.role === "admin";
         const participants = active.map((e) => {
           const firstName = e.contact?.firstName ?? "";
           const lastName = e.contact?.lastName ?? "";
@@ -1414,7 +1416,8 @@ export const courseDatesRouter = router({
             appointmentId: e.id,
             contactId: e.contactId ?? "",
             name,
-            email: e.contact?.email ?? "",
+            // Email only visible to admins — course leaders see phone only (data privacy)
+            email: isAdmin ? (e.contact?.email ?? "") : "",
             phone: e.contact?.phone ?? "",
             showed: status === "showed" || status === "show",
             noShow: status === "no_show" || status === "noshow",
@@ -1570,6 +1573,29 @@ export const courseDatesRouter = router({
           }
         } catch (certErr) {
           console.error("[markParticipantShowed] certificate issue failed (non-fatal):", certErr);
+        }
+        // Add GHL pipeline completion tags (non-fatal)
+        try {
+          const contact = appt.contact || {};
+          const meta = appt.appointmentMeta?.defaultFormDetails || {};
+          const contactId = appt.contactId || contact.id || "";
+          if (contactId) {
+            const courseTypeForTag = course.courseType as string;
+            // Map course type to the correct GHL pipeline completion tag
+            const TAG_MAP: Record<string, string> = {
+              intro: "Intro CF – Completed",
+              diplo: "Diplo/Quali FS - Complete",
+              cert: "Cert FS - Complete",
+              vidare: "Vidare/advance FS - Complete",
+            };
+            const completionTag = TAG_MAP[courseTypeForTag];
+            if (completionTag) {
+              await setGhlTag(contactId, completionTag);
+              console.log(`[markParticipantShowed] GHL tag set: '${completionTag}' on contact ${contactId}`);
+            }
+          }
+        } catch (tagErr) {
+          console.error("[markParticipantShowed] GHL tag update failed (non-fatal):", tagErr);
         }
       }
       return { success: true, appointmentId: input.appointmentId, showed: input.showed };;
