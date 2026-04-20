@@ -630,8 +630,16 @@ export default function CourseDates({ embedded = false }: { embedded?: boolean }
   const [editingTemplate, setEditingTemplate] = useState(false);
   const [changeLogId, setChangeLogId] = useState<number | null>(null);
 
-  const { data: courseDates = [], isLoading } = trpc.courseDates.listAdmin.useQuery();
+  const { data: courseDates = [], isLoading, refetch: refetchAdmin } = trpc.courseDates.listAdmin.useQuery();
   const { data: ghlCalendars = [], isLoading: calendarsLoading } = trpc.courseDates.getCalendars.useQuery();
+
+  const refreshSeatsMutation = trpc.courseDates.refreshLiveSeats.useMutation({
+    onSuccess: () => {
+      refetchAdmin();
+      toast.success("Seat counts refreshed from GHL");
+    },
+    onError: () => toast.error("Failed to refresh seat counts"),
+  });
 
   const createMutation = trpc.courseDates.create.useMutation({
     onSuccess: () => {
@@ -855,6 +863,21 @@ export default function CourseDates({ embedded = false }: { embedded?: boolean }
             <ExternalLink className="h-4 w-4" />
             View public page
           </a>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            disabled={refreshSeatsMutation.isPending}
+            onClick={() => refreshSeatsMutation.mutate({})}
+            title="Force-refresh live seat counts from GHL"
+          >
+            {refreshSeatsMutation.isPending ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <RefreshCw className="h-3.5 w-3.5" />
+            )}
+            Refresh seats
+          </Button>
           <Button onClick={openCreate} className="gap-2">
             <Plus className="h-4 w-4" />
             Add Course Date

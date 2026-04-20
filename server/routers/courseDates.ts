@@ -405,6 +405,18 @@ export const courseDatesRouter = router({
     }));
   }),
 
+  // ─── Admin: force-clear live seats cache (manual refresh) ─────────────────
+  refreshLiveSeats: adminProcedure
+    .input(z.object({ ids: z.array(z.number()).optional() }))
+    .mutation(({ input }) => {
+      if (input.ids && input.ids.length > 0) {
+        for (const id of input.ids) liveSeatsCache.delete(id);
+      } else {
+        liveSeatsCache.clear();
+      }
+      return { ok: true };
+    }),
+
   // ─── Admin: create a course date ────────────────────────────────────────────
   create: adminProcedure
     .input(
@@ -1009,7 +1021,17 @@ export const courseDatesRouter = router({
     // - resubmitted: leader resubmitted after revision request
     // NOT needs_revision: that awaits the course leader, not admin
     const pendingStatuses = ["pending_approval", "pending_cancellation", "pending_reschedule", "resubmitted"];
-    return rows.filter((r) => pendingStatuses.includes(r.status));
+    const pending = rows.filter((r) => pendingStatuses.includes(r.status));
+
+    // Enrich with live booked/max seats from GHL
+    const calendars = await getGhlCalendars();
+    const calMap = new Map(calendars.map((c) => [c.id, c]));
+    const liveBooked = await getLiveBookedSeats(pending);
+    return pending.map((r) => ({
+      ...r,
+      bookedSeats: liveBooked.get(r.id) ?? 0,
+      maxSeats: calMap.get(r.ghlCalendarId)?.appoinmentPerSlot ?? 20,
+    }));
   }),
 
   // ─── Admin: approve a course date ──────────────────────────────────────────

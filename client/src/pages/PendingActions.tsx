@@ -10,8 +10,9 @@ import {
 import {
   Loader2, CheckCircle2, XCircle, AlertTriangle, RefreshCw,
   CalendarDays, MapPin, Users, Clock, MessageSquare, History,
-  ChevronDown, ChevronUp, FileEdit, Mail, Send, Eye,
+  ChevronDown, ChevronUp, FileEdit, Mail, Send, Eye, Wifi,
 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 type PendingCourse = {
@@ -99,8 +100,9 @@ export default function PendingActions() {
             {totalCount === 0 ? "No pending items" : `${totalCount} item${totalCount > 1 ? "s" : ""} to review`}
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => refetch()}>
-          <RefreshCw className="h-4 w-4 mr-2" /> Refresh
+        <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isLoading}>
+          {isLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+          Refresh
         </Button>
       </div>
 
@@ -199,9 +201,22 @@ export default function PendingActions() {
                       <span className="font-medium">{formatDate(course.endDate)} {formatTime(course.endDate)}</span>
                     </div>
                     <div>
-                      <span className="text-muted-foreground text-xs block mb-0.5">Max seats</span>
-                      <span className="font-medium">{course.maxSeats}</span>
-                      {course.bookedSeats > 0 && <span className="text-xs text-muted-foreground block">{course.bookedSeats} booked</span>}
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="cursor-default">
+                              <span className="text-muted-foreground text-xs flex items-center gap-1 mb-0.5">
+                                Booked / Max <Wifi className="h-2.5 w-2.5 text-emerald-500" />
+                              </span>
+                              <span className="font-medium">{course.bookedSeats}</span>
+                              <span className="text-muted-foreground text-xs">/{course.maxSeats}</span>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="text-xs max-w-[180px] text-center">
+                            Live from GHL — refreshed every 2 min
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     </div>
                     <div>
                       <span className="text-muted-foreground text-xs block mb-0.5">Venue</span>
