@@ -1,8 +1,10 @@
 import { useState, useMemo } from "react";
 import { trpc } from "@/lib/trpc";
-import { Loader2, CalendarDays, MapPin, User, Users, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, AlertCircle } from "lucide-react";
+import { Loader2, CalendarDays, MapPin, User, Users, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, AlertCircle, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { toast } from "sonner";
 
 const COURSE_TYPE_LABELS: Record<string, string> = {
   intro: "Introduktionskurs Fascia",
@@ -59,11 +61,23 @@ type Slot = {
   maxSeats: number;
   bookedSeats: number;
   availableSeats: number;
-  participants: Array<{ id: string; name: string; email: string; status: string }>;
+  participants: Array<{ id: string; appointmentId: string; name: string; email: string; status: string }>;
 };
 
-function SlotCard({ slot }: { slot: Slot }) {
+function SlotCard({ slot, onParticipantRemoved }: { slot: Slot; onParticipantRemoved?: () => void }) {
   const [expanded, setExpanded] = useState(false);
+  const [removeTarget, setRemoveTarget] = useState<{ appointmentId: string; name: string; calendarId: string } | null>(null);
+  const removeMutation = trpc.courseDates.removeParticipant.useMutation({
+    onSuccess: () => {
+      toast.success("Participant removed", { description: `${removeTarget?.name ?? ""} has been cancelled in GHL.` });
+      setRemoveTarget(null);
+      onParticipantRemoved?.();
+    },
+    onError: (err) => {
+      toast.error("Failed to remove participant", { description: err.message });
+      setRemoveTarget(null);
+    },
+  });
   const type = detectType(slot.calendarName);
   const lang = detectLang(slot.calendarName);
   const pct = slot.maxSeats > 0 ? (slot.bookedSeats / slot.maxSeats) * 100 : 0;
@@ -142,17 +156,55 @@ function SlotCard({ slot }: { slot: Slot }) {
         <div className="border-t border-border bg-muted/30 px-4 py-3">
           <div className="space-y-1.5">
             {slot.participants.map((p) => (
-              <div key={p.id} className="flex items-center justify-between text-sm">
+              <div key={p.appointmentId || p.id} className="flex items-center justify-between text-sm">
                 <span className="font-medium text-foreground">{p.name || p.id}</span>
                 <div className="flex items-center gap-2">
                   {p.email && <span className="text-muted-foreground text-xs">{p.email}</span>}
                   <Badge variant="outline" className="text-xs capitalize">{p.status}</Badge>
+                  {p.appointmentId && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10"
+                      title="Remove participant"
+                      onClick={() => setRemoveTarget({ appointmentId: p.appointmentId, name: p.name || p.id, calendarId: slot.calendarId })}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
                 </div>
               </div>
             ))}
           </div>
         </div>
       )}
+      {/* Remove participant confirmation dialog */}
+      <Dialog open={!!removeTarget} onOpenChange={(v) => !v && setRemoveTarget(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Remove participant?</DialogTitle>
+            <DialogDescription>
+              This will cancel <strong>{removeTarget?.name}</strong>'s booking in GHL. The participant will be removed from this course date. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setRemoveTarget(null)} disabled={removeMutation.isPending}>Cancel</Button>
+            <Button
+              className="bg-red-600 hover:bg-red-700 text-white"
+              disabled={removeMutation.isPending}
+              onClick={() => {
+                if (!removeTarget) return;
+                // We need a courseDateId — use 0 as placeholder since we only need to invalidate cache
+                // The removeParticipant mutation uses courseDateId only for cache invalidation
+                removeMutation.mutate({ courseDateId: 0, appointmentId: removeTarget.appointmentId, contactName: removeTarget.name });
+              }}
+            >
+              {removeMutation.isPending && <Loader2 className="h-3 w-3 animate-spin mr-1" />}
+              Remove participant
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -169,7 +221,7 @@ export default function CourseCalendar({ embedded = false }: { embedded?: boolea
 
   const windowEnd = windowStart + 30 * 24 * 60 * 60 * 1000;
 
-  const { data, isLoading, error } = trpc.admin.courseCalendar.useQuery(
+  const { data, isLoading, error, refetch } = trpc.admin.courseCalendar.useQuery(
     { startMs: windowStart, endMs: windowEnd }
   );
 
@@ -321,7 +373,7 @@ export default function CourseCalendar({ embedded = false }: { embedded?: boolea
               </h2>
               <div className="space-y-3">
                 {daySlots.map((slot, i) => (
-                  <SlotCard key={`${slot.calendarId}-${slot.slotTime}-${i}`} slot={slot} />
+                  <SlotCard key={`${slot.calendarId}-${slot.slotTime}-${i}`} slot={slot} onParticipantRemoved={() => refetch()} />
                 ))}
               </div>
             </div>

@@ -9,12 +9,12 @@ import { useDashAuth } from "@/contexts/DashAuthContext";
 import { toast } from "sonner";
 import {
   Loader2, Plus, Pencil, UserCheck, UserX, Eye, ArrowLeftCircle,
-  Settings, Users as UsersIcon, Search,
+  Settings, Users as UsersIcon, Search, Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 
@@ -56,9 +56,10 @@ export default function SettingsPage() {
   const [editId, setEditId] = useState<number | null>(null);
   const [form, setForm] = useState<UserForm>(EMPTY_FORM);
   const [searchQuery, setSearchQuery] = useState("");
+  const [deleteConfirmUser, setDeleteConfirmUser] = useState<NonNullable<typeof users>[number] | null>(null);
   const [, setLocation] = useLocation();
   const utils = trpc.useUtils();
-  const { isImpersonating, refetch } = useDashAuth();
+  const { isImpersonating, refetch, user: currentUser } = useDashAuth();
 
   const { data: users, isLoading } = trpc.admin.listUsers.useQuery();
 
@@ -79,6 +80,20 @@ export default function SettingsPage() {
       if (data.impersonating.role === "course_leader") setLocation("/my-overview");
       else if (data.impersonating.role === "affiliate") setLocation("/my-commissions");
       else setLocation("/");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+  const deleteMutation = trpc.admin.deleteUser.useMutation({
+    onSuccess: (data) => {
+      toast.success("User deleted");
+      setDeleteConfirmUser(null);
+      utils.admin.listUsers.invalidate();
+      if (data.selfDeleted) {
+        // Admin deleted themselves — log out
+        utils.dashboard.me.invalidate();
+        refetch();
+        setLocation("/login");
+      }
     },
     onError: (e) => toast.error(e.message),
   });
@@ -206,6 +221,13 @@ export default function SettingsPage() {
           </Button>
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => toggleActive(user)} title={user.active ? "Deactivate" : "Activate"}>
             {user.active ? <UserX className="h-3.5 w-3.5 text-red-500" /> : <UserCheck className="h-3.5 w-3.5 text-green-500" />}
+          </Button>
+          <Button
+            variant="ghost" size="icon" className="h-7 w-7 hover:bg-red-50"
+            onClick={() => setDeleteConfirmUser(user)}
+            title="Delete user permanently"
+          >
+            <Trash2 className="h-3.5 w-3.5 text-red-400 hover:text-red-600" />
           </Button>
         </div>
       </td>
@@ -444,6 +466,34 @@ export default function SettingsPage() {
               disabled={createMutation.isPending || updateMutation.isPending}
             >
               {(createMutation.isPending || updateMutation.isPending) ? <Loader2 className="h-4 w-4 animate-spin" /> : editId ? "Save Changes" : "Create User"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete confirmation dialog */}
+      <Dialog open={!!deleteConfirmUser} onOpenChange={(open) => { if (!open) setDeleteConfirmUser(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-red-600">Delete User</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to permanently delete <strong>{deleteConfirmUser?.name}</strong>? This action cannot be undone.
+              {deleteConfirmUser?.id === currentUser?.id && (
+                <span className="block mt-2 text-amber-600 font-medium">
+                  ⚠️ You are deleting your own account. You will be logged out immediately.
+                </span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setDeleteConfirmUser(null)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              onClick={() => deleteConfirmUser && deleteMutation.mutate({ id: deleteConfirmUser.id })}
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Trash2 className="h-4 w-4 mr-1" />}
+              Delete Permanently
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -131,6 +131,15 @@ export async function updateDashboardUser(
   await db.update(dashboardUsers).set(updates).where(eq(dashboardUsers.id, id));
 }
 
+export async function deleteDashboardUser(id: number): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  // Delete sessions and reset tokens first, then the user record
+  await db.delete(dashboardSessions).where(eq(dashboardSessions.userId, id));
+  await db.delete(passwordResetTokens).where(eq(passwordResetTokens.userId, id));
+  await db.delete(dashboardUsers).where(eq(dashboardUsers.id, id));
+}
+
 // ─── Password reset ───────────────────────────────────────────────────────────
 export async function createPasswordResetToken(email: string): Promise<{ token: string; userName: string } | null> {
   const db = await getDb();

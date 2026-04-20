@@ -10,8 +10,9 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import {
-  Search, Mail, ExternalLink, RefreshCw, Award, Send, CheckSquare, Square,
+  Search, Mail, ExternalLink, RefreshCw, Award, Send, CheckSquare, Square, Trash2,
 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 
 const COURSE_TYPE_LABELS: Record<string, string> = {
   intro: "Intro",
@@ -89,6 +90,26 @@ export default function IssuedCertificates() {
     sendMutation.mutate({ certificateIds: [] });
   };
 
+  const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
+
+  const deleteMutation = trpc.certificates.deleteCertificate.useMutation({
+    onSuccess: () => {
+      toast.success("Intyg borttaget");
+      setDeleteTarget(null);
+      refetch();
+    },
+    onError: (e) => toast.error("Misslyckades: " + e.message),
+  });
+
+  const deleteBulkMutation = trpc.certificates.deleteCertificates.useMutation({
+    onSuccess: (res) => {
+      toast.success(`${res.deleted} intyg borttagna`);
+      setSelected(new Set());
+      refetch();
+    },
+    onError: (e) => toast.error("Misslyckades: " + e.message),
+  });
+
   const origin = window.location.origin;
 
   return (
@@ -106,15 +127,27 @@ export default function IssuedCertificates() {
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {selected.size > 0 && (
-            <Button
-              size="sm"
-              className="bg-amber-600 hover:bg-amber-700 text-white"
-              disabled={sendMutation.isPending}
-              onClick={handleSendSelected}
-            >
-              <Send className="h-4 w-4 mr-2" />
-              Skicka valda ({selected.size})
-            </Button>
+            <>
+              <Button
+                size="sm"
+                className="bg-amber-600 hover:bg-amber-700 text-white"
+                disabled={sendMutation.isPending}
+                onClick={handleSendSelected}
+              >
+                <Send className="h-4 w-4 mr-2" />
+                Skicka valda ({selected.size})
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-red-300 text-red-600 hover:bg-red-50"
+                disabled={deleteBulkMutation.isPending}
+                onClick={() => deleteBulkMutation.mutate({ certificateIds: Array.from(selected) })}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Ta bort valda ({selected.size})
+              </Button>
+            </>
           )}
           {draftCount > 0 && (
             <Button
@@ -263,6 +296,16 @@ export default function IssuedCertificates() {
                             )}
                           </Button>
                         )}
+                        {/* Delete */}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-red-400 hover:text-red-600 hover:bg-red-50"
+                          title="Ta bort intyg"
+                          onClick={() => setDeleteTarget({ id: cert.id, name: cert.contactName })}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
                       </div>
                     </td>
                   </tr>
@@ -272,6 +315,29 @@ export default function IssuedCertificates() {
           </table>
         </div>
       )}
+
+      {/* Delete confirmation dialog */}
+      <Dialog open={!!deleteTarget} onOpenChange={(v) => !v && setDeleteTarget(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-red-600">Ta bort intyg?</DialogTitle>
+            <DialogDescription>
+              Är du säker på att du vill ta bort intyget för <strong>{deleteTarget?.name}</strong>? Åtgärden kan inte ångras.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deleteMutation.isPending}>Avbryt</Button>
+            <Button
+              variant="destructive"
+              disabled={deleteMutation.isPending}
+              onClick={() => deleteTarget && deleteMutation.mutate({ certificateId: deleteTarget.id })}
+            >
+              {deleteMutation.isPending ? <RefreshCw className="h-3 w-3 animate-spin mr-1" /> : <Trash2 className="h-3 w-3 mr-1" />}
+              Ta bort
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -1928,4 +1928,55 @@ export const courseDatesRouter = router({
 
       return { success: true, action: "approved" };
     }),
+
+  // ─── Admin: remove a participant from a course (cancel appointment in GHL) ────────────────
+  removeParticipant: adminProcedure
+    .input(
+      z.object({
+        courseDateId: z.number().int(),
+        appointmentId: z.string().min(1),
+        contactName: z.string().optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      // Fetch appointment details first (need calendarId, startTime, endTime for PUT)
+      const apptRes = await fetch(`${GHL_BASE}/calendars/events/appointments/${input.appointmentId}`, {
+        headers: { Authorization: `Bearer ${API_KEY}`, Version: "2021-04-15", Accept: "application/json" },
+      });
+      if (!apptRes.ok) {
+        const body = await apptRes.text();
+        console.error("[removeParticipant] Failed to fetch appointment:", apptRes.status, body);
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to fetch appointment details" });
+      }
+      const apptData = await apptRes.json();
+      const appt = apptData?.appointment || apptData;
+
+      // Cancel the appointment in GHL by setting status to "cancelled"
+      const res = await fetch(`${GHL_BASE}/calendars/events/appointments/${input.appointmentId}`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${API_KEY}`,
+          Version: "2021-04-15",
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          calendarId: appt.calendarId,
+          startTime: appt.startTime,
+          endTime: appt.endTime,
+          appointmentStatus: "cancelled",
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.text();
+        console.error("[removeParticipant] GHL error:", res.status, body);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: `Failed to cancel appointment in GHL: ${res.status}`,
+        });
+      }
+      // Invalidate the live seats cache for this course
+      liveSeatsCache.delete(input.courseDateId);
+      return { success: true, appointmentId: input.appointmentId };
+    }),
 });

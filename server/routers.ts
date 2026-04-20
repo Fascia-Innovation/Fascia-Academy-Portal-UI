@@ -12,6 +12,7 @@ import {
   createDashboardUser,
   getAllDashboardUsers,
   updateDashboardUser,
+  deleteDashboardUser,
   hashNewPassword,
   createPasswordResetToken,
   resetPasswordWithToken,
@@ -257,6 +258,24 @@ export const appRouter = router({
         if (password) finalUpdates.passwordHash = hashNewPassword(password);
         await updateDashboardUser(id, finalUpdates as Parameters<typeof updateDashboardUser>[1]);
         return { success: true };
+      }),
+
+    deleteUser: adminProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input, ctx }) => {
+        const adminUser = (ctx as { dashUser: DashboardUser }).dashUser;
+        // Prevent deleting the last admin
+        const allUsers = await getAllDashboardUsers();
+        const admins = allUsers.filter((u) => u.role === "admin" && u.active);
+        if (admins.length <= 1 && admins[0]?.id === input.id) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Cannot delete the last admin account" });
+        }
+        await deleteDashboardUser(input.id);
+        // If admin deleted themselves, clear their session cookie
+        if (adminUser.id === input.id) {
+          ctx.res.clearCookie(DASH_SESSION, { path: "/" });
+        }
+        return { success: true, selfDeleted: adminUser.id === input.id };
       }),
 
     // Impersonate: create a short-lived session for another user and return the session ID

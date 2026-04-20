@@ -187,7 +187,7 @@ export interface GHLFreeSlot {
   maxSeats: number;
   bookedSeats: number;
   availableSeats: number;
-  participants: Array<{ id: string; name: string; email: string; status: string }>;
+  participants: Array<{ id: string; appointmentId: string; name: string; email: string; status: string }>;
 }
 
 export interface GHLAppointment {
@@ -331,6 +331,7 @@ export async function getCourseCalendar(
             })
             .map(a => ({
               id: a.contactId,
+              appointmentId: a.id,
               name: a.title ?? a.contactId,
               email: a.contact?.email ?? "",
               status: a.appointmentStatus ?? a.status ?? "",

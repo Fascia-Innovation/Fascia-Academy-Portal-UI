@@ -527,6 +527,26 @@ export const certificatesRouter = router({
       return { success: true };
     }),
 
+  // ── Admin: delete a single certificate ──────────────────────────────────────────────────
+  deleteCertificate: adminProcedure
+    .input(z.object({ certificateId: z.number().int() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      await db.delete(certificates).where(eq(certificates.id, input.certificateId));
+      return { success: true };
+    }),
+
+  // ── Admin: bulk delete certificates ────────────────────────────────────────────────
+  deleteCertificates: adminProcedure
+    .input(z.object({ certificateIds: z.array(z.number().int()).min(1) }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      await db.delete(certificates).where(inArray(certificates.id, input.certificateIds));
+      return { success: true, deleted: input.certificateIds.length };
+    }),
+
   // ── Internal: issue a certificate as draft (called from courseDates router) ───
   issueCertificate: dashboardProcedure
     .input(z.object({
