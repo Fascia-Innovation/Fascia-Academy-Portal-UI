@@ -1,6 +1,107 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;500;600;700&display=swap');
+
+/* ─── Neo Sans Std ─────────────────────────────────────────────────────────── */
+@font-face {
+  font-family: 'Neo Sans Std';
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+  src: url('/manus-storage/Monotype-NeoSansStd-Light_127f0df1.otf') format('opentype');
+}
+@font-face {
+  font-family: 'Neo Sans Std';
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  src: url('/manus-storage/Monotype-NeoSansStd-Regular_9f4a0c3b.otf') format('opentype');
+}
+@font-face {
+  font-family: 'Neo Sans Std';
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+  src: url('/manus-storage/Monotype-NeoSansStd-Medium_c30745fd.otf') format('opentype');
+}
+@font-face {
+  font-family: 'Neo Sans Std';
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  src: url('/manus-storage/Monotype-NeoSansStd-Bold_68e86226.otf') format('opentype');
+}
+
+/* ─── Graphik ───────────────────────────────────────────────────────────────── */
+@font-face {
+  font-family: 'Graphik';
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+  src: url('/manus-storage/Graphik-Light_71337791.otf') format('opentype');
+}
+@font-face {
+  font-family: 'Graphik';
+  font-weight: 300;
+  font-style: italic;
+  font-display: swap;
+  src: url('/manus-storage/Graphik-LightItalic_13a88cdc.otf') format('opentype');
+}
+@font-face {
+  font-family: 'Graphik';
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  src: url('/manus-storage/Graphik-Regular_1de3e63e.otf') format('opentype');
+}
+@font-face {
+  font-family: 'Graphik';
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+  src: url('/manus-storage/Graphik-RegularItalic_4aab5ceb.otf') format('opentype');
+}
+@font-face {
+  font-family: 'Graphik';
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+  src: url('/manus-storage/Graphik-Medium_443ad247.otf') format('opentype');
+}
+@font-face {
+  font-family: 'Graphik';
+  font-weight: 500;
+  font-style: italic;
+  font-display: swap;
+  src: url('/manus-storage/Graphik-MediumItalic_007eab74.otf') format('opentype');
+}
+@font-face {
+  font-family: 'Graphik';
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+  src: url('/manus-storage/Graphik-Semibold_17e01bc4.otf') format('opentype');
+}
+@font-face {
+  font-family: 'Graphik';
+  font-weight: 600;
+  font-style: italic;
+  font-display: swap;
+  src: url('/manus-storage/Graphik-SemiboldItalic_2e6e5d81.otf') format('opentype');
+}
+@font-face {
+  font-family: 'Graphik';
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  src: url('/manus-storage/Graphik-Bold_800755ff.otf') format('opentype');
+}
+@font-face {
+  font-family: 'Graphik';
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+  src: url('/manus-storage/Graphik-BoldItalic_1a116a1b.otf') format('opentype');
+}
 
 @custom-variant dark (&:is(.dark *));
 
@@ -121,7 +222,24 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: 'Inter', sans-serif;
+    font-family: 'Graphik', sans-serif;
+    font-weight: 400;
+  }
+  h1 {
+    font-family: 'Neo Sans Std', sans-serif;
+    font-weight: 500; /* Medium */
+  }
+  h2 {
+    font-family: 'Neo Sans Std', sans-serif;
+    font-weight: 400; /* Regular */
+  }
+  h3, h4 {
+    font-family: 'Graphik', sans-serif;
+    font-weight: 600; /* Semibold */
+  }
+  h5, h6, p, span, div, input, textarea, select, button, label {
+    font-family: 'Graphik', sans-serif;
+    font-weight: 400;
   }
   button:not(:disabled),
   [role="button"]:not([aria-disabled="true"]),
