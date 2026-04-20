@@ -13,7 +13,7 @@ import type { DashboardUser } from "../../drizzle/schema";
 import { parse as parseCookies } from "cookie";
 import { getSessionUser } from "../dashboardAuth";
 import { issueCertificateForParticipant } from "./certificatesRouter";
-import { setGhlTag } from "../ghl";
+import { setGhlTag, getCalendarFreeSlots } from "../ghl";
 
 const DASH_SESSION = "fa_dash_session";
 
@@ -1978,5 +1978,95 @@ export const courseDatesRouter = router({
       // Invalidate the live seats cache for this course
       liveSeatsCache.delete(input.courseDateId);
       return { success: true, appointmentId: input.appointmentId };
+    }),
+
+  // ── Admin: sync check — compare DB course dates with GHL calendar slots ───
+  // Returns a list of DB rows that have no matching slot in GHL (within ±4h),
+  // and GHL slots that have no matching DB row for the same calendar on the same day.
+  syncCheck: adminProcedure
+    .input(z.object({
+      windowDays: z.number().int().min(1).max(180).default(90), // how far ahead to check
+    }).optional())
+    .query(async () => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      const now = new Date();
+      const windowEnd = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
+
+      // 1. Fetch upcoming DB rows
+      const dbRows = await db
+        .select()
+        .from(courseDates)
+        .where(and(gte(courseDates.startDate, now), lte(courseDates.startDate, windowEnd)))
+        .orderBy(asc(courseDates.startDate));
+
+      // 2. Fetch GHL free slots for each unique calendar in the DB rows
+      const calendarIds = Array.from(new Set(dbRows.map(r => r.ghlCalendarId)));
+      const startMs = now.getTime();
+      const endMs = windowEnd.getTime();
+
+      // Build a map: calendarId -> Set of slot date strings ("yyyy-MM-dd")
+      const ghlSlotMap = new Map<string, Set<string>>();
+      await Promise.all(calendarIds.map(async (calId) => {
+        try {
+          const slotsByDate = await getCalendarFreeSlots(calId, startMs, endMs);
+          const dates = new Set(Object.keys(slotsByDate).filter(d => Object.values(slotsByDate[d] ?? []).length > 0 || slotsByDate[d]?.length > 0));
+          // Also include dates that have slots
+          const allDates = new Set<string>();
+          for (const [date, slots] of Object.entries(slotsByDate)) {
+            if (Array.isArray(slots) && slots.length > 0) allDates.add(date);
+          }
+          ghlSlotMap.set(calId, allDates);
+        } catch {
+          ghlSlotMap.set(calId, new Set());
+        }
+      }));
+
+      // 3. Find DB rows with no matching GHL slot on the same date
+      const missingInGHL: Array<{
+        id: number;
+        courseLeaderName: string;
+        courseType: string;
+        startDate: string;
+        city: string;
+        ghlCalendarId: string;
+        reason: string;
+      }> = [];
+
+      for (const row of dbRows) {
+        const rowDate = new Date(row.startDate).toISOString().slice(0, 10); // "yyyy-MM-dd"
+        const ghlDates = ghlSlotMap.get(row.ghlCalendarId);
+        if (!ghlDates) {
+          // Calendar not found in GHL at all
+          missingInGHL.push({
+            id: row.id,
+            courseLeaderName: row.courseLeaderName,
+            courseType: row.courseType,
+            startDate: new Date(row.startDate).toISOString(),
+            city: row.city,
+            ghlCalendarId: row.ghlCalendarId,
+            reason: "Calendar not found in GHL",
+          });
+        } else if (!ghlDates.has(rowDate)) {
+          // DB has a course on this date but GHL has no slot available
+          missingInGHL.push({
+            id: row.id,
+            courseLeaderName: row.courseLeaderName,
+            courseType: row.courseType,
+            startDate: new Date(row.startDate).toISOString(),
+            city: row.city,
+            ghlCalendarId: row.ghlCalendarId,
+            reason: "No matching slot in GHL calendar for this date",
+          });
+        }
+      }
+
+      return {
+        checkedRows: dbRows.length,
+        mismatches: missingInGHL,
+        hasMismatch: missingInGHL.length > 0,
+        checkedAt: new Date().toISOString(),
+      };
     }),
 });

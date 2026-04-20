@@ -632,6 +632,10 @@ export default function CourseDates({ embedded = false }: { embedded?: boolean }
 
   const { data: courseDates = [], isLoading, refetch: refetchAdmin } = trpc.courseDates.listAdmin.useQuery();
   const { data: ghlCalendars = [], isLoading: calendarsLoading } = trpc.courseDates.getCalendars.useQuery();
+  const { data: syncData, refetch: refetchSync, isFetching: syncFetching } = trpc.courseDates.syncCheck.useQuery(undefined, {
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
 
   const refreshSeatsMutation = trpc.courseDates.refreshLiveSeats.useMutation({
     onSuccess: () => {
@@ -885,6 +889,53 @@ export default function CourseDates({ embedded = false }: { embedded?: boolean }
         </div>
       </div>
 
+      {/* Sync warning banner */}
+      {syncData?.hasMismatch && (
+        <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="font-semibold text-amber-800 text-sm">
+                Sync-varning: {syncData.mismatches.length} kursdatum saknar matchande slot i GHL
+              </p>
+              <p className="text-xs text-amber-700 mt-1">
+                Dessa datum finns i portalen men GHL-kalendern har ingen öppen slot på samma dag. Det kan bero på att kursen inte lagts in i GHL, att datumet ändrats i GHL utan att uppdateras här, eller att alla slots är fullbokade.
+              </p>
+              <div className="mt-2 space-y-1">
+                {syncData.mismatches.map((m) => (
+                  <div key={m.id} className="flex items-center gap-2 text-xs text-amber-800">
+                    <span className="font-mono bg-amber-100 px-1.5 py-0.5 rounded">
+                      {new Date(m.startDate).toLocaleDateString("sv-SE")}
+                    </span>
+                    <span>{m.courseLeaderName}</span>
+                    <span className="text-amber-600">·</span>
+                    <span className="capitalize">{m.courseType}</span>
+                    <span className="text-amber-600">·</span>
+                    <span>{m.city}</span>
+                    <span className="text-amber-500 italic ml-1">({m.reason})</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <button
+              className="text-amber-500 hover:text-amber-700 text-xs underline shrink-0"
+              onClick={() => refetchSync()}
+              disabled={syncFetching}
+            >
+              {syncFetching ? "Kollar..." : "Uppdatera"}
+            </button>
+          </div>
+        </div>
+      )}
+      {syncData && !syncData.hasMismatch && syncData.checkedRows > 0 && (
+        <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 flex items-center gap-2 text-xs text-emerald-700">
+          <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+          Alla {syncData.checkedRows} kommande kursdatum är synkade med GHL
+          <button className="ml-auto text-emerald-600 hover:text-emerald-800 underline" onClick={() => refetchSync()} disabled={syncFetching}>
+            {syncFetching ? "Kollar..." : "Uppdatera"}
+          </button>
+        </div>
+      )}
       {/* Stats */}
       <div className="grid grid-cols-4 gap-4 mb-6">
         <div className="rounded-xl border bg-card p-4">
