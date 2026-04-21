@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { CheckCircle, AlertCircle, Clock, ChevronRight, ChevronDown, Plus, RefreshCw, Edit, Download, FileDown, Loader2, Users, TrendingUp, CheckSquare, Square } from "lucide-react";
+import { CheckCircle, AlertCircle, Clock, ChevronRight, ChevronDown, Plus, RefreshCw, Edit, Download, FileDown, Loader2, Users, TrendingUp, CheckSquare, Square, Mail } from "lucide-react";
 import { generateSettlementPdf } from "@/lib/settlementPdf";
 import { useDashAuth } from "@/contexts/DashAuthContext";
 
@@ -89,20 +89,27 @@ function ParticipantTable({
   currency,
   isAdmin,
   settlementUserId: _settlementUserId,
+  userType,
 }: {
   lines: SettlementLine[];
   currency: string;
   isAdmin: boolean;
   settlementUserId: number;
+  userType?: "course_leader" | "affiliate";
 }) {
   const { user } = useDashAuth();
   const viewerIsAdmin = user?.role === "admin";
+  const isAffiliateSettlement = userType === "affiliate";
   const [expandedId, setExpandedId] = useState<number | null>(null);
-  const hasDiscount = lines.some((l) => Number(l.affiliateDeduction) > 0 || l.affiliateCode);
+  const hasDiscount = !isAffiliateSettlement && lines.some((l) => Number(l.affiliateDeduction) > 0 || l.affiliateCode);
+
+  // For affiliate settlements, payout IS the commission earned
+  // affiliateDeduction on the line = what the affiliate earns (commission)
+  // payout = commission amount
 
   return (
     <div>
-      <h3 className="font-semibold mb-3">Participant Overview ({lines.length})</h3>
+      <h3 className="font-semibold mb-3">{isAffiliateSettlement ? "Commission Overview" : "Participant Overview"} ({lines.length})</h3>
       {lines.length === 0 ? (
         <p className="text-sm text-muted-foreground">No participants found.</p>
       ) : (
@@ -112,9 +119,18 @@ function ParticipantTable({
               <tr>
                 <th className="text-left p-2 font-medium">First Name</th>
                 <th className="text-left p-2 font-medium hidden sm:table-cell">Course Date</th>
-                <th className="text-right p-2 font-medium">Full Price</th>
-                {hasDiscount && <th className="text-right p-2 font-medium text-red-700">Discount</th>}
-                <th className="text-right p-2 font-medium">Payout</th>
+                {isAffiliateSettlement ? (
+                  <>
+                    <th className="text-right p-2 font-medium">Paid Price</th>
+                    <th className="text-right p-2 font-medium text-green-700">Commission</th>
+                  </>
+                ) : (
+                  <>
+                    <th className="text-right p-2 font-medium">Full Price</th>
+                    {hasDiscount && <th className="text-right p-2 font-medium text-red-700">Discount</th>}
+                    <th className="text-right p-2 font-medium">Payout</th>
+                  </>
+                )}
                 {!viewerIsAdmin && <th className="w-6"></th>}
               </tr>
             </thead>
@@ -139,67 +155,107 @@ function ParticipantTable({
                         {line.missingAmount && <span className="ml-1 text-xs text-amber-600" title="Paid amount missing in GHL">⚠</span>}
                       </td>
                       <td className="p-2 hidden sm:table-cell text-muted-foreground">{line.courseDate || "—"}</td>
-                      <td className="p-2 text-right">{fmt(line.paidInclVat)} {currency}</td>
-                      {hasDiscount && (
-                        <td className={`p-2 text-right ${
-                          Number(line.affiliateDeduction) > 0 ? "text-red-600" : "text-muted-foreground"
-                        }`}>{discountText}</td>
+                      {isAffiliateSettlement ? (
+                        <>
+                          <td className="p-2 text-right">{fmt(line.paidInclVat)} {currency}</td>
+                          <td className="p-2 text-right font-semibold text-green-700">{fmt(line.payout)} {currency}</td>
+                        </>
+                      ) : (
+                        <>
+                          <td className="p-2 text-right">{fmt(line.paidInclVat)} {currency}</td>
+                          {hasDiscount && (
+                            <td className={`p-2 text-right ${
+                              Number(line.affiliateDeduction) > 0 ? "text-red-600" : "text-muted-foreground"
+                            }`}>{discountText}</td>
+                          )}
+                          <td className={`p-2 text-right font-semibold ${
+                            Number(line.payout) < 0 ? "text-red-600" : ""
+                          }`}>{fmt(line.payout)} {currency}</td>
+                        </>
                       )}
-                      <td className={`p-2 text-right font-semibold ${
-                        Number(line.payout) < 0 ? "text-red-600" : ""
-                      }`}>{fmt(line.payout)} {currency}</td>
                       {!viewerIsAdmin && (
                         <td className="p-2 text-muted-foreground">
                           {isExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
                         </td>
                       )}
                     </tr>
-                    {/* Admin: always show full breakdown inline; Leader: accordion */}
+                    {/* Admin: always show full breakdown inline; Leader/Affiliate: accordion */}
                     {(viewerIsAdmin || isExpanded) && (
                       <tr key={`${line.id}-detail`} className="bg-muted/20 border-t">
-                        <td colSpan={hasDiscount ? (viewerIsAdmin ? 5 : 6) : (viewerIsAdmin ? 4 : 5)} className="px-4 py-2">
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-                            <div>
-                              <p className="text-muted-foreground">Paid incl. VAT</p>
-                              <p className="font-medium">{fmt(line.paidInclVat)} {currency}</p>
-                            </div>
-                            <div>
-                              <p className="text-muted-foreground">Net excl. VAT</p>
-                              <p className="font-medium">{fmt(line.netExclVat)} {currency}</p>
-                            </div>
-                            <div>
-                              <p className="text-muted-foreground">Transaction fee (3.1%)</p>
-                              <p className="font-medium text-red-600">−{fmt(line.transactionFee)} {currency}</p>
-                            </div>
-                            <div>
-                              <p className="text-muted-foreground">FA margin</p>
-                              <p className="font-medium text-red-600">−{fmt(line.faMargin)} {currency}</p>
-                            </div>
-                            {Number(line.affiliateDeduction) > 0 && (
+                        <td colSpan={isAffiliateSettlement ? (viewerIsAdmin ? 4 : 5) : (hasDiscount ? (viewerIsAdmin ? 5 : 6) : (viewerIsAdmin ? 4 : 5))} className="px-4 py-2">
+                          {isAffiliateSettlement ? (
+                            // Affiliate breakdown: show commission calculation
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
                               <div>
-                                <p className="text-muted-foreground">Affiliate deduction{line.affiliateCode ? ` (${line.affiliateCode})` : ""}</p>
-                                <p className="font-medium text-red-600">−{fmt(line.affiliateDeduction)} {currency}</p>
+                                <p className="text-muted-foreground">Paid incl. VAT</p>
+                                <p className="font-medium">{fmt(line.paidInclVat)} {currency}</p>
                               </div>
-                            )}
-                            <div>
-                              <p className="text-muted-foreground">Your payout</p>
-                              <p className={`font-bold ${
-                                Number(line.payout) < 0 ? "text-red-600" : "text-green-700"
-                              }`}>{fmt(line.payout)} {currency}</p>
-                            </div>
-                            {viewerIsAdmin && line.participantEmail && (
-                              <div className="sm:col-span-2">
-                                <p className="text-muted-foreground">Email</p>
-                                <p className="font-medium">{line.participantEmail}</p>
-                              </div>
-                            )}
-                            {viewerIsAdmin && (
                               <div>
-                                <p className="text-muted-foreground">Course type</p>
-                                <p className="font-medium capitalize">{line.courseType}</p>
+                                <p className="text-muted-foreground">Commission rate</p>
+                                <p className="font-medium">10%</p>
                               </div>
-                            )}
-                          </div>
+                              <div>
+                                <p className="text-muted-foreground">Your commission</p>
+                                <p className="font-bold text-green-700">{fmt(line.payout)} {currency}</p>
+                              </div>
+                              {viewerIsAdmin && line.participantEmail && (
+                                <div className="sm:col-span-2">
+                                  <p className="text-muted-foreground">Email</p>
+                                  <p className="font-medium">{line.participantEmail}</p>
+                                </div>
+                              )}
+                              {line.affiliateCode && (
+                                <div>
+                                  <p className="text-muted-foreground">Affiliate code used</p>
+                                  <p className="font-medium">{line.affiliateCode}</p>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            // Course leader breakdown: full economic breakdown
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                              <div>
+                                <p className="text-muted-foreground">Paid incl. VAT</p>
+                                <p className="font-medium">{fmt(line.paidInclVat)} {currency}</p>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground">Net excl. VAT</p>
+                                <p className="font-medium">{fmt(line.netExclVat)} {currency}</p>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground">Transaction fee (3.1%)</p>
+                                <p className="font-medium text-red-600">−{fmt(line.transactionFee)} {currency}</p>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground">FA margin</p>
+                                <p className="font-medium text-red-600">−{fmt(line.faMargin)} {currency}</p>
+                              </div>
+                              {Number(line.affiliateDeduction) > 0 && (
+                                <div>
+                                  <p className="text-muted-foreground">Affiliate deduction{line.affiliateCode ? ` (${line.affiliateCode})` : ""}</p>
+                                  <p className="font-medium text-red-600">−{fmt(line.affiliateDeduction)} {currency}</p>
+                                </div>
+                              )}
+                              <div>
+                                <p className="text-muted-foreground">Your payout</p>
+                                <p className={`font-bold ${
+                                  Number(line.payout) < 0 ? "text-red-600" : "text-green-700"
+                                }`}>{fmt(line.payout)} {currency}</p>
+                              </div>
+                              {viewerIsAdmin && line.participantEmail && (
+                                <div className="sm:col-span-2">
+                                  <p className="text-muted-foreground">Email</p>
+                                  <p className="font-medium">{line.participantEmail}</p>
+                                </div>
+                              )}
+                              {viewerIsAdmin && (
+                                <div>
+                                  <p className="text-muted-foreground">Course type</p>
+                                  <p className="font-medium capitalize">{line.courseType}</p>
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </td>
                       </tr>
                     )}
@@ -228,6 +284,7 @@ function SettlementDetail({ settlementId,
   const approveMut  = trpc.settlements.approve.useMutation({ onSuccess: () => { refetch(); onApproved(); toast.success("Settlement approved — notification sent to user."); } });
   const amendMut    = trpc.settlements.amend.useMutation({ onSuccess: () => { refetch(); utils.settlements.list.invalidate(); toast.success("Amendment created — old settlement marked as amended."); } });
   const recalcMut   = trpc.settlements.recalculate.useMutation({ onSuccess: () => { refetch(); toast.success("Recalculated from GHL"); } });
+  const resendEmailMut = trpc.settlements.resendEmail.useMutation({ onSuccess: () => toast.success("Email resent to course leader."), onError: (e) => toast.error(`Failed to resend: ${e.message}`) });
 
   const [showAdjForm, setShowAdjForm] = useState(false);
   const [adjAmount, setAdjAmount] = useState("");
@@ -278,9 +335,14 @@ function SettlementDetail({ settlementId,
             </>
           )}
           {isApproved && (
-            <Button size="sm" variant="outline" onClick={() => amendMut.mutate({ id: settlement.id })} disabled={amendMut.isPending}>
-              <Edit className="w-3 h-3 mr-1" />Amend
-            </Button>
+            <>
+              <Button size="sm" variant="outline" onClick={() => resendEmailMut.mutate({ id: settlement.id })} disabled={resendEmailMut.isPending} title="Resend approval email to course leader">
+                {resendEmailMut.isPending ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Mail className="w-3 h-3 mr-1" />}Resend Email
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => amendMut.mutate({ id: settlement.id })} disabled={amendMut.isPending}>
+                <Edit className="w-3 h-3 mr-1" />Amend
+              </Button>
+            </>
           )}
           <Button size="sm" variant="outline" onClick={() => generateSettlementPdf({ settlement, lines, adjustments, faCompany })}>
             <FileDown className="w-3 h-3 mr-1" />PDF
@@ -326,7 +388,7 @@ function SettlementDetail({ settlementId,
       </div>
 
       {/* Participants */}
-      <ParticipantTable lines={lines} currency={settlement.currency} isAdmin={!!settlement.approvedAt || true} settlementUserId={settlement.userId} />
+      <ParticipantTable lines={lines} currency={settlement.currency} isAdmin={!!settlement.approvedAt || true} settlementUserId={settlement.userId} userType={settlement.userType} />
 
 
       {/* Adjustments */}

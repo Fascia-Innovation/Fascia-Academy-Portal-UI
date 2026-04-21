@@ -824,6 +824,78 @@ export const settlementsRouter = router({
     }),
 
   /**
+   * Admin: resend the approval email to the course leader/affiliate.
+   * Only works on approved settlements.
+   */
+  resendEmail: publicProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      const rows = await db
+        .select({
+          settlement: settlements,
+          userName: dashboardUsers.name,
+          ghlContactId: dashboardUsers.ghlContactId,
+        })
+        .from(settlements)
+        .innerJoin(dashboardUsers, eq(dashboardUsers.id, settlements.userId))
+        .where(eq(settlements.id, input.id))
+        .limit(1);
+      const row = rows[0];
+      if (!row) throw new TRPCError({ code: "NOT_FOUND" });
+      if (row.settlement.status !== "approved") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Can only resend email for approved settlements" });
+      }
+
+      const lines = await db
+        .select()
+        .from(settlementLines)
+        .where(eq(settlementLines.settlementId, input.id));
+
+      const m = row.settlement.periodMonth ?? 1;
+      const monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+      const period = `${monthNames[m - 1]} ${row.settlement.periodYear}`;
+
+      // Also fetch user email for the email function
+      const userRows = await db
+        .select({ email: dashboardUsers.email, ghlContactId: dashboardUsers.ghlContactId, invoiceReference: dashboardUsers.invoiceReference })
+        .from(dashboardUsers)
+        .where(eq(dashboardUsers.id, row.settlement.userId))
+        .limit(1);
+      const userInfo = userRows[0];
+
+      const emailLines: SettlementEmailLine[] = lines.map((l) => ({
+        participantName:    l.participantName,
+        courseDate:         l.courseDate ?? null,
+        paidInclVat:        Number(l.paidInclVat),
+        transactionFee:     Number(l.transactionFee ?? 0),
+        faMargin:           Number(l.faMargin ?? 0),
+        affiliateDeduction: Number(l.affiliateDeduction ?? 0),
+        affiliateCode:      l.affiliateCode ?? "",
+        payout:             Number(l.payout),
+      }));
+
+      if (userInfo?.ghlContactId && userInfo?.email) {
+        await sendSettlementApprovalEmail({
+          contactId:        userInfo.ghlContactId,
+          recipientEmail:   userInfo.email,
+          recipientName:    row.userName,
+          periodYear:       Number(row.settlement.periodYear),
+          periodMonth:      m,
+          currency:         row.settlement.currency,
+          totalPayout:      Number(row.settlement.totalPayout),
+          lines:            emailLines,
+          invoiceReference: userInfo.invoiceReference ?? null,
+          faCompany:        FA_COMPANY,
+        });
+      }
+      return { success: true };
+    }),
+
+  /**
    * Admin: add a manual adjustment row. Recalculates totalAdjustments and totalPayout.
    */
   addAdjustment: publicProcedure

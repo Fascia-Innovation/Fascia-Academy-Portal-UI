@@ -569,8 +569,14 @@
 
 ## Round 24: Settlement Email + Participant Breakdown
 
-- [ ] Backend: send HTML email to course leader on settlement approval (participant table: firstName, courseDate, fullPrice, discount/affiliate if any, net)
-- [ ] PDF: add participant breakdown table to settlement PDF (same columns as email, conditional discount/affiliate rows)
-- [ ] Frontend portal: accordion per-participant breakdown in course leader settlement detail view (expand row for full economic breakdown)
-- [ ] Frontend admin: full economic breakdown per participant in admin settlement detail view (brutto, FA-marginal, transaktionsavgift, affiliate-avdrag, netto per rad)
-- [ ] Frontend: remove exam-related elements from course leader participant view (only showed matters for course leaders)
+- [x] Backend: send HTML email to course leader on settlement approval (participant table: firstName, courseDate, fullPrice, discount/affiliate if any, net)
+- [x] PDF: add participant breakdown table to settlement PDF (same columns as email, conditional discount/affiliate rows)
+- [x] Frontend portal: accordion per-participant breakdown in course leader settlement detail view (expand row for full economic breakdown)
+- [x] Frontend admin: full economic breakdown per participant in admin settlement detail view (brutto, FA-marginal, transaktionsavgift, affiliate-avdrag, netto per rad)
+- [x] Frontend: remove exam-related elements from course leader participant view (only showed matters for course leaders)
+
+## Round 25: Leader/Affiliate UX Improvements
+
+- [ ] Remove exam-related elements from course leader views (MyCourses, LeaderHome) — leaders only see showed-status
+- [ ] Add "Resend Email" button on approved settlements (backend resendApprovalEmail + frontend button)
+- [ ] Affiliate portal view — customized settlement detail showing commission breakdown (not showed-based)

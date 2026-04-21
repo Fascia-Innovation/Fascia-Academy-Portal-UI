@@ -868,7 +868,8 @@ function ParticipantAttendanceList({ courseId, readOnly = false, isPast = false,
   const [open, setOpen] = useState(false);
   const { user } = useDashAuth();
   const isDiploOrCert = courseType === "diplo" || courseType === "cert";
-  const canSeeExams = user?.role === "admin" || user?.canExamineExams;
+  const isAdmin = user?.role === "admin";
+  const canSeeExams = isAdmin || (user as any)?.canExamineExams;
 
   const { data, isLoading, refetch } = trpc.courseDates.getCourseParticipants.useQuery(
     { courseDateId: courseId },
@@ -924,7 +925,7 @@ function ParticipantAttendanceList({ courseId, readOnly = false, isPast = false,
   const showedCount = participants.filter((p) => p.showed).length;
   const unmarkedCount = participants.filter((p) => !p.showed && !p.noShow).length;
 
-  // Fetch exam status for diplo/cert courses
+  // Fetch exam status for diplo/cert courses — only for admins/examiners, not course leaders
   const contactIds = useMemo(() => participants.map((p) => p.contactId).filter(Boolean), [participants]);
   const { data: examStatusMap } = trpc.exams.getExamStatusByContacts.useQuery(
     { contactIds, courseType: (courseType ?? "diplo") as "diplo" | "cert" },
@@ -1025,17 +1026,15 @@ function ParticipantAttendanceList({ courseId, readOnly = false, isPast = false,
               <div className="divide-y divide-border">
                 {participants.map((p) => {
                   const { displayName, showPhone } = maskContact(p);
-                  // Use examId/examStatus directly from participant data (enriched by backend)
-                  // Fall back to examStatusMap for admins/examiners who have canSeeExams
-                  const examFromParticipant = isDiploOrCert ? { examId: (p as any).examId, examStatus: (p as any).examStatus } : null;
+                  // Admin/examiner: use exam data for combined status badges
                   const examInfoFallback = isDiploOrCert && canSeeExams ? examStatusMap?.[p.contactId] : undefined;
+                  const examFromParticipant = isDiploOrCert && canSeeExams ? { examId: (p as any).examId, examStatus: (p as any).examStatus } : null;
                   const resolvedExamId = examFromParticipant?.examId ?? examInfoFallback?.examId ?? null;
                   const resolvedExamStatus = examFromParticipant?.examStatus ?? examInfoFallback?.status ?? null;
 
-                  // Combined status badge for diplo/cert
-                  // 🔴 Not showed + no exam | 🟡 Showed + no exam | 🟡 Exam in + not showed | 🟠 Exam failed | 🟢 Exam passed (cert issued or pending showed)
+                  // Combined status badge — only shown to admins/examiners, not course leaders
                   const getCombinedBadge = () => {
-                    if (!isDiploOrCert) return null;
+                    if (!isDiploOrCert || !canSeeExams) return null;
                     if (resolvedExamStatus === "passed" && p.showed) {
                       return { label: "Cert issued", color: "bg-emerald-100 text-emerald-700", icon: "🟢" };
                     }
@@ -1066,7 +1065,7 @@ function ParticipantAttendanceList({ courseId, readOnly = false, isPast = false,
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-sm font-medium text-foreground truncate">{displayName}</span>
-                          {p.showed && !isDiploOrCert && (
+                          {p.showed && !combinedBadge && (
                             <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-xs font-medium">
                               <CheckCircle className="h-3 w-3" /> Showed
                             </span>
