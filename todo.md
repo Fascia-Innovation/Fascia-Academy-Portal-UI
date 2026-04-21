@@ -580,3 +580,22 @@
 - [ ] Remove exam-related elements from course leader views (MyCourses, LeaderHome) — leaders only see showed-status
 - [ ] Add "Resend Email" button on approved settlements (backend resendApprovalEmail + frontend button)
 - [ ] Affiliate portal view — customized settlement detail showing commission breakdown (not showed-based)
+
+## Guide Section (Interactive Swedish Presentations)
+
+- [x] Guide section added to portal — admin-only nav item (BookMarked icon) + /guide route
+- [x] GuideIndex page — lists all 7 planned presentation modules with availability status
+- [x] Del 1: Kursledare — Från ansökan till aktiv (7 interactive slides, Swedish, FA dark theme)
+  - Slide 1: Kursledarresan (översikt + pipeline visual)
+  - Slide 2: Steg 1 — Ansökan (formulär + GHL automation)
+  - Slide 3: Steg 2 — Granskning och avtal (NDA, kontrakt, portalkonto)
+  - Slide 4: Steg 3 — Registrering och FasciaVibes (välkomstmail, betalning)
+  - Slide 5: Steg 4 — Onboarding och utbildning (FasciaVibes, Sollentuna)
+  - Slide 6: Steg 5 — Aktiv kursledare (portalen, licens, avräkning)
+  - Slide 7: Sammanfattning (hela flödet, kontakt, nästa del)
+- [ ] Del 2: Portalen — Kursledarens vy
+- [ ] Del 3: Kursregistrering och genomförande
+- [ ] Del 4: Portalen — Admin
+- [ ] Del 5: Portalen — Affiliate
+- [ ] Del 6: Portalen — Rättare (Exam)
+- [ ] Del 7: Kursdeltagare — Från bokning till certifikat

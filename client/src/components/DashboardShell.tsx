@@ -68,6 +68,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Settings", href: "/settings", icon: Settings, roles: ["admin"] },
   { label: "Issued Certificates", href: "/issued-certificates", icon: Scroll, roles: ["admin"] },
   { label: "Cert Templates", href: "/certificate-templates", icon: FileEdit, roles: ["admin"] },
+  { label: "Guide", href: "/guide", icon: BookMarked, roles: ["admin"] },
   // Course Leader
   { label: "Home", href: "/my-overview", icon: LayoutDashboard, roles: ["course_leader"] },
   { label: "My Courses", href: "/my-courses", icon: BookOpen, roles: ["course_leader"] },
