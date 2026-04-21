@@ -36,6 +36,7 @@ import { courseDatesRouter } from "./routers/courseDates";
 import { settlementsRouter } from "./routers/settlements";
 import { examsRouter } from "./routers/exams";
 import { certificatesRouter } from "./routers/certificatesRouter";
+import { courseMessagesRouter } from "./routers/courseMessages";
 
 // ─── Session cookie name for dashboard ───────────────────────────────────────
 const DASH_SESSION = "fa_dash_session";
@@ -1118,6 +1119,7 @@ export const appRouter = router({
   settlements: settlementsRouter,
   exams: examsRouter,
   certificates: certificatesRouter,
+  courseMessages: courseMessagesRouter,
 });
 
 export type AppRouter = typeof appRouter;

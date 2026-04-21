@@ -8,7 +8,8 @@ import { z } from "zod";
 import { eq, gte, lte, and, asc, desc } from "drizzle-orm";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { courseDates, dashboardUsers, participantSnapshots, courseLeaderMessages, exams } from "../../drizzle/schema";
+import { courseDates, dashboardUsers, participantSnapshots, courseLeaderMessages, exams, courseParticipantSnapshots } from "../../drizzle/schema";
+import { takeSnapshotForCourse, refreshSnapshotForCourse } from "../snapshotJob";
 import type { DashboardUser } from "../../drizzle/schema";
 import { parse as parseCookies } from "cookie";
 import { getSessionUser } from "../dashboardAuth";
@@ -1368,6 +1369,64 @@ export const courseDatesRouter = router({
         throw new TRPCError({ code: "FORBIDDEN" });
       }
 
+      const now = new Date();
+      const isPastCourse = new Date(course.startDate) < now;
+      const isAdmin = dashUser.role === "admin";
+      const isDiploOrCert = course.courseType === "diplo" || course.courseType === "cert";
+
+      // ─── Snapshot-first logic for past courses ─────────────────────────────
+      if (isPastCourse) {
+        const snapshotRows = await db
+          .select()
+          .from(courseParticipantSnapshots)
+          .where(eq(courseParticipantSnapshots.courseDateId, input.courseDateId));
+
+        if (snapshotRows.length > 0) {
+          // Build exam map for diplo/cert
+          let examByContactSnap: Record<string, { id: number; status: string }> = {};
+          if (isDiploOrCert) {
+            const examRows = await db
+              .select({ id: exams.id, ghlContactId: exams.ghlContactId, status: exams.status })
+              .from(exams)
+              .where(eq(exams.courseType, course.courseType as "diplo" | "cert"));
+            const contactIds = new Set(snapshotRows.map((r) => r.ghlContactId));
+            for (const row of examRows) {
+              if (contactIds.has(row.ghlContactId)) {
+                if (!examByContactSnap[row.ghlContactId] || row.id > examByContactSnap[row.ghlContactId].id) {
+                  examByContactSnap[row.ghlContactId] = { id: row.id, status: row.status };
+                }
+              }
+            }
+          }
+          const snapshotTakenAt = snapshotRows[0].snapshotTakenAt;
+          const participants = snapshotRows.map((r) => {
+            const name = [r.firstName, r.lastName].filter(Boolean).join(" ") || r.ghlContactId;
+            const examInfo = isDiploOrCert ? (examByContactSnap[r.ghlContactId] ?? null) : null;
+            return {
+              appointmentId: r.ghlAppointmentId,
+              contactId: r.ghlContactId,
+              name,
+              email: isAdmin ? (r.email ?? "") : "",
+              phone: r.phone ?? "",
+              showed: r.appointmentStatus === "showed" || r.appointmentStatus === "show",
+              noShow: r.appointmentStatus === "no_show" || r.appointmentStatus === "noshow",
+              status: r.appointmentStatus,
+              examId: examInfo?.id ?? null,
+              examStatus: examInfo?.status ?? null,
+            };
+          });
+          return {
+            participants,
+            courseType: course.courseType,
+            fromSnapshot: true,
+            snapshotTakenAt: snapshotTakenAt?.toISOString() ?? null,
+          };
+        }
+        // No snapshot exists — fall through to live GHL fetch
+        // (also triggers async snapshot creation for future calls)
+        takeSnapshotForCourse(input.courseDateId).catch(() => {});
+      }
+
       // Fetch appointments from GHL for this calendar within the course date window
       // Use a ±1 day window around startDate to catch all bookings
       const startMs = new Date(course.startDate).getTime() - 24 * 60 * 60 * 1000;
@@ -2096,5 +2155,21 @@ export const courseDatesRouter = router({
         hasMismatch: missingInGHL.length > 0,
         checkedAt: new Date().toISOString(),
       };
+    }),
+
+  // ─── Admin: manually trigger participant snapshot for a course ──────────────────
+  triggerSnapshot: adminProcedure
+    .input(z.object({ courseDateId: z.number().int() }))
+    .mutation(async ({ input }) => {
+      const result = await takeSnapshotForCourse(input.courseDateId);
+      return { count: result.count, skipped: result.skipped };
+    }),
+
+  // ─── Admin: refresh (re-fetch) participant snapshot for a course ────────────────
+  refreshSnapshot: adminProcedure
+    .input(z.object({ courseDateId: z.number().int() }))
+    .mutation(async ({ input }) => {
+      const result = await refreshSnapshotForCourse(input.courseDateId);
+      return { count: result.count };
     }),
 });

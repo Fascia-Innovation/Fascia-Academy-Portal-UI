@@ -366,26 +366,43 @@ export default function PendingActions() {
 
 // ─── Pending Messages Section ────────────────────────────────────────────────
 function PendingMessagesSection() {
-  const { data: messages, isLoading, refetch } = trpc.courseDates.listPendingMessages.useQuery();
+  const utils = trpc.useUtils();
+  const { data: msgData, isLoading, refetch } = trpc.courseMessages.listPending.useQuery();
   const [reviewMsg, setReviewMsg] = useState<any | null>(null);
   const [editedSubject, setEditedSubject] = useState("");
   const [editedBody, setEditedBody] = useState("");
   const [adminNote, setAdminNote] = useState("");
 
-  const reviewMutation = trpc.courseDates.reviewMessage.useMutation({
+  const approveMutation = trpc.courseMessages.approveAndSend.useMutation({
     onSuccess: (data) => {
-      toast.success(data.action === "approved" ? "Message approved and sent" : "Message rejected");
+      toast.success(`Message approved and sent to ${data.sentCount} recipient${data.sentCount !== 1 ? "s" : ""}${
+        data.errors.length > 0 ? ` (${data.errors.length} failed)` : ""
+      }`);
       setReviewMsg(null);
       refetch();
+      utils.courseMessages.listPending.invalidate();
+    },
+    onError: (err) => toast.error(`Failed to send: ${err.message}`),
+  });
+
+  const rejectMutation = trpc.courseMessages.reject.useMutation({
+    onSuccess: () => {
+      toast.success("Message rejected — course leader notified");
+      setReviewMsg(null);
+      refetch();
+      utils.courseMessages.listPending.invalidate();
     },
     onError: (err) => toast.error(`Failed: ${err.message}`),
   });
 
-  if (isLoading || !messages || messages.length === 0) return null;
+  const messages = (msgData as any)?.messages ?? [];
+  if (isLoading || messages.length === 0) return null;
 
   const COURSE_LABELS: Record<string, string> = {
     intro: "Intro", diplo: "Diplo", cert: "Cert", vidare: "Vidare",
   };
+
+  const isMutating = approveMutation.isPending || rejectMutation.isPending;
 
   return (
     <div className="space-y-3 mt-6">
@@ -393,7 +410,8 @@ function PendingMessagesSection() {
         <Mail className="h-5 w-5" /> Pending Messages ({messages.length})
       </h2>
       <p className="text-sm text-muted-foreground">
-        Course leaders have submitted messages for review. Approved messages will be sent from info@fasciaacademy.com.
+        Course leaders have submitted messages for review. Approved messages will be sent from <strong>info@fasciaacademy.com</strong>.
+        You may edit the subject or body before approving.
       </p>
       <div className="space-y-2">
         {messages.map((msg: any) => (
@@ -407,8 +425,11 @@ function PendingMessagesSection() {
                   </Badge>
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  From <strong>{msg.authorName}</strong> · {COURSE_LABELS[msg.courseType] || msg.courseType} {msg.courseCity}
-                  {msg.courseDate && ` · ${new Date(msg.courseDate).toLocaleDateString("en-SE", { month: "short", day: "numeric" })}`}
+                  From <strong>{msg.authorName}</strong>
+                  {msg.courseLeaderName && msg.courseLeaderName !== msg.authorName && ` (for ${msg.courseLeaderName})`}
+                  {" \u00b7 "}{COURSE_LABELS[msg.courseType] || msg.courseType}
+                  {msg.courseCity && ` \u00b7 ${msg.courseCity}`}
+                  {msg.courseStartDate && ` \u00b7 ${new Date(msg.courseStartDate).toLocaleDateString("en-SE", { month: "short", day: "numeric", year: "numeric" })}`}
                 </p>
                 <p className="text-sm text-foreground mt-2 whitespace-pre-wrap line-clamp-3">{msg.body}</p>
               </div>
@@ -436,9 +457,12 @@ function PendingMessagesSection() {
       <Dialog open={!!reviewMsg} onOpenChange={(v) => !v && setReviewMsg(null)}>
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Review Message</DialogTitle>
+            <DialogTitle>Review Message from {reviewMsg?.authorName}</DialogTitle>
             <DialogDescription>
-              From {reviewMsg?.authorName}. You can edit the message before approving. It will be sent from info@fasciaacademy.com.
+              {reviewMsg?.courseLeaderName} \u00b7 {COURSE_LABELS[reviewMsg?.courseType] || reviewMsg?.courseType}
+              {reviewMsg?.courseCity && ` \u00b7 ${reviewMsg.courseCity}`}
+              {reviewMsg?.courseStartDate && ` \u00b7 ${new Date(reviewMsg.courseStartDate).toLocaleDateString("en-SE")}`}
+              <br />You can edit the subject and body before approving. Message will be sent from info@fasciaacademy.com.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -455,46 +479,44 @@ function PendingMessagesSection() {
               <Textarea
                 value={editedBody}
                 onChange={(e) => setEditedBody(e.target.value)}
-                rows={6}
+                rows={7}
               />
             </div>
             <div>
-              <label className="text-sm font-medium block mb-1">Admin note (optional, visible to course leader)</label>
+              <label className="text-sm font-medium block mb-1">Admin note (optional \u2014 visible to course leader)</label>
               <Textarea
                 value={adminNote}
                 onChange={(e) => setAdminNote(e.target.value)}
                 rows={2}
-                placeholder="Reason for rejection or feedback..."
+                placeholder="Feedback or reason for rejection..."
               />
             </div>
           </div>
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setReviewMsg(null)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setReviewMsg(null)} disabled={isMutating}>Cancel</Button>
             <Button
               variant="outline"
               className="text-red-600 border-red-200 hover:bg-red-50"
-              disabled={reviewMutation.isPending}
-              onClick={() => reviewMutation.mutate({
+              disabled={isMutating || !adminNote.trim()}
+              onClick={() => rejectMutation.mutate({
                 messageId: reviewMsg.id,
-                action: "reject",
-                adminNote: adminNote || undefined,
+                adminNote,
               })}
             >
-              {reviewMutation.isPending && <Loader2 className="h-3 w-3 animate-spin mr-1" />}
+              {rejectMutation.isPending && <Loader2 className="h-3 w-3 animate-spin mr-1" />}
               Reject
             </Button>
             <Button
               className="bg-emerald-600 hover:bg-emerald-700 text-white"
-              disabled={reviewMutation.isPending || !editedSubject.trim() || !editedBody.trim()}
-              onClick={() => reviewMutation.mutate({
+              disabled={isMutating || !editedSubject.trim() || !editedBody.trim()}
+              onClick={() => approveMutation.mutate({
                 messageId: reviewMsg.id,
-                action: "approve",
-                editedSubject: editedSubject !== reviewMsg.subject ? editedSubject : undefined,
-                editedBody: editedBody !== reviewMsg.body ? editedBody : undefined,
+                subject: editedSubject !== reviewMsg.subject ? editedSubject : undefined,
+                body: editedBody !== reviewMsg.body ? editedBody : undefined,
                 adminNote: adminNote || undefined,
               })}
             >
-              {reviewMutation.isPending && <Loader2 className="h-3 w-3 animate-spin mr-1" />}
+              {approveMutation.isPending && <Loader2 className="h-3 w-3 animate-spin mr-1" />}
               <Send className="h-3 w-3 mr-1" /> Approve & Send
             </Button>
           </DialogFooter>

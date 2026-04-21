@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { CheckCircle, AlertCircle, Clock, ChevronRight, Plus, RefreshCw, Edit, Download, FileDown } from "lucide-react";
+import { CheckCircle, AlertCircle, Clock, ChevronRight, Plus, RefreshCw, Edit, Download, FileDown, Loader2, Users, TrendingUp, CheckSquare, Square } from "lucide-react";
 import { generateSettlementPdf } from "@/lib/settlementPdf";
 import { useDashAuth } from "@/contexts/DashAuthContext";
 
@@ -298,47 +298,208 @@ function SettlementDetail({
   );
 }
 
-// ─── Generate dialog ──────────────────────────────────────────────────────────
+// ─── Bulk Generate dialog with preview + checklist ────────────────────────────
 function GenerateDialog({ onClose, onGenerated }: { onClose: () => void; onGenerated: () => void }) {
   const now = new Date();
   const [year, setYear]   = useState(now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear());
-  const [month, setMonth] = useState(now.getMonth() === 0 ? 12 : now.getMonth()); // previous month
+  const [month, setMonth] = useState(now.getMonth() === 0 ? 12 : now.getMonth());
+  const [step, setStep]   = useState<"config" | "preview">("config");
+  // Map of userId -> included (true = will generate)
+  const [included, setIncluded] = useState<Record<number, boolean>>({});
 
-  const generateMut = trpc.settlements.generate.useMutation({
+  const previewQuery = trpc.settlements.previewBulkGenerate.useQuery(
+    { year, month },
+    { enabled: step === "preview", staleTime: 0 }
+  );
+
+  const bulkGenerateMut = trpc.settlements.bulkGenerate.useMutation({
     onSuccess: (data) => {
       const generated = data.results.filter((r: { status: string }) => r.status === "generated").length;
       const skipped   = data.results.filter((r: { status: string }) => r.status.startsWith("skipped")).length;
-      toast.success(`Generated ${generated} settlement(s)`, { description: `${skipped} skipped (no data or already exists)` });
+      const errors    = data.results.filter((r: { status: string }) => r.status.startsWith("error")).length;
+      toast.success(`Generated ${generated} settlement(s)`, {
+        description: [
+          skipped > 0 && `${skipped} skipped`,
+          errors > 0 && `${errors} error(s)`,
+        ].filter(Boolean).join(" · ") || "All done!",
+      });
       onGenerated();
       onClose();
     },
     onError: (err) => toast.error(err.message),
   });
 
+  // When preview loads, initialize all non-existing users as included
+  const preview = previewQuery.data?.preview ?? [];
+  const isPreviewLoading = previewQuery.isLoading && step === "preview";
+
+  function handleLoadPreview() {
+    setStep("preview");
+    // Reset included state
+    setIncluded({});
+  }
+
+  function getIncluded(userId: number): boolean {
+    // Default: include if not already exists
+    const item = preview.find((p) => p.userId === userId);
+    if (userId in included) return included[userId];
+    return item ? !item.alreadyExists : true;
+  }
+
+  function toggleUser(userId: number) {
+    setIncluded((prev) => ({ ...prev, [userId]: !getIncluded(userId) }));
+  }
+
+  function toggleAll(value: boolean) {
+    const newState: Record<number, boolean> = {};
+    for (const p of preview) {
+      if (!p.alreadyExists) newState[p.userId] = value;
+    }
+    setIncluded(newState);
+  }
+
+  const selectedIds = preview.filter((p) => getIncluded(p.userId) && !p.alreadyExists).map((p) => p.userId);
+  const totalPayout = preview
+    .filter((p) => getIncluded(p.userId) && !p.alreadyExists)
+    .reduce((sum, p) => sum + p.estimatedPayout, 0);
+  const allNewSelected = preview.filter((p) => !p.alreadyExists).every((p) => getIncluded(p.userId));
+  const noneNewSelected = preview.filter((p) => !p.alreadyExists).every((p) => !getIncluded(p.userId));
+
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">Generate settlements for all active course leaders and affiliates for the selected month. Skips users who already have a settlement for that period.</p>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <Label>Year</Label>
-          <Input type="number" value={year} onChange={(e) => setYear(Number(e.target.value))} min={2024} max={2030} />
-        </div>
-        <div>
-          <Label>Month</Label>
-          <Select value={String(month)} onValueChange={(v) => setMonth(Number(v))}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {MONTHS.map((m, i) => <SelectItem key={i + 1} value={String(i + 1)}>{m}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-      <DialogFooter>
-        <Button variant="ghost" onClick={onClose}>Cancel</Button>
-        <Button onClick={() => generateMut.mutate({ year, month })} disabled={generateMut.isPending}>
-          {generateMut.isPending ? "Generating..." : "Generate"}
-        </Button>
-      </DialogFooter>
+      {step === "config" && (
+        <>
+          <p className="text-sm text-muted-foreground">
+            Select a period and preview which course leaders and affiliates have bookings. You can then choose who to include before generating.
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Year</Label>
+              <Input type="number" value={year} onChange={(e) => setYear(Number(e.target.value))} min={2024} max={2030} />
+            </div>
+            <div>
+              <Label>Month</Label>
+              <Select value={String(month)} onValueChange={(v) => setMonth(Number(v))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {MONTHS.map((m, i) => <SelectItem key={i + 1} value={String(i + 1)}>{m}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={onClose}>Cancel</Button>
+            <Button onClick={handleLoadPreview}>
+              <TrendingUp className="h-4 w-4 mr-2" /> Preview
+            </Button>
+          </DialogFooter>
+        </>
+      )}
+
+      {step === "preview" && (
+        <>
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold">
+              {MONTHS[month - 1]} {year} — {preview.length} user{preview.length !== 1 ? "s" : ""} with bookings
+            </h3>
+            <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => setStep("config")}>
+              ← Change period
+            </Button>
+          </div>
+
+          {isPreviewLoading && (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              <span className="ml-2 text-sm text-muted-foreground">Loading GHL data…</span>
+            </div>
+          )}
+
+          {!isPreviewLoading && preview.length === 0 && (
+            <div className="text-center py-8 text-muted-foreground text-sm">
+              No users with bookings found for this period.
+            </div>
+          )}
+
+          {!isPreviewLoading && preview.length > 0 && (
+            <>
+              {/* Select all / none */}
+              <div className="flex items-center gap-3 text-xs text-muted-foreground border-b border-border pb-2">
+                <button
+                  className="flex items-center gap-1 hover:text-foreground"
+                  onClick={() => toggleAll(!allNewSelected)}
+                >
+                  {allNewSelected ? <CheckSquare className="h-3.5 w-3.5" /> : <Square className="h-3.5 w-3.5" />}
+                  {allNewSelected ? "Deselect all" : "Select all"}
+                </button>
+                <span>·</span>
+                <span>{selectedIds.length} selected</span>
+                {totalPayout !== 0 && (
+                  <span>· Est. total payout: <strong>{totalPayout.toLocaleString("sv-SE", { maximumFractionDigits: 0 })} {preview.find((p) => getIncluded(p.userId))?.currency ?? "SEK"}</strong></span>
+                )}
+              </div>
+
+              <div className="space-y-1 max-h-72 overflow-y-auto">
+                {preview.map((p) => {
+                  const isIncluded = getIncluded(p.userId);
+                  return (
+                    <div
+                      key={p.userId}
+                      className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors ${
+                        p.alreadyExists
+                          ? "opacity-50 cursor-default bg-muted/30"
+                          : isIncluded
+                          ? "bg-emerald-50 border border-emerald-200"
+                          : "bg-muted/20 border border-transparent hover:bg-muted/40"
+                      }`}
+                      onClick={() => !p.alreadyExists && toggleUser(p.userId)}
+                    >
+                      <div className="shrink-0">
+                        {p.alreadyExists ? (
+                          <CheckCircle className="h-4 w-4 text-emerald-500" />
+                        ) : isIncluded ? (
+                          <CheckSquare className="h-4 w-4 text-emerald-600" />
+                        ) : (
+                          <Square className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium">{p.name}</span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
+                            {p.role === "course_leader" ? "Leader" : "Affiliate"}
+                          </span>
+                          {p.alreadyExists && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700">Already generated</span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {p.bookingCount} booking{p.bookingCount !== 1 ? "s" : ""}
+                          {" · "}
+                          Est. {p.estimatedPayout.toLocaleString("sv-SE", { maximumFractionDigits: 0 })} {p.currency}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
+          <DialogFooter>
+            <Button variant="ghost" onClick={onClose}>Cancel</Button>
+            <Button
+              disabled={selectedIds.length === 0 || bulkGenerateMut.isPending || isPreviewLoading}
+              onClick={() => bulkGenerateMut.mutate({ year, month, userIds: selectedIds })}
+            >
+              {bulkGenerateMut.isPending ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Generating…</>
+              ) : (
+                <><Users className="h-4 w-4 mr-2" /> Generate {selectedIds.length} settlement{selectedIds.length !== 1 ? "s" : ""}</>
+              )}
+            </Button>
+          </DialogFooter>
+        </>
+      )}
     </div>
   );
 }

@@ -874,6 +874,16 @@ function ParticipantAttendanceList({ courseId, readOnly = false, isPast = false,
     { courseDateId: courseId },
     { enabled: open }
   );
+  const fromSnapshot = (data as any)?.fromSnapshot ?? false;
+  const snapshotTakenAt: string | null = (data as any)?.snapshotTakenAt ?? null;
+
+  const refreshSnapshotMutation = trpc.courseDates.refreshSnapshot.useMutation({
+    onSuccess: (result) => {
+      toast.success(`Snapshot refreshed — ${result.count} participants captured`);
+      refetch();
+    },
+    onError: (err) => toast.error(`Refresh failed: ${err.message}`),
+  });
 
   const markMutation = trpc.courseDates.markParticipantShowed.useMutation({
     onSuccess: (_data, variables) => {
@@ -971,9 +981,28 @@ function ParticipantAttendanceList({ courseId, readOnly = false, isPast = false,
           ) : (
             <>
               <div className="bg-muted/40 px-4 py-2 flex items-center justify-between border-b border-border">
-                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  {participants.length} booking{participants.length !== 1 ? "s" : ""}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    {participants.length} booking{participants.length !== 1 ? "s" : ""}
+                  </span>
+                  {fromSnapshot && snapshotTakenAt && (
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600 text-[10px] font-medium" title={`Snapshot taken at ${new Date(snapshotTakenAt).toLocaleString()}`}>
+                      <History className="h-3 w-3" />
+                      Snapshot {new Date(snapshotTakenAt).toLocaleDateString("en-SE")}
+                    </span>
+                  )}
+                  {fromSnapshot && user?.role === "admin" && (
+                    <button
+                      className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+                      disabled={refreshSnapshotMutation.isPending}
+                      onClick={() => refreshSnapshotMutation.mutate({ courseDateId: courseId })}
+                      title="Re-fetch participant list from GHL and update snapshot"
+                    >
+                      <RefreshCw className={`h-3 w-3 ${refreshSnapshotMutation.isPending ? "animate-spin" : ""}`} />
+                      Refresh
+                    </button>
+                  )}
+                </div>
                 <div className="flex items-center gap-2">
                   {!readOnly && unmarkedCount > 1 && (
                     <Button
@@ -1164,39 +1193,50 @@ function MessageComposer({ courseId, courseName }: { courseId: number; courseNam
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
 
-  const createDraft = trpc.courseDates.createMessageDraft.useMutation({
-    onSuccess: (data) => {
-      // Immediately submit for approval
-      submitForApproval.mutate({ messageId: data.messageId });
-    },
-    onError: (err) => toast.error(`Failed to create draft: ${err.message}`),
-  });
+  const utils = trpc.useUtils();
 
-  const submitForApproval = trpc.courseDates.submitMessageForApproval.useMutation({
-    onSuccess: () => {
-      toast.success("Message sent for admin approval");
-      setSubmitted(true);
-      setSubject("");
-      setBody("");
-    },
-    onError: (err) => toast.error(`Failed to submit: ${err.message}`),
-  });
-
-  const messagesQuery = trpc.courseDates.listMessages.useQuery(
+  const recipientQuery = trpc.courseMessages.getRecipientCount.useQuery(
     { courseDateId: courseId },
     { enabled: open }
   );
 
-  const isPending = createDraft.isPending || submitForApproval.isPending;
-  const messages = messagesQuery.data ?? [];
+  const saveOrSubmit = trpc.courseMessages.saveOrSubmit.useMutation({
+    onSuccess: () => {
+      toast.success("Message submitted for admin approval");
+      setSubmitted(true);
+      setSubject("");
+      setBody("");
+      setEditingMessageId(null);
+      utils.courseMessages.listForCourse.invalidate({ courseDateId: courseId });
+    },
+    onError: (err) => toast.error(`Failed to submit: ${err.message}`),
+  });
+
+  const messagesQuery = trpc.courseMessages.listForCourse.useQuery(
+    { courseDateId: courseId },
+    { enabled: open }
+  );
+
+  const isPending = saveOrSubmit.isPending;
+  const messages = (messagesQuery.data as any)?.messages ?? [];
+  const recipientCount = recipientQuery.data?.emailCount ?? 0;
+  const hasSnapshot = recipientQuery.data?.hasSnapshot ?? false;
+
+  const startEdit = (m: { id: number; subject: string; body: string }) => {
+    setEditingMessageId(m.id);
+    setSubject(m.subject);
+    setBody(m.body);
+    setSubmitted(false);
+  };
 
   const statusBadge = (status: string) => {
     const map: Record<string, { label: string; cls: string }> = {
       draft: { label: "Draft", cls: "bg-gray-100 text-gray-600" },
       pending_approval: { label: "Awaiting approval", cls: "bg-amber-100 text-amber-800" },
       approved: { label: "Sent", cls: "bg-emerald-100 text-emerald-700" },
-      rejected: { label: "Rejected", cls: "bg-red-100 text-red-700" },
+      rejected: { label: "Rejected — edit & resubmit", cls: "bg-red-100 text-red-700" },
     };
     const s = map[status] || map.draft;
     return <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${s.cls}`}>{s.label}</span>;
@@ -1217,10 +1257,21 @@ function MessageComposer({ courseId, courseName }: { courseId: number; courseNam
         <div className="mt-3 border border-border rounded-lg p-4 space-y-4">
           <p className="text-xs text-muted-foreground">
             Write a message to all participants of this course. The message will be reviewed by admin before being sent from <strong>info@fasciaacademy.com</strong>.
+            {hasSnapshot && recipientCount > 0 && (
+              <span className="ml-1 font-medium text-foreground">{recipientCount} recipient{recipientCount !== 1 ? "s" : ""} with email.</span>
+            )}
+            {!hasSnapshot && (
+              <span className="ml-1 text-amber-600">Recipient list will be determined at send time.</span>
+            )}
           </p>
 
           {!submitted ? (
             <div className="space-y-3">
+              {editingMessageId && (
+                <div className="flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+                  <Pencil className="h-3 w-3" /> Editing rejected message — fix and resubmit
+                </div>
+              )}
               <div>
                 <Label className="text-xs">Subject</Label>
                 <Input
@@ -1239,15 +1290,28 @@ function MessageComposer({ courseId, courseName }: { courseId: number; courseNam
                   className="mt-1 text-sm min-h-[100px]"
                 />
               </div>
-              <Button
-                size="sm"
-                className="h-8 text-xs gap-1.5"
-                disabled={!subject.trim() || !body.trim() || isPending}
-                onClick={() => createDraft.mutate({ courseDateId: courseId, subject, body })}
-              >
-                {isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
-                Submit for approval
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  className="h-8 text-xs gap-1.5"
+                  disabled={!subject.trim() || !body.trim() || isPending}
+                  onClick={() => saveOrSubmit.mutate({
+                    courseDateId: courseId,
+                    subject,
+                    body,
+                    action: "submit",
+                    messageId: editingMessageId ?? undefined,
+                  })}
+                >
+                  {isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+                  {editingMessageId ? "Resubmit for approval" : "Submit for approval"}
+                </Button>
+                {editingMessageId && (
+                  <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => { setEditingMessageId(null); setSubject(""); setBody(""); }}>
+                    Cancel
+                  </Button>
+                )}
+              </div>
             </div>
           ) : (
             <div className="text-center py-4">
@@ -1264,10 +1328,10 @@ function MessageComposer({ courseId, courseName }: { courseId: number; courseNam
             <div className="border-t border-border pt-3">
               <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Previous messages</h4>
               <div className="space-y-2">
-                {messages.map((m) => (
+                {messages.map((m: any) => (
                   <div key={m.id} className="flex items-start justify-between gap-2 p-2 rounded bg-muted/30">
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-xs font-medium truncate">{m.subject}</span>
                         {statusBadge(m.status)}
                       </div>
@@ -1275,10 +1339,17 @@ function MessageComposer({ courseId, courseName }: { courseId: number; courseNam
                         {new Date(m.createdAt).toLocaleDateString("en-SE")}
                         {m.sentAt && ` · Sent to ${m.recipientCount} recipient${m.recipientCount !== 1 ? "s" : ""}`}
                       </p>
-                      {m.adminNote && m.status === "rejected" && (
-                        <p className="text-[10px] text-red-600 mt-1">Admin note: {m.adminNote}</p>
+                      {m.adminNote && (
+                        <p className="text-[10px] mt-1 text-amber-700">
+                          <strong>Admin note:</strong> {m.adminNote}
+                        </p>
                       )}
                     </div>
+                    {m.status === "rejected" && !editingMessageId && (
+                      <Button variant="outline" size="sm" className="h-6 text-[10px] shrink-0" onClick={() => startEdit(m)}>
+                        <Pencil className="h-2.5 w-2.5 mr-0.5" /> Edit
+                      </Button>
+                    )}
                   </div>
                 ))}
               </div>

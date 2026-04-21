@@ -476,7 +476,13 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
     enabled: user?.role === "admin",
     refetchInterval: 60_000, // refresh every 60s
   });
-  const pendingCount = (pendingItems as unknown[] | undefined)?.length ?? 0;
+  const { data: pendingMsgData } = trpc.courseMessages.listPending.useQuery(undefined, {
+    enabled: user?.role === "admin",
+    refetchInterval: 60_000,
+  });
+  const pendingCourseCount = (pendingItems as unknown[] | undefined)?.length ?? 0;
+  const pendingMsgCount = ((pendingMsgData as any)?.messages as unknown[] | undefined)?.length ?? 0;
+  const pendingCount = pendingCourseCount + pendingMsgCount;
 
   // Fetch leader notifications for course leader bell
   const { data: leaderNotifData } = trpc.courseLeader.leaderNotifications.useQuery(undefined, {

@@ -333,3 +333,24 @@ export const certificateTemplates = mysqlTable("certificate_templates", {
 
 export type CertificateTemplate = typeof certificateTemplates.$inferSelect;
 export type InsertCertificateTemplate = typeof certificateTemplates.$inferInsert;
+
+/**
+ * Course participant snapshots — taken at course start time (or shortly after).
+ * Captures all registered participants regardless of showed/noshow status.
+ * Used as primary data source for past course participant lists (instead of
+ * live GHL fetch). Falls back to live GHL if no snapshot exists.
+ */
+export const courseParticipantSnapshots = mysqlTable("course_participant_snapshots", {
+  id: int("id").autoincrement().primaryKey(),
+  courseDateId: int("courseDateId").notNull(),          // references course_dates.id
+  ghlAppointmentId: varchar("ghlAppointmentId", { length: 64 }).notNull(),
+  ghlContactId: varchar("ghlContactId", { length: 64 }).notNull(),
+  firstName: varchar("firstName", { length: 255 }).notNull().default(""),
+  lastName: varchar("lastName", { length: 255 }).notNull().default(""),
+  phone: varchar("phone", { length: 64 }),
+  email: varchar("email", { length: 320 }),             // stored but only visible to admin
+  appointmentStatus: varchar("appointmentStatus", { length: 64 }).notNull().default("confirmed"),
+  snapshotTakenAt: timestamp("snapshotTakenAt").defaultNow().notNull(),
+});
+export type CourseParticipantSnapshot = typeof courseParticipantSnapshots.$inferSelect;
+export type InsertCourseParticipantSnapshot = typeof courseParticipantSnapshots.$inferInsert;

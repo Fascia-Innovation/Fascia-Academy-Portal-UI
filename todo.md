@@ -526,3 +526,34 @@
 - [x] Backend: fetch live bookedSeats and maxSeats from GHL in getCourseList (remove DB dependency)
 - [x] Frontend: remove Max Seats and Booked Seats fields from Add/Edit Course Date form
 - [x] Frontend: show live booked/max in course overview list from GHL data
+
+## Round 20: Participant Snapshot at Course Start (Phase 9)
+- [x] DB: Add `course_participant_snapshots` table (id, courseDateId, ghlContactId, firstName, lastName, phone, appointmentStatus, snapshotTakenAt)
+- [x] Backend: snapshotJob — background job runs every hour, takes snapshot for courses whose startDate is within the last 2 hours (if no snapshot exists yet)
+- [x] Backend: triggerSnapshot tRPC mutation (admin can manually trigger snapshot for a course)
+- [x] Backend: getCourseParticipants — use snapshot as primary source for past courses, fall back to live GHL if no snapshot exists
+- [x] Frontend: show "Snapshot taken at [time]" indicator in participant list for past courses
+- [x] Frontend: admin "Refresh snapshot" button on past course participant lists
+
+## Round 21: Mail-to-Participants (Phase 10)
+- [x] DB: `course_messages` table (id, courseDateId, senderId, subject, body, adminNote, status: draft/pending/approved/sent/rejected, sentAt, createdAt)
+- [x] Backend: createMessage mutation (course leader creates draft)
+- [x] Backend: submitMessage mutation (course leader submits for approval)
+- [x] Backend: approveMessage mutation (admin approves + optionally edits subject/body, triggers send via GHL Conversations API)
+- [x] Backend: rejectMessage mutation (admin rejects with note)
+- [x] Backend: reviseMessage mutation (course leader edits rejected message and resubmits)
+- [x] Backend: listMessages query (admin: all; course leader: own)
+- [x] Backend: send email via GHL Conversations API to all participants (course leader never sees email addresses)
+- [x] Frontend: "Message participants" button on course card in MyCourses
+- [x] Frontend: compose dialog — subject + body, shows participant count (not names/emails), submit for approval
+- [x] Frontend: message status list in MyCourses (pending/approved/sent/rejected per course)
+- [x] Frontend: revise dialog for rejected messages (edit + resubmit)
+- [x] Frontend: admin approval queue — list of pending messages, edit + approve/reject with note
+- [x] Frontend: admin message history per course
+
+## Round 22: Bulk Settlement Generation
+- [x] Backend: bulkPreview query — returns list of active users (course_leader + affiliate) with bookings in selected month, booking count and estimated payout
+- [x] Backend: bulkGenerate mutation — generates settlements for selected user IDs, skips users with 0 bookings, returns results per user
+- [x] Frontend: "Generate All" button on Settlements admin list page
+- [x] Frontend: bulk preview dialog — month picker, checklist of eligible users (pre-checked), booking count + estimated payout per user, confirm button
+- [x] Frontend: progress feedback during bulk generation (success/error per user)

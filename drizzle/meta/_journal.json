@@ -99,6 +99,13 @@
       "when": 1776674141250,
       "tag": "0013_glossy_greymalkin",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "5",
+      "when": 1776747644928,
+      "tag": "0014_normal_nomad",
+      "breakpoints": true
     }
   ]
 }

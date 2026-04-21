@@ -430,6 +430,223 @@ export const settlementsRouter = router({
     }),
 
   /**
+   * Admin: update generate to accept optional userIds list for selective generation.
+   * Also adds support for skipping users with 0 bookings (already done via null return).
+   */
+
+  /**
+   * Admin: preview which users would get settlements for a given month.
+   * Returns a list of users with estimated payout and booking count.
+   * Does NOT write anything to the database.
+   */
+  previewBulkGenerate: publicProcedure
+    .input(z.object({ year: z.number(), month: z.number().min(1).max(12) }))
+    .query(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      const allUsers = await getAllDashboardUsers();
+      const activeUsers = allUsers.filter(
+        (u) => u.active && (u.role === "course_leader" || u.role === "affiliate")
+      );
+
+      // Fetch already-existing settlements for this period
+      const existingRows = await db
+        .select({ userId: settlements.userId })
+        .from(settlements)
+        .where(
+          and(
+            eq(settlements.periodYear, input.year),
+            eq(settlements.periodMonth, input.month),
+            sql`${settlements.status} != 'amended'`
+          )
+        );
+      const existingUserIds = new Set(existingRows.map((r) => r.userId));
+
+      // Fetch GHL data once for all users
+      const { start, end } = getMonthRange(input.year, input.month);
+      const [calendars, appointments] = await Promise.all([
+        getCalendars(),
+        getAllAppointments(start, end),
+      ]);
+      const calMap = new Map(calendars.map((c) => [c.id, c]));
+      const showedAppts = appointments.filter((a) =>
+        ["showed", "show"].includes((a.status ?? "").toLowerCase())
+      );
+
+      const preview: Array<{
+        userId: number;
+        name: string;
+        role: string;
+        estimatedPayout: number;
+        currency: string;
+        bookingCount: number;
+        alreadyExists: boolean;
+      }> = [];
+
+      for (const user of activeUsers) {
+        const alreadyExists = existingUserIds.has(user.id);
+        let estimatedPayout = 0;
+        let currency = "SEK";
+        let bookingCount = 0;
+
+        if (user.role === "course_leader") {
+          const userAppts = showedAppts.filter((a) => {
+            const cal = calMap.get(a.calendarId);
+            if (!cal) return false;
+            const leaderName = extractCourseLeaderName(cal.name);
+            if (user.ghlContactId) {
+              return a.contactId === user.ghlContactId || leaderName.toLowerCase() === user.name.toLowerCase();
+            }
+            return leaderName.toLowerCase() === user.name.toLowerCase();
+          });
+          const seenContacts = new Set<string>();
+          for (const appt of userAppts) {
+            if (!appt.contactId || seenContacts.has(appt.contactId)) continue;
+            seenContacts.add(appt.contactId);
+            const cal = calMap.get(appt.calendarId);
+            if (!cal) continue;
+            currency = detectCurrency(cal.name);
+            const courseType = detectCourseType(cal.name);
+            const allFields = appt.customFields ?? [];
+            const paidField = allFields.find(
+              (f) => f.id.toLowerCase().includes("paid_amount") || f.id.toLowerCase().includes("paidamount")
+            );
+            const rawPaid = paidField?.value;
+            const missingAmount = rawPaid === undefined || rawPaid === null || rawPaid === "";
+            const paidInclVat = missingAmount ? 0 : Math.max(0, Number(rawPaid) || 0);
+            const affiliateField = allFields.find(
+              (f) => f.id.toLowerCase().includes("affiliate_code") || f.id.toLowerCase().includes("affiliatecode")
+            );
+            const affiliateCode = affiliateField?.value ? String(affiliateField.value).trim() : "";
+            const typedCurrency = currency as "SEK" | "EUR";
+            const b = calculateBreakdown(paidInclVat, typedCurrency, courseType, affiliateCode || null);
+            let payout = b.courseLeaderPayout;
+            if (paidInclVat === 0) {
+              const margin = typedCurrency === "SEK" ? FA_MARGIN[courseType].sek : FA_MARGIN[courseType].eur;
+              payout = -margin;
+            }
+            estimatedPayout += payout;
+            bookingCount++;
+          }
+        } else if (user.role === "affiliate" && user.affiliateCode) {
+          for (const appt of showedAppts) {
+            const cal = calMap.get(appt.calendarId);
+            if (!cal || detectCourseType(cal.name) !== "intro") continue;
+            const allFields = appt.customFields ?? [];
+            const affiliateField = allFields.find(
+              (f) => f.id.toLowerCase().includes("affiliate_code") || f.id.toLowerCase().includes("affiliatecode")
+            );
+            const contactAffCode = affiliateField?.value ? String(affiliateField.value).trim() : "";
+            if (contactAffCode.toLowerCase() !== user.affiliateCode!.toLowerCase()) continue;
+            const paidField = allFields.find(
+              (f) => f.id.toLowerCase().includes("paid_amount") || f.id.toLowerCase().includes("paidamount")
+            );
+            const rawPaid = paidField?.value;
+            const paidInclVat = rawPaid === undefined || rawPaid === null || rawPaid === "" ? 0 : Math.max(0, Number(rawPaid) || 0);
+            currency = detectCurrency(cal.name);
+            const netExclVat = paidInclVat / (1 + VAT_RATE);
+            estimatedPayout += netExclVat * AFFILIATE_COMMISSION_RATE;
+            bookingCount++;
+          }
+        }
+
+        // Only include users with bookings (skip empty)
+        if (bookingCount > 0) {
+          preview.push({
+            userId: user.id,
+            name: user.name,
+            role: user.role,
+            estimatedPayout: Math.round(estimatedPayout * 100) / 100,
+            currency,
+            bookingCount,
+            alreadyExists,
+          });
+        }
+      }
+
+      return { preview, year: input.year, month: input.month };
+    }),
+
+  /**
+   * Admin: bulk generate settlements for specific users (selective).
+   * Accepts optional userIds — if provided, only generates for those users.
+   */
+  bulkGenerate: publicProcedure
+    .input(z.object({
+      year:    z.number(),
+      month:   z.number().min(1).max(12),
+      userIds: z.array(z.number()).optional(), // if omitted, generates for all active users
+    }))
+    .mutation(async ({ input, ctx }) => {
+      await requireAdmin(ctx);
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      const allUsers = await getAllDashboardUsers();
+      let targetUsers = allUsers.filter(
+        (u) => u.active && (u.role === "course_leader" || u.role === "affiliate")
+      );
+
+      // If specific userIds provided, filter to only those
+      if (input.userIds && input.userIds.length > 0) {
+        const idSet = new Set(input.userIds);
+        targetUsers = targetUsers.filter((u) => idSet.has(u.id));
+      }
+
+      const results: Array<{ userId: number; name: string; status: string; settlementId?: number }> = [];
+
+      for (const user of targetUsers) {
+        // Check if already generated (non-amended)
+        const existing = await db
+          .select({ id: settlements.id })
+          .from(settlements)
+          .where(
+            and(
+              eq(settlements.userId, user.id),
+              eq(settlements.periodYear, input.year),
+              eq(settlements.periodMonth, input.month),
+              sql`${settlements.status} != 'amended'`
+            )
+          )
+          .limit(1);
+
+        if (existing.length > 0) {
+          results.push({ userId: user.id, name: user.name, status: "skipped_already_exists" });
+          continue;
+        }
+
+        try {
+          let settlementId: number | null = null;
+          if (user.role === "course_leader") {
+            settlementId = await generateForCourseLeader(user as DashboardUser, input.year, input.month);
+          } else if (user.role === "affiliate") {
+            settlementId = await generateForAffiliate(user as DashboardUser, input.year, input.month);
+          }
+
+          if (settlementId !== null) {
+            results.push({ userId: user.id, name: user.name, status: "generated", settlementId });
+          } else {
+            results.push({ userId: user.id, name: user.name, status: "skipped_no_data" });
+          }
+        } catch (err) {
+          results.push({ userId: user.id, name: user.name, status: `error: ${(err as Error).message}` });
+        }
+      }
+
+      const generated = results.filter((r) => r.status === "generated");
+      if (generated.length > 0) {
+        await notifyOwner({
+          title: `Settlements generated for ${input.year}-${String(input.month).padStart(2, "0")}`,
+          content: `${generated.length} settlement(s) generated and pending review.\n${generated.map((r) => `- ${r.name}`).join("\n")}`,
+        }).catch(() => {});
+      }
+
+      return { results };
+    }),
+
+  /**
    * List settlements. Admin sees all; others see only their own approved settlements.
    */
   list: publicProcedure
