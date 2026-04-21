@@ -622,3 +622,5 @@
 - [x] Fix Del 1 Slide 2: form URL SE → https://api.leadconnectorhq.com/widget/form/H7Sr0Jo215UWPUcOR5QE, EN → https://api.leadconnectorhq.com/widget/form/mYDJbenKalP3E0Zbgnhx
 - [x] Fix Del 1 Slide 6: license price 4000kr/€400 → 5000kr/€500 (initial registration price)
 - [x] Build Del 2: Portalen — Kursledarens vy (7 slides, interactive, Swedish, fully editable)
+- [x] Del 2: Update all slides to use correct English nav names: Home, My Courses, My Statistics, My Settlements, Notifications (in topbar)
+- [x] Del 2: Fix sidebar mock to match actual portal UI (Home, My Courses, My Statistics, My Settlements; Notifications in topbar)

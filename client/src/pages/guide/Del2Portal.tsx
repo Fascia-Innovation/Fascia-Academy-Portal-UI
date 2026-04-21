@@ -135,12 +135,11 @@ function SlideOverview() {
     "FA-portalen är kursledarens arbetsyta i Fascia Academy. Här hanterar kursledaren sina kurser, ser sina avräkningar och kommunicerar med FA-teamet."
   );
   const navItems = getList(sid, "nav_items", [
-    "Statistik — översikt av kurser och intäkter",
-    "Mina kurser — registrera och hantera kurser",
-    "Avräkning — se och ladda ner månadsavräkningar",
-    "Meddelanden — kommunikation med FA-teamet",
-    "Notifikationer — viktiga uppdateringar och påminnelser",
-    "Inställningar — profil och kontoinformation",
+    "Home — välkomstsida med Action Items och Quick Stats",
+    "My Courses — registrera och hantera kurstillfällen",
+    "My Statistics — personlig statistik och intäktsöversikt",
+    "My Settlements — månadsavräkningar och faktureringsunderlag",
+    "Notifications — viktiga uppdateringar och påminnelser (i topbaren)",
   ]);
   return (
     <div className="space-y-6">
@@ -167,15 +166,14 @@ function SlideOverview() {
           </div>
         </div>
         <div className="space-y-3">
-          <EH3 sid={sid} fkey="sidebar_heading" def="Sidomenyn — kursledarens vy" />
+          <EH3 sid={sid} fkey="sidebar_heading" def="Sidomenyn — kursledarens vy (engelska)" />
           <div className="bg-[oklch(0.18_0.04_255)] rounded-xl p-3 border border-[oklch(0.28_0.04_255)] space-y-1">
-            <NavItem icon={BarChart2} label="Statistik" active />
-            <NavItem icon={BookOpen} label="Mina kurser" />
-            <NavItem icon={FileText} label="Avräkning" />
-            <NavItem icon={MessageSquare} label="Meddelanden" badge="2" />
-            <NavItem icon={Bell} label="Notifikationer" badge="5" />
-            <NavItem icon={Settings} label="Inställningar" />
+            <NavItem icon={BarChart2} label="Home" active />
+            <NavItem icon={BookOpen} label="My Courses" />
+            <NavItem icon={BarChart2} label="My Statistics" />
+            <NavItem icon={FileText} label="My Settlements" />
           </div>
+          <p className="text-xs text-[oklch(0.50_0.03_250)]">Notifications visas i topbaren (klocka-ikon), inte i sidomenyn.</p>
           <div>
             <p className="text-xs text-[oklch(0.50_0.03_250)] mb-2">Skärmdump — portalen (kursledarens vy)</p>
             <EImg sid={sid} fkey="portal_overview_screenshot" alt="Portalöversikt" label="Skärmdump från portalen — kursledarens startvy" />
@@ -191,20 +189,19 @@ function SlideStatistics() {
   const { editMode, getField, getList, save, saveList } = useEdit();
   const sid = "statistics";
   const intro = getField(sid, "intro_text",
-    "Statistiksidan är kursledarens startsida i portalen. Den ger en snabb översikt av aktiva kurser, kommande datum och intäkter."
+    "Home är kursledarens startsida i portalen. Den visar Action Items (viktiga uppgifter), nästa kurs och Quick Stats."
   );
   const widgets = getList(sid, "widgets", [
-    "Antal aktiva kurser — kurser med status Aktiv",
-    "Kommande kursdatum — nästa schemalagda kurstillfälle",
-    "Deltagare totalt — antal bokade deltagare över alla kurser",
-    "Senaste avräkning — belopp och datum för senaste utbetalning",
-    "Notifikationer — antal olästa meddelanden och notiser",
+    "Action Items — viktiga uppgifter som kräver åtgärd (t.ex. faktura att skicka)",
+    "Your Next Course — nästa schemalagda kurstillfälle med datum och plats",
+    "Quick Stats — Upcoming Courses, Showed this month, Total Payout",
+    "Quick Actions — genvägar till Register Course, My Courses, My Settlements, My Statistics",
   ]);
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-6">
         <div className="space-y-4">
-          <EH3 sid={sid} fkey="left_heading" def="Statistik — startsidan" />
+          <EH3 sid={sid} fkey="left_heading" def="Home — startsidan" />
           <EditableField value={intro} onSave={(v) => save(sid, "intro_text", v)} editMode={editMode} multiline>
             {(v) => <p className="text-sm text-[oklch(0.75_0.03_250)] leading-relaxed">{v}</p>}
           </EditableField>
@@ -227,13 +224,13 @@ function SlideStatistics() {
           </div>
         </div>
         <div className="space-y-3">
-          <EH3 sid={sid} fkey="mockup_heading" def="Exempelvy — statistikwidgets" />
+          <EH3 sid={sid} fkey="mockup_heading" def="Home — Quick Stats och Action Items" />
           <div className="grid grid-cols-2 gap-2">
             {[
-              { icon: BookOpen, label: "Aktiva kurser", value: "3" },
-              { icon: Calendar, label: "Nästa kurs", value: "12 maj" },
-              { icon: User, label: "Deltagare totalt", value: "47" },
-              { icon: DollarSign, label: "Senaste avräkning", value: "8 400 kr" },
+              { icon: BookOpen, label: "Upcoming Courses", value: "3" },
+              { icon: Calendar, label: "Next Course", value: "12 May" },
+              { icon: User, label: "Showed (this month)", value: "12" },
+              { icon: DollarSign, label: "Total Payout (6 mo)", value: "8 400 kr" },
             ].map((w, i) => (
               <div key={i} className="bg-[oklch(0.20_0.04_255)] rounded-xl p-3 border border-[oklch(0.28_0.04_255)]">
                 <div className="flex items-center gap-2 mb-1">
@@ -245,8 +242,8 @@ function SlideStatistics() {
             ))}
           </div>
           <div>
-            <p className="text-xs text-[oklch(0.50_0.03_250)] mb-2">Skärmdump — statistiksidan</p>
-            <EImg sid={sid} fkey="statistics_screenshot" alt="Statistiksida skärmdump" label="Skärmdump från portalen — Statistik / startsida" />
+            <p className="text-xs text-[oklch(0.50_0.03_250)] mb-2">Skärmdump — Home</p>
+            <EImg sid={sid} fkey="statistics_screenshot" alt="Home skärmdump" label="Skärmdump från portalen — Home (startsida)" />
           </div>
         </div>
       </div>
@@ -277,12 +274,12 @@ function SlideMyCourses() {
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-6">
         <div className="space-y-4">
-          <EH3 sid={sid} fkey="left_heading" def="Mina kurser" />
+          <EH3 sid={sid} fkey="left_heading" def="My Courses" />
           <EditableField value={intro} onSave={(v) => save(sid, "intro_text", v)} editMode={editMode} multiline>
             {(v) => <p className="text-sm text-[oklch(0.75_0.03_250)] leading-relaxed">{v}</p>}
           </EditableField>
           <div>
-            <EH3 sid={sid} fkey="steps_heading" def="Registrera en ny kurs" />
+            <EH3 sid={sid} fkey="steps_heading" def="Register new course" />
             <EditableList items={steps} onSave={(items) => saveList(sid, "registration_steps", items)} editMode={editMode}>
               {(items) => (
                 <ol className="space-y-2 mt-2">
@@ -300,7 +297,7 @@ function SlideMyCourses() {
           </div>
         </div>
         <div className="space-y-4">
-          <EH3 sid={sid} fkey="types_heading" def="Kurstyper" />
+          <EH3 sid={sid} fkey="types_heading" def="Kurstyper (Course Types)" />
           <EditableList items={courseTypes} onSave={(items) => saveList(sid, "course_types", items)} editMode={editMode}>
             {(items) => (
               <div className="space-y-2">
@@ -314,8 +311,8 @@ function SlideMyCourses() {
             )}
           </EditableList>
           <div>
-            <p className="text-xs text-[oklch(0.50_0.03_250)] mb-2">Skärmdump — Mina kurser</p>
-            <EImg sid={sid} fkey="my_courses_screenshot" alt="Mina kurser skärmdump" label="Skärmdump från portalen — Mina kurser" />
+            <p className="text-xs text-[oklch(0.50_0.03_250)] mb-2">Skärmdump — My Courses</p>
+            <EImg sid={sid} fkey="my_courses_screenshot" alt="My Courses skärmdump" label="Skärmdump från portalen — My Courses" />
           </div>
         </div>
       </div>
@@ -349,7 +346,7 @@ function SlideCourseForm() {
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-6">
         <div className="space-y-4">
-          <EH3 sid={sid} fkey="left_heading" def="Kursregistreringsformuläret" />
+          <EH3 sid={sid} fkey="left_heading" def="Register New Course — formuläret" />
           <EditableField value={intro} onSave={(v) => save(sid, "intro_text", v)} editMode={editMode} multiline>
             {(v) => <p className="text-sm text-[oklch(0.75_0.03_250)] leading-relaxed">{v}</p>}
           </EditableField>
@@ -433,7 +430,7 @@ function SlideSettlements() {
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-6">
         <div className="space-y-4">
-          <EH3 sid={sid} fkey="left_heading" def="Avräkning — My Settlements" />
+          <EH3 sid={sid} fkey="left_heading" def="My Settlements" />
           <EditableField value={intro} onSave={(v) => save(sid, "intro_text", v)} editMode={editMode} multiline>
             {(v) => <p className="text-sm text-[oklch(0.75_0.03_250)] leading-relaxed">{v}</p>}
           </EditableField>
@@ -484,16 +481,15 @@ function SlideNotifications() {
   const notifTypes = getList(sid, "notif_types", [
     "Ny bokning — en deltagare har bokat en av dina kurser",
     "Avbokning — en deltagare har avbokat",
-    "Kurs godkänd — admin har godkänt din kursregistrering",
-    "Avräkning klar — månadsavräkning finns tillgänglig",
-    "Påminnelse — faktura ska skickas till FA",
-    "Meddelande från FA — viktig information från teamet",
+    "Kurs godkänd — admin har godkänt din kursregistrering (Pending Actions)",
+    "Avräkning klar — månadsavräkning finns tillgänglig i My Settlements",
+    "Påminnelse — faktura ska skickas till FA (Action Item på Home)",
   ]);
   const msgInfo = getList(sid, "msg_info", [
-    "Direktkommunikation med FA-teamet",
-    "Ställ frågor om kurser, avräkningar eller tekniska problem",
-    "FA svarar inom 1–2 arbetsdagar",
-    "Alla meddelanden sparas i portalen",
+    "Notifications-ikonen (klocka) finns i topbaren — inte i sidomenyn",
+    "Klicka på klockan för att se alla notifikationer",
+    "Viktiga uppgifter visas även som Action Items på Home-sidan",
+    "Kontakta FA-teamet via e-post: info@fasciaacademy.com",
   ]);
   return (
     <div className="space-y-6">
@@ -555,11 +551,11 @@ function SlideSummary() {
   const sid = "summary";
   const summaryPoints = getList(sid, "summary_points", [
     "Portalen är kursledarens centrala arbetsyta hos FA",
-    "Statistik — snabb översikt av kurser och intäkter",
-    "Mina kurser — registrera och hantera kurstillfällen",
-    "Avräkning — månadsvis underlag för fakturering till FA",
-    "Meddelanden — direktkommunikation med FA-teamet",
-    "Notifikationer — automatiska uppdateringar vid viktiga händelser",
+    "Home — Action Items, nästa kurs och Quick Stats",
+    "My Courses — registrera och hantera kurstillfällen",
+    "My Statistics — personlig statistik och intäktsöversikt",
+    "My Settlements — månadsvis underlag för fakturering till FA",
+    "Notifications — klocka i topbaren, Action Items på Home",
   ]);
   const nextSteps = getList(sid, "next_steps", [
     "Del 3: Deltagare — från bokning till intyg",
@@ -623,11 +619,11 @@ function SlideSummary() {
 // ─── Slide registry ───────────────────────────────────────────────────────────
 const SLIDES = [
   { id: "overview", label: "Portalöversikt", component: SlideOverview },
-  { id: "statistics", label: "Statistik", component: SlideStatistics },
-  { id: "my_courses", label: "Mina kurser", component: SlideMyCourses },
-  { id: "course_form", label: "Kursregistrering", component: SlideCourseForm },
-  { id: "settlements", label: "Avräkning", component: SlideSettlements },
-  { id: "notifications", label: "Notifikationer", component: SlideNotifications },
+  { id: "statistics", label: "Home", component: SlideStatistics },
+  { id: "my_courses", label: "My Courses", component: SlideMyCourses },
+  { id: "course_form", label: "Register Course", component: SlideCourseForm },
+  { id: "settlements", label: "My Settlements", component: SlideSettlements },
+  { id: "notifications", label: "Notifications", component: SlideNotifications },
   { id: "summary", label: "Sammanfattning", component: SlideSummary },
 ];
 
