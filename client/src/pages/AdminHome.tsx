@@ -17,6 +17,7 @@ import {
   ArrowRight,
   BookOpen,
   CircleDot,
+  Camera,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -202,6 +203,27 @@ export default function AdminHome() {
             </div>
             <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors flex-shrink-0" />
           </button>
+
+          {/* Missing Snapshots — only shown when > 0 */}
+          {pendingTasks.missingSnapshots > 0 && (
+            <button
+              onClick={() => setLocation("/courses-admin")}
+              className="group flex items-center gap-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-left hover:border-amber-400 hover:shadow-sm transition-all sm:col-span-3"
+            >
+              <div className="flex-shrink-0 p-2.5 rounded-lg bg-amber-100 text-amber-600">
+                <Camera className="h-5 w-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-xs text-amber-700 font-medium">Courses starting within 24h — no participant snapshot</div>
+                <div className="text-sm text-amber-800 mt-0.5">
+                  {pendingTasks.missingSnapshots === 1
+                    ? "1 course is missing a snapshot. The auto-job will run within the hour, or trigger it manually from Courses."
+                    : `${pendingTasks.missingSnapshots} courses are missing snapshots. The auto-job will run within the hour, or trigger them manually from Courses.`}
+                </div>
+              </div>
+              <ChevronRight className="h-4 w-4 text-amber-500 group-hover:text-amber-700 transition-colors flex-shrink-0" />
+            </button>
+          )}
         </div>
 
         {pendingTasks.total === 0 && (

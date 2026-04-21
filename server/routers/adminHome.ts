@@ -15,6 +15,7 @@ import {
   settlements,
   courseLeaderMessages,
   dashboardUsers,
+  courseParticipantSnapshots,
   type DashboardUser,
 } from "../../drizzle/schema";
 
@@ -69,11 +70,34 @@ export const adminHomeRouter = router({
         .where(eq(courseLeaderMessages.status, "pending_approval")),
     ]);
 
+    // ── 1b. Courses starting within 24h that have no snapshot ─────────────────
+    const in24h = new Date(nowMs + 24 * 60 * 60 * 1000);
+    const approvedStartingSoon = await db
+      .select({ id: courseDates.id })
+      .from(courseDates)
+      .where(
+        and(
+          eq(courseDates.status, "approved"),
+          gte(courseDates.startDate, now),
+          lte(courseDates.startDate, in24h),
+        )
+      );
+    let missingSnapshotCount = 0;
+    if (approvedStartingSoon.length > 0) {
+      const soonIds = approvedStartingSoon.map((r) => r.id);
+      const snapshotted = await db
+        .selectDistinct({ courseDateId: courseParticipantSnapshots.courseDateId })
+        .from(courseParticipantSnapshots)
+        .where(sql`${courseParticipantSnapshots.courseDateId} IN (${sql.join(soonIds.map((id) => sql`${id}`), sql`, `)})`);
+      const snapshotIds = new Set(snapshotted.map((s) => s.courseDateId));
+      missingSnapshotCount = soonIds.filter((id) => !snapshotIds.has(id)).length;
+    }
     const pendingTasks = {
       courseSubmissions: pendingCoursesRows.length,
       settlements: pendingSettlementsRows.length,
       messages: pendingMessagesRows.length,
-      total: pendingCoursesRows.length + pendingSettlementsRows.length + pendingMessagesRows.length,
+      missingSnapshots: missingSnapshotCount,
+      total: pendingCoursesRows.length + pendingSettlementsRows.length + pendingMessagesRows.length + missingSnapshotCount,
     };
 
     // ── 2. Upcoming courses (next 7 days) ─────────────────────────────────────
