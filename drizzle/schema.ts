@@ -354,3 +354,22 @@ export const courseParticipantSnapshots = mysqlTable("course_participant_snapsho
 });
 export type CourseParticipantSnapshot = typeof courseParticipantSnapshots.$inferSelect;
 export type InsertCourseParticipantSnapshot = typeof courseParticipantSnapshots.$inferInsert;
+
+/**
+ * Guide content — stores admin-editable text fields for guide presentations.
+ * presentationId: e.g. "del1", "del2"
+ * slideId: e.g. "overview", "application"
+ * fieldKey: e.g. "intro_text", "bullets", "step_1"
+ * content: JSON string (plain text or array for bullet lists)
+ */
+export const guideContent = mysqlTable("guide_content", {
+  id: int("id").autoincrement().primaryKey(),
+  presentationId: varchar("presentationId", { length: 64 }).notNull(),
+  slideId: varchar("slideId", { length: 64 }).notNull(),
+  fieldKey: varchar("fieldKey", { length: 128 }).notNull(),
+  content: text("content").notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  updatedBy: varchar("updatedBy", { length: 255 }),
+});
+export type GuideContent = typeof guideContent.$inferSelect;
+export type InsertGuideContent = typeof guideContent.$inferInsert;

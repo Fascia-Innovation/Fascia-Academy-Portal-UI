@@ -599,3 +599,12 @@
 - [ ] Del 5: Portalen — Affiliate
 - [ ] Del 6: Portalen — Rättare (Exam)
 - [ ] Del 7: Kursdeltagare — Från bokning till certifikat
+
+## Guide — Inline Editing (Admin)
+
+- [x] DB: guide_content table (id, presentation_id, slide_id, field_key, content TEXT, updated_at, updated_by)
+- [x] Backend: guideRouter — getContent (by presentationId), upsertContent mutation (admin only)
+- [x] Frontend: EditableField component — click to edit inline, auto-save on blur/Enter, pencil icon on hover
+- [x] Frontend: EditableList component — editable bullet lists (add/remove/reorder items)
+- [x] Frontend: Del 1 slides — wrap all editable text fields with EditableField/EditableList
+- [x] Frontend: Edit mode toggle in top bar (admin only) — shows/hides edit affordances
