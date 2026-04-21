@@ -16,7 +16,8 @@ type UserForm = {
   password: string;
   name: string;
   role: "admin" | "course_leader" | "affiliate";
-  ghlContactId: string;
+  ghlUserId: string;       // GHL team member ID — for calendar matching
+  ghlContactId: string;   // GHL contact ID — for emails + calendar override
   affiliateCode: string;
   profileUrl: string; // link to course leader's profile page on fasciaacademy.com
   invoiceReference: string; // unique payment reference for settlements (e.g. "FK-001")
@@ -29,6 +30,7 @@ const EMPTY_FORM: UserForm = {
   password: "",
   name: "",
   role: "course_leader",
+  ghlUserId: "",
   ghlContactId: "",
   affiliateCode: "",
   profileUrl: "",
@@ -115,6 +117,7 @@ export default function UserManagement() {
       password: "",
       name: user.name,
       role: user.role,
+      ghlUserId: (user as any).ghlUserId ?? "",
       ghlContactId: user.ghlContactId ?? "",
       affiliateCode: user.affiliateCode ?? "",
       profileUrl: (user as any).profileUrl ?? "",
@@ -130,12 +133,23 @@ export default function UserManagement() {
       toast.error("Email, name, and role are required");
       return;
     }
+    if (form.role === "course_leader") {
+      if (!form.ghlUserId.trim()) {
+        toast.error("GHL User ID is required for course leaders");
+        return;
+      }
+      if (!form.ghlContactId.trim()) {
+        toast.error("GHL Contact ID is required for course leaders");
+        return;
+      }
+    }
     if (editId) {
       updateMutation.mutate({
         id: editId,
         email: form.email,
         name: form.name,
         role: form.role,
+        ghlUserId: form.ghlUserId || undefined,
         ghlContactId: form.ghlContactId || undefined,
         affiliateCode: form.affiliateCode || undefined,
         profileUrl: form.profileUrl || undefined,
@@ -151,6 +165,7 @@ export default function UserManagement() {
         password: form.password,
         name: form.name,
         role: form.role,
+        ghlUserId: form.ghlUserId || undefined,
         ghlContactId: form.ghlContactId || undefined,
         affiliateCode: form.affiliateCode || undefined,
         profileUrl: form.profileUrl || undefined,
@@ -334,12 +349,33 @@ export default function UserManagement() {
             {form.role === "course_leader" && (
               <>
                 <div className="space-y-1.5">
-                  <Label>GHL Calendar ID Override (optional)</Label>
-                  <Input value={form.ghlContactId} onChange={(e) => setForm({ ...form, ghlContactId: e.target.value })} placeholder="e.g. abc123xyz (from GHL calendar URL)" />
+                  <Label className="flex items-center gap-1">
+                    GHL User ID
+                    <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    value={form.ghlUserId}
+                    onChange={(e) => setForm({ ...form, ghlUserId: e.target.value })}
+                    placeholder="e.g. 7Ung4WwkTk8zuixJyjHK"
+                    className={!form.ghlUserId && form.role === "course_leader" ? "border-amber-400" : ""}
+                  />
                   <p className="text-xs text-muted-foreground">
-                    Only needed for shared/multi-leader calendars (e.g. "Fascia Academy Sollentuna").
-                    Leave blank if the GHL calendar name already contains this leader's name.
-                    Find the ID in GHL → Calendars → click calendar → copy ID from the URL.
+                    Required for calendar matching. Find it in GHL → Settings → Team Members → click the user → copy the ID from the URL (last part after <code>/team-members/</code>).
+                  </p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="flex items-center gap-1">
+                    GHL Contact ID
+                    <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    value={form.ghlContactId}
+                    onChange={(e) => setForm({ ...form, ghlContactId: e.target.value })}
+                    placeholder="e.g. w3NvixwYwIecBeD3E2mr"
+                    className={!form.ghlContactId && form.role === "course_leader" ? "border-amber-400" : ""}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Required for sending emails (settlement approvals, etc.). Find it in GHL → Contacts → open the course leader's contact card → copy the ID from the URL (last part after <code>/contacts/detail/</code>).
                   </p>
                 </div>
                 <div className="space-y-1.5">
