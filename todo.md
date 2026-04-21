@@ -566,3 +566,11 @@
 - [x] Frontend: AdminHome page — Activity Log section (last 10 events)
 - [x] Routing: wire AdminHome as default route for admin (replace current Home.tsx)
 - [x] Sidebar: add "Home" nav item for admin pointing to AdminHome
+
+## Round 24: Settlement Email + Participant Breakdown
+
+- [ ] Backend: send HTML email to course leader on settlement approval (participant table: firstName, courseDate, fullPrice, discount/affiliate if any, net)
+- [ ] PDF: add participant breakdown table to settlement PDF (same columns as email, conditional discount/affiliate rows)
+- [ ] Frontend portal: accordion per-participant breakdown in course leader settlement detail view (expand row for full economic breakdown)
+- [ ] Frontend admin: full economic breakdown per participant in admin settlement detail view (brutto, FA-marginal, transaktionsavgift, affiliate-avdrag, netto per rad)
+- [ ] Frontend: remove exam-related elements from course leader participant view (only showed matters for course leaders)

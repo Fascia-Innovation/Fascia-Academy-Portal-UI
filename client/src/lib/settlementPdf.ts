@@ -164,34 +164,51 @@ export function generateSettlementPdf(data: SettlementPdfData): void {
   y += 16;
 
   // ─── Participant lines ───────────────────────────────────────────────────
+  if (y > 240) { doc.addPage(); y = margin; }
   doc.setFontSize(8);
   doc.setFont("helvetica", "bold");
-  doc.text(`PARTICIPANTS (${lines.length})`, margin, y);
+  doc.setTextColor(0, 0, 0);
+  doc.text(`PARTICIPANT OVERVIEW (${lines.length})`, margin, y);
   y += 3;
 
-  // Data protection: only show participant name, never email
-  const tableBody = lines.map((l) => [
-    l.participantName,
-    l.courseType.charAt(0).toUpperCase() + l.courseType.slice(1),
-    l.courseDate,
-    l.affiliateCode || "—",
-    `${fmt(l.paidInclVat)}`,
-    `${fmt(l.payout)}`,
-  ]);
+  // Determine if any line has a discount/affiliate deduction
+  const hasDiscount = lines.some((l) => Number(l.affiliateDeduction) > 0 || l.affiliateCode);
+
+  // Data protection: only show first name, never email
+  const tableBody = lines.map((l) => {
+    const firstName = l.participantName.split(" ")[0] ?? l.participantName;
+    const discountText = Number(l.affiliateDeduction) > 0
+      ? `-${fmt(l.affiliateDeduction)}${l.affiliateCode ? ` (${l.affiliateCode})` : ""}`
+      : "—";
+    const row: string[] = [firstName, l.courseDate || "—", `${fmt(l.paidInclVat)}`];
+    if (hasDiscount) row.push(discountText);
+    row.push(`${fmt(l.payout)}`);
+    return row;
+  });
+
+  const tableHead: string[] = ["First Name", "Course Date", `Full Price (${cur})`];
+  if (hasDiscount) tableHead.push(`Discount (${cur})`);
+  tableHead.push(`Payout (${cur})`);
+
+  const lastColIdx = hasDiscount ? 4 : 3;
+  const discountColIdx = hasDiscount ? 3 : -1;
+  const colStyles: Record<number, object> = {
+    2: { halign: "right" as const },
+    [lastColIdx]: { halign: "right" as const, fontStyle: "bold" as const },
+  };
+  if (discountColIdx >= 0) {
+    colStyles[discountColIdx] = { halign: "right" as const, textColor: [180, 0, 0] as [number, number, number] };
+  }
 
   autoTable(doc, {
     startY: y,
-    head: [["Name", "Course", "Date", "Affiliate", `Paid (${cur})`, `Payout (${cur})`]],
+    head: [tableHead],
     body: tableBody,
     theme: "striped",
     margin: { left: margin, right: margin },
     styles: { fontSize: 7.5, cellPadding: 2 },
-    headStyles: { fillColor: [50, 50, 50], textColor: [255, 255, 255], fontSize: 7.5, fontStyle: "bold" },
-    columnStyles: {
-      0: { cellWidth: 40 },
-      4: { halign: "right" },
-      5: { halign: "right", fontStyle: "bold" },
-    },
+    headStyles: { fillColor: [30, 45, 74], textColor: [255, 255, 255], fontSize: 7.5, fontStyle: "bold" },
+    columnStyles: colStyles,
   });
 
   y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;

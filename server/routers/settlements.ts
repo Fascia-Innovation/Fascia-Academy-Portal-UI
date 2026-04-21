@@ -37,6 +37,7 @@ import {
   VAT_RATE,
 } from "../ghl";
 import { notifyOwner } from "../_core/notification";
+import { sendSettlementApprovalEmail, type SettlementEmailLine } from "../settlementEmail";
 
 // ─── Auth helpers ─────────────────────────────────────────────────────────────
 const DASH_SESSION = "fa_dash_session";
@@ -760,7 +761,13 @@ export const settlementsRouter = router({
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
 
       const rows = await db
-        .select({ settlement: settlements, userName: dashboardUsers.name, userEmail: dashboardUsers.email })
+        .select({
+          settlement:       settlements,
+          userName:         dashboardUsers.name,
+          userEmail:        dashboardUsers.email,
+          ghlContactId:     dashboardUsers.ghlContactId,
+          invoiceReference: dashboardUsers.invoiceReference,
+        })
         .from(settlements)
         .innerJoin(dashboardUsers, eq(settlements.userId, dashboardUsers.id))
         .where(eq(settlements.id, input.id))
@@ -776,6 +783,38 @@ export const settlementsRouter = router({
         .where(eq(settlements.id, input.id));
 
       const period = `${row.settlement.periodYear}-${String(row.settlement.periodMonth).padStart(2, "0")}`;
+
+      // Send approval email to course leader / affiliate via GHL
+      if (row.ghlContactId && row.userEmail) {
+        const emailLines = await db
+          .select()
+          .from(settlementLines)
+          .where(eq(settlementLines.settlementId, input.id))
+          .orderBy(settlementLines.courseDate, settlementLines.participantName);
+        const mappedLines: SettlementEmailLine[] = emailLines.map((l) => ({
+          participantName:    l.participantName,
+          courseDate:         l.courseDate ?? null,
+          paidInclVat:        Number(l.paidInclVat),
+          transactionFee:     Number(l.transactionFee),
+          faMargin:           Number(l.faMargin),
+          affiliateDeduction: Number(l.affiliateDeduction),
+          payout:             Number(l.payout),
+          affiliateCode:      l.affiliateCode ?? null,
+        }));
+        await sendSettlementApprovalEmail({
+          contactId:        row.ghlContactId,
+          recipientEmail:   row.userEmail,
+          recipientName:    row.userName,
+          periodYear:       row.settlement.periodYear,
+          periodMonth:      row.settlement.periodMonth,
+          currency:         row.settlement.currency,
+          totalPayout:      Number(row.settlement.totalPayout),
+          lines:            mappedLines,
+          invoiceReference: row.invoiceReference ?? null,
+          faCompany:        FA_COMPANY,
+        }).catch((err) => console.error("[settlements.approve] email error:", err));
+      }
+
       await notifyOwner({
         title: `Settlement approved: ${row.userName} (${period})`,
         content: `Settlement for ${row.userName} for ${period} has been approved.\nTotal payout: ${Number(row.settlement.totalPayout).toFixed(2)} ${row.settlement.currency}`,
