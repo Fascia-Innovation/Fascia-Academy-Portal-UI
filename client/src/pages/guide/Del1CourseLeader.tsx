@@ -773,9 +773,16 @@ export default function Del1CourseLeader() {
   const [editMode, setEditMode] = useState(false);
   const slide = SLIDES[currentSlide];
 
+  const utils = trpc.useUtils();
+
   // Load all content overrides from DB
   const { data: contentMap = {} } = trpc.guide.getContent.useQuery({ presentationId: PRES_ID });
-  const upsert = trpc.guide.upsertContent.useMutation();
+  const upsert = trpc.guide.upsertContent.useMutation({
+    onSuccess: () => {
+      // Refetch the content map so the UI reflects the saved value
+      void utils.guide.getContent.invalidate({ presentationId: PRES_ID });
+    },
+  });
 
   function goNext() { if (currentSlide < SLIDES.length - 1) setCurrentSlide(currentSlide + 1); }
   function goPrev() { if (currentSlide > 0) setCurrentSlide(currentSlide - 1); }
@@ -793,8 +800,13 @@ export default function Del1CourseLeader() {
   }, [contentMap]);
 
   const save = useCallback(async (slideId: string, fieldKey: string, value: string) => {
+    // Optimistically update the local cache so the UI shows the new value immediately
+    utils.guide.getContent.setData(
+      { presentationId: PRES_ID },
+      (old) => ({ ...(old ?? {}), [`${slideId}__${fieldKey}`]: value })
+    );
     await upsert.mutateAsync({ presentationId: PRES_ID, slideId, fieldKey, content: value });
-  }, [upsert]);
+  }, [upsert, utils]);
 
   return (
     <EditContext.Provider value={{ editMode, content: contentMap, save, getField, getList }}>
