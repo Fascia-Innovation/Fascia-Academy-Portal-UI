@@ -31,6 +31,7 @@ import { cn } from "@/lib/utils";
 import { trpc } from "@/lib/trpc";
 import { EditableField } from "@/components/guide/EditableField";
 import { EditableList } from "@/components/guide/EditableList";
+import { EditableImage } from "@/components/guide/EditableImage";
 
 // ─── Presentation ID ──────────────────────────────────────────────────────────
 const PRES_ID = "del1";
@@ -128,6 +129,34 @@ function EH3({ sid, fkey, def }: { sid: string; fkey: string; def: string }) {
   );
 }
 
+// Helper: editable image placeholder
+function EImg({ sid, fkey, alt, label }: { sid: string; fkey: string; alt: string; label: string }) {
+  const { editMode, getField, save } = useEdit();
+  const src = getField(sid, fkey, "") || null;
+  return (
+    <EditableImage
+      presentationId={PRES_ID}
+      slideId={sid}
+      fieldKey={fkey}
+      src={src}
+      alt={alt}
+      onSave={(url) => save(sid, fkey, url)}
+      editMode={editMode}
+      className="w-full rounded-xl overflow-hidden border border-[oklch(0.28_0.04_255)]"
+      imgClassName="w-full h-full object-contain rounded-xl"
+      placeholder={
+        <div className="w-full h-40 flex flex-col items-center justify-center rounded-xl bg-[oklch(0.20_0.04_255)] border-2 border-dashed border-[oklch(0.30_0.04_255)] gap-2">
+          <div className="w-8 h-8 rounded-full bg-[oklch(0.72_0.12_75)]/10 flex items-center justify-center">
+            <svg className="h-4 w-4 text-[oklch(0.45_0.03_250)]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+          </div>
+          <p className="text-xs text-[oklch(0.45_0.03_250)] text-center px-4">{label}</p>
+          {editMode && <p className="text-[10px] text-[oklch(0.72_0.12_75)]">↑ Klicka i redigeringsläge för att ladda upp</p>}
+        </div>
+      }
+    />
+  );
+}
+
 // ─── Slide: Overview ──────────────────────────────────────────────────────────
 function SlideOverview() {
   const { editMode, getField, getList, save, saveList } = useEdit();
@@ -208,6 +237,10 @@ function SlideOverview() {
                 active={i === steps.length - 1} completed={i < steps.length - 1} isLast={i === steps.length - 1} />
             ))}
           </div>
+        </div>
+        <div className="mt-4">
+          <p className="text-xs text-[oklch(0.50_0.03_250)] mb-2">Skärmdump — HL Pipeline</p>
+          <EImg sid={sid} fkey="pipeline_screenshot" alt="HL Pipeline skärmdump" label="Skärmdump från HL — Course Leaders-pipelinen" />
         </div>
       </div>
     </div>
@@ -290,6 +323,10 @@ function SlideApplication() {
           <p className="font-mono text-[oklch(0.72_0.12_75)]">Prospect</p>
           <p className="text-[oklch(0.50_0.03_250)] text-xs mt-1">Tag: cl - prospect</p>
         </InfoCard>
+      </div>
+      <div>
+        <p className="text-xs text-[oklch(0.50_0.03_250)] mb-2">Skärmdump — Ansökningsformuläret</p>
+        <EImg sid={sid} fkey="form_screenshot" alt="Ansökningsformulär skärmdump" label="Skärmdump från FasciaVibes — Course Leader Application" />
       </div>
     </div>
   );
@@ -383,6 +420,10 @@ function SlideReview() {
           <p className="text-[oklch(0.50_0.03_250)] text-xs mt-1">Roll: Course Leader. HL User ID + HL Contact ID krävs.</p>
         </InfoCard>
       </div>
+      <div>
+        <p className="text-xs text-[oklch(0.50_0.03_250)] mb-2">Skärmdump — User Management i portalen</p>
+        <EImg sid={sid} fkey="user_mgmt_screenshot" alt="User Management skärmdump" label="Skärmdump från portalen — Settings → User Management → Add User" />
+      </div>
     </div>
   );
 }
@@ -471,6 +512,10 @@ function SlideRegistration() {
           <p>Aktiveras automatiskt vid genomförd betalning.</p>
           <p className="text-[oklch(0.50_0.03_250)] text-xs mt-1">member.fasciavibes.com</p>
         </InfoCard>
+      </div>
+      <div>
+        <p className="text-xs text-[oklch(0.50_0.03_250)] mb-2">Skärmdump — FasciaVibes checkout / välkomstmail</p>
+        <EImg sid={sid} fkey="checkout_screenshot" alt="FasciaVibes checkout skärmdump" label="Skärmdump från FasciaVibes — checkout eller välkomstmail" />
       </div>
     </div>
   );
@@ -568,6 +613,10 @@ function SlideOnboarding() {
           <p>member.fasciavibes.com/c/course-leader-information/</p>
         </InfoCard>
       </div>
+      <div>
+        <p className="text-xs text-[oklch(0.50_0.03_250)] mb-2">Skärmdump — FasciaVibes onboarding-material</p>
+        <EImg sid={sid} fkey="fasciavibes_screenshot" alt="FasciaVibes onboarding skärmdump" label="Skärmdump från FasciaVibes — Onboarding & Kunskapsbank" />
+      </div>
     </div>
   );
 }
@@ -660,6 +709,10 @@ function SlideActive() {
             </EditableList>
           </div>
         </div>
+      </div>
+      <div>
+        <p className="text-xs text-[oklch(0.50_0.03_250)] mb-2">Skärmdump — Portalen (My Settlements)</p>
+        <EImg sid="active" fkey="settlements_screenshot" alt="My Settlements skärmdump" label="Skärmdump från portalen — My Settlements" />
       </div>
     </div>
   );

@@ -618,3 +618,4 @@
 - [x] Fix EditableList: optimistic update + cache invalidation (same as EditableField)
 - [x] Make slide headings (h3) editable via EditableField
 - [x] Replace all GHL references with HL throughout Del 1
+- [ ] Add EditableImage placeholders to Del 1 slides (Slide 1: pipeline, Slide 2: HL form, Slide 3: portal/User Management, Slide 4: welcome email, Slide 5: FasciaVibes, Slide 6: portal settlements)
