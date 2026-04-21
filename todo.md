@@ -439,14 +439,14 @@
 - [x] Add ghlUserId to createDashboardUser and updateDashboardUser backend helpers
 
 ### Pending Actions + Revision Flow Fixes
-- [ ] Translate Pending Actions admin page to English (all labels, badges, buttons)
-- [ ] Add Edit & Resubmit button to needs_revision course cards (course leader view)
+- [x] Translate Pending Actions admin page to English (all labels, badges, buttons)
+- [x] Add Edit & Resubmit button to needs_revision course cards (course leader view)
 - [ ] Translate revision request email to English
 
 ## Round N: Mark Participants as Showed (Section 3.2)
 - [x] Backend: ghlPut helper in ghl.ts for PUT /calendars/appointments/{id}
-- [ ] Backend: getCourseParticipants procedure — fetch GHL appointments for a course date by calendarId + date range
-- [ ] Backend: markParticipantShowed mutation — update GHL appointment status to showed/no_show
+- [x] Backend: getCourseParticipants procedure — fetch GHL appointments for a course date by calendarId + date range
+- [x] Backend: markParticipantShowed mutation — update GHL appointment status to showed/no_show
 - [x] Frontend: Participant list UI in MyCourses.tsx for past/approved courses (expandable section)
 - [x] Frontend: Mark as showed / undo buttons per participant with optimistic UI
 
@@ -472,18 +472,18 @@
 - [ ] If not: implement fallback (set completion tags + trigger workflow)
 - [ ] Ensure showed via Portal = showed via GHL (same effect on invoicing + certificates)
 ### Phase 3: Data Privacy for Course Leaders
-- [ ] Course leaders see phone but NOT email during active course
-- [ ] After course completion: course leaders see only first + last name (no phone, no email)
+- [x] Course leaders see phone but NOT email during active course
+- [x] After course completion: course leaders see only first + last name (no phone, no email)
 - [ ] PDF exports: only first + last name, never email
 ### Phase 4: Confirmation Dialog + Batch Mark
-- [ ] Add confirmation dialog before marking "showed" (irreversible action)
-- [ ] Add "Mark all as showed" batch button with select all/deselect
+- [x] Add confirmation dialog before marking "showed" (irreversible action)
+- [x] Add "Mark all as showed" batch button with select all/deselect
 ### Phase 5: GHL API Robustness
 - [ ] Add retry with exponential backoff for GHL write operations
 - [ ] Move hardcoded values to env variables (ADMIN_CONTACT_ID, portal URL)
 ### Phase 6: Settlement PDF Export
-- [ ] Generate settlement PDF with FA company details, line items, totals
-- [ ] Only first + last name in PDF (data protection)
+- [x] Generate settlement PDF with FA company details, line items, totals
+- [x] Only first + last name in PDF (data protection)
 ### Phase 7: SEO + Booking Page
 - [ ] Add SEO metadata (title, description, OG tags) per language
 - [ ] Simplify seat display ("12 platser kvar" instead of "12/12")
@@ -507,22 +507,22 @@
 ## Round 18: Exam/Showed Dual-Requirement + Exam Queue Improvements
 
 ### Backend
-- [ ] Backend: Update markPassed in exams.ts — check if participant is showed before issuing certificate for diplo/cert; if not showed yet, mark exam as passed but defer certificate
-- [ ] Backend: Update markParticipantShowed in courseDates.ts — check if participant has a passed exam for diplo/cert; if yes, issue certificate immediately
-- [ ] Backend: Add `showedStatus` field to listPending/listAll exam queries (join participantSnapshots on ghlContactId + courseType)
-- [ ] Backend: Add `examLink` field to getCourseParticipants — link to exam in queue if one exists for this participant
+- [x] Backend: Update markPassed in exams.ts — check if participant is showed before issuing certificate for diplo/cert; if not showed yet, mark exam as passed but defer certificate
+- [x] Backend: Update markParticipantShowed in courseDates.ts — check if participant has a passed exam for diplo/cert; if yes, issue certificate immediately
+- [x] Backend: Add `showedStatus` field to listPending/listAll exam queries (join participantSnapshots on ghlContactId + courseType)
+- [x] Backend: Add `examLink` field to getCourseParticipants — link to exam in queue if one exists for this participant
 
 ### Frontend: Exam Queue
-- [ ] Exam Queue: Add "Showed" / "Not showed yet" badge per exam row in pending table
-- [ ] Exam Queue: Update approval dialog — show warning if participant not showed yet ("Certificate will be issued when showed is marked")
-- [ ] Exam Queue: Update success toast — reflect whether certificate was issued immediately or deferred
+- [x] Exam Queue: Add "Showed" / "Not showed yet" badge per exam row in pending table
+- [x] Exam Queue: Update approval dialog — show warning if participant not showed yet ("Certificate will be issued when showed is marked")
+- [x] Exam Queue: Update success toast — reflect whether certificate was issued immediately or deferred
 
 ### Frontend: Participant List (MyCourses)
-- [ ] Participant list: Add combined status column for diplo/cert courses showing: showed + exam status
-- [ ] Participant list: Add direct link from participant row to their exam in exam queue (if exam exists)
-- [ ] Participant list: Status badges: 🔴 No showed, no exam | 🟡 Showed, no exam | 🟡 Exam in, not showed | 🟠 Exam failed | 🟢 Certificate issued
+- [x] Participant list: Add combined status column for diplo/cert courses showing: showed + exam status
+- [x] Participant list: Add direct link from participant row to their exam in exam queue (if exam exists)
+- [x] Participant list: Status badges: 🔴 No showed, no exam | 🟡 Showed, no exam | 🟡 Exam in, not showed | 🟠 Exam failed | 🟢 Certificate issued
 
 ## Round 19: Live GHL Seats Sync
-- [ ] Backend: fetch live bookedSeats and maxSeats from GHL in getCourseList (remove DB dependency)
-- [ ] Frontend: remove Max Seats and Booked Seats fields from Add/Edit Course Date form
-- [ ] Frontend: show live booked/max in course overview list from GHL data
+- [x] Backend: fetch live bookedSeats and maxSeats from GHL in getCourseList (remove DB dependency)
+- [x] Frontend: remove Max Seats and Booked Seats fields from Add/Edit Course Date form
+- [x] Frontend: show live booked/max in course overview list from GHL data

@@ -1407,11 +1407,37 @@ export const courseDatesRouter = router({
         });
 
         const isAdmin = dashUser.role === "admin";
+        const isDiploOrCert = course.courseType === "diplo" || course.courseType === "cert";
+
+        // For diplo/cert: look up exam records for each contact to show combined status
+        let examByContact: Record<string, { id: number; status: string }> = {};
+        if (isDiploOrCert) {
+          const contactIds = active.map((e) => e.contactId).filter(Boolean) as string[];
+          if (contactIds.length > 0) {
+            const db2 = await getDb();
+            if (db2) {
+              const examRows = await db2
+                .select({ id: exams.id, ghlContactId: exams.ghlContactId, status: exams.status })
+                .from(exams)
+                .where(eq(exams.courseType, course.courseType as "diplo" | "cert"));
+              // Build map: contactId -> latest exam (prefer highest id)
+              for (const row of examRows) {
+                if (contactIds.includes(row.ghlContactId)) {
+                  if (!examByContact[row.ghlContactId] || row.id > examByContact[row.ghlContactId].id) {
+                    examByContact[row.ghlContactId] = { id: row.id, status: row.status };
+                  }
+                }
+              }
+            }
+          }
+        }
+
         const participants = active.map((e) => {
           const firstName = e.contact?.firstName ?? "";
           const lastName = e.contact?.lastName ?? "";
           const name = [firstName, lastName].filter(Boolean).join(" ") || e.title || e.contactId || "Unknown";
           const status = (e.appointmentStatus ?? e.status ?? "").toLowerCase();
+          const examInfo = isDiploOrCert ? (examByContact[e.contactId ?? ""] ?? null) : null;
           return {
             appointmentId: e.id,
             contactId: e.contactId ?? "",
@@ -1422,9 +1448,11 @@ export const courseDatesRouter = router({
             showed: status === "showed" || status === "show",
             noShow: status === "no_show" || status === "noshow",
             status,
+            // Exam info for diplo/cert — null for intro/vidare
+            examId: examInfo?.id ?? null,
+            examStatus: examInfo?.status ?? null,
           };
         });
-
         return { participants, courseType: course.courseType };
       } catch (err) {
         console.error("[getCourseParticipants] fetch error:", err);

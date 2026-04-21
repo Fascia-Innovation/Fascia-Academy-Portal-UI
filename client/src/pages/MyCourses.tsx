@@ -996,15 +996,48 @@ function ParticipantAttendanceList({ courseId, readOnly = false, isPast = false,
               <div className="divide-y divide-border">
                 {participants.map((p) => {
                   const { displayName, showPhone } = maskContact(p);
-                  const examInfo = isDiploOrCert && canSeeExams ? examStatusMap?.[p.contactId] : undefined;
-                  const examStatusLabel = examInfo?.status === "passed" ? "Exam ✓" : examInfo?.status === "failed" ? "Exam ✗" : examInfo ? "Exam pending" : null;
-                  const examStatusColor = examInfo?.status === "passed" ? "bg-emerald-100 text-emerald-700" : examInfo?.status === "failed" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700";
+                  // Use examId/examStatus directly from participant data (enriched by backend)
+                  // Fall back to examStatusMap for admins/examiners who have canSeeExams
+                  const examFromParticipant = isDiploOrCert ? { examId: (p as any).examId, examStatus: (p as any).examStatus } : null;
+                  const examInfoFallback = isDiploOrCert && canSeeExams ? examStatusMap?.[p.contactId] : undefined;
+                  const resolvedExamId = examFromParticipant?.examId ?? examInfoFallback?.examId ?? null;
+                  const resolvedExamStatus = examFromParticipant?.examStatus ?? examInfoFallback?.status ?? null;
+
+                  // Combined status badge for diplo/cert
+                  // 🔴 Not showed + no exam | 🟡 Showed + no exam | 🟡 Exam in + not showed | 🟠 Exam failed | 🟢 Exam passed (cert issued or pending showed)
+                  const getCombinedBadge = () => {
+                    if (!isDiploOrCert) return null;
+                    if (resolvedExamStatus === "passed" && p.showed) {
+                      return { label: "Cert issued", color: "bg-emerald-100 text-emerald-700", icon: "🟢" };
+                    }
+                    if (resolvedExamStatus === "passed" && !p.showed) {
+                      return { label: "Exam ✓ — not showed yet", color: "bg-amber-100 text-amber-800", icon: "🟡" };
+                    }
+                    if (resolvedExamStatus === "failed") {
+                      return { label: "Exam failed", color: "bg-orange-100 text-orange-700", icon: "🟠" };
+                    }
+                    if (resolvedExamStatus === "pending") {
+                      return p.showed
+                        ? { label: "Showed — exam pending", color: "bg-blue-100 text-blue-700", icon: "🟡" }
+                        : { label: "Exam in — not showed", color: "bg-amber-100 text-amber-700", icon: "🟡" };
+                    }
+                    // No exam yet
+                    if (p.showed) {
+                      return { label: "Showed — no exam yet", color: "bg-blue-50 text-blue-600", icon: "🟡" };
+                    }
+                    if (!p.showed && !p.noShow) {
+                      return { label: "No showed, no exam", color: "bg-gray-100 text-gray-500", icon: "🔴" };
+                    }
+                    return null;
+                  };
+                  const combinedBadge = getCombinedBadge();
+
                   return (
                     <div key={p.appointmentId} className="flex items-center justify-between px-4 py-3 gap-3">
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-sm font-medium text-foreground truncate">{displayName}</span>
-                          {p.showed && (
+                          {p.showed && !isDiploOrCert && (
                             <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-xs font-medium">
                               <CheckCircle className="h-3 w-3" /> Showed
                             </span>
@@ -1014,18 +1047,19 @@ function ParticipantAttendanceList({ courseId, readOnly = false, isPast = false,
                               <XCircle className="h-3 w-3" /> No-show
                             </span>
                           )}
-                          {isDiploOrCert && canSeeExams && (
-                            examStatusLabel ? (
+                          {/* Combined status badge for diplo/cert */}
+                          {isDiploOrCert && combinedBadge && (
+                            resolvedExamId ? (
                               <a
-                                href={`/exam-queue?examId=${examInfo?.examId}`}
-                                className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs font-medium hover:opacity-80 transition-opacity ${examStatusColor}`}
+                                href={`/exam-queue?examId=${resolvedExamId}`}
+                                className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs font-medium hover:opacity-80 transition-opacity ${combinedBadge.color}`}
                                 title="Click to view exam"
                               >
-                                <ExternalLink className="h-3 w-3" /> {examStatusLabel}
+                                <ExternalLink className="h-3 w-3" /> {combinedBadge.icon} {combinedBadge.label}
                               </a>
                             ) : (
-                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500 text-xs font-medium">
-                                No exam yet
+                              <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs font-medium ${combinedBadge.color}`}>
+                                {combinedBadge.icon} {combinedBadge.label}
                               </span>
                             )
                           )}

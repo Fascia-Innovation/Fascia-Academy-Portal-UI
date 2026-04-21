@@ -91,10 +91,16 @@ export default function ExamQueue() {
   const [search, setSearch] = useState("");
 
   const markPassed = trpc.exams.markPassed.useMutation({
-    onSuccess: () => {
-      toast.success("Exam approved!", {
-        description: "Result email sent to student. Issue the certificate in GHL Certificates.",
-      });
+    onSuccess: (data) => {
+      if (data?.certificateIssued) {
+        toast.success("Exam approved — certificate issued!", {
+          description: "Participant was showed and exam passed. Certificate created as Draft in Issued Certificates.",
+        });
+      } else {
+        toast.success("Exam approved!", {
+          description: "Certificate will be issued automatically once the course leader marks this participant as showed.",
+        });
+      }
       utils.exams.listPending.invalidate();
       utils.exams.listAll.invalidate();
       utils.exams.listCertificates.invalidate();
