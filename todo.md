@@ -624,3 +624,4 @@
 - [x] Build Del 2: Portalen — Kursledarens vy (7 slides, interactive, Swedish, fully editable)
 - [x] Del 2: Update all slides to use correct English nav names: Home, My Courses, My Statistics, My Settlements, Notifications (in topbar)
 - [x] Del 2: Fix sidebar mock to match actual portal UI (Home, My Courses, My Statistics, My Settlements; Notifications in topbar)
+- [x] Build Del 3: Kursregistrering och genomförande (7 slides: overview, register course form, admin approval, participant list, showed marking, settlement, summary)
