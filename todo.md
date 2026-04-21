@@ -619,3 +619,6 @@
 - [x] Make slide headings (h3) editable via EditableField
 - [x] Replace all GHL references with HL throughout Del 1
 - [ ] Add EditableImage placeholders to Del 1 slides (Slide 1: pipeline, Slide 2: HL form, Slide 3: portal/User Management, Slide 4: welcome email, Slide 5: FasciaVibes, Slide 6: portal settlements)
+- [x] Fix Del 1 Slide 2: form URL SE → https://api.leadconnectorhq.com/widget/form/H7Sr0Jo215UWPUcOR5QE, EN → https://api.leadconnectorhq.com/widget/form/mYDJbenKalP3E0Zbgnhx
+- [x] Fix Del 1 Slide 6: license price 4000kr/€400 → 5000kr/€500 (initial registration price)
+- [x] Build Del 2: Portalen — Kursledarens vy (7 slides, interactive, Swedish, fully editable)

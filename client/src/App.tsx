@@ -28,6 +28,7 @@ import CertificateTemplates from "./pages/CertificateTemplates";
 import IssuedCertificates from "./pages/IssuedCertificates";
 import GuideIndex from "./pages/guide/GuideIndex";
 import Del1CourseLeader from "./pages/guide/Del1CourseLeader";
+import Del2Portal from "./pages/guide/Del2Portal";
 import { Loader2 } from "lucide-react";
 
 function AppRoutes() {
@@ -88,6 +89,7 @@ function AppRoutes() {
         {(user.role === "admin" || user.canExamineExams) && <Route path="/exam-queue" component={ExamQueue} />}
         {user.role === "admin" && <Route path="/guide" component={GuideIndex} />}
         {user.role === "admin" && <Route path="/guide/del1" component={Del1CourseLeader} />}
+        {user.role === "admin" && <Route path="/guide/del2" component={Del2Portal} />}
         {/* Course Leader routes */}
         {user.role === "course_leader" && <Route path="/my-overview" component={LeaderHome} />}
         {(user.role === "admin" || user.role === "course_leader") && <Route path="/my-statistics" component={MyOverview} />}

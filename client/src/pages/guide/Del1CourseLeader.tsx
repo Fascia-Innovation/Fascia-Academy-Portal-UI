@@ -292,7 +292,7 @@ function SlideApplication() {
               )}
             </EditableList>
           </div>
-          <a href="https://member.fasciavibes.com/checkout/course-leader-fascia-academy" target="_blank" rel="noopener noreferrer"
+          <a href="https://api.leadconnectorhq.com/widget/form/H7Sr0Jo215UWPUcOR5QE" target="_blank" rel="noopener noreferrer"
             className="inline-flex items-center gap-2 text-xs text-[oklch(0.72_0.12_75)] hover:underline">
             <ExternalLink className="h-3 w-3" /> Öppna ansökningsformuläret (SE)
           </a>
@@ -678,12 +678,12 @@ function SlideActive() {
             <div className="text-xs font-semibold text-[oklch(0.65_0.03_250)] uppercase tracking-wider">Licensavgift — aktiv kursledare</div>
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-[oklch(0.18_0.04_255)] rounded-lg p-3 text-center">
-                <div className="text-xl font-bold text-[oklch(0.72_0.12_75)]">4 000 kr</div>
+                <div className="text-xl font-bold text-[oklch(0.72_0.12_75)]">5 000 kr</div>
                 <div className="text-xs text-[oklch(0.55_0.03_250)] mt-1">per år inkl. moms</div>
                 <div className="text-xs text-[oklch(0.45_0.03_250)]">SEK</div>
               </div>
               <div className="bg-[oklch(0.18_0.04_255)] rounded-lg p-3 text-center">
-                <div className="text-xl font-bold text-[oklch(0.72_0.12_75)]">€400</div>
+                <div className="text-xl font-bold text-[oklch(0.72_0.12_75)]">€500</div>
                 <div className="text-xs text-[oklch(0.55_0.03_250)] mt-1">per år inkl. moms</div>
                 <div className="text-xs text-[oklch(0.45_0.03_250)]">EUR</div>
               </div>
@@ -793,8 +793,8 @@ function SlideSummary() {
               <div className="space-y-1.5">
                 {[
                   { label: "FasciaVibes (plattform)", href: "https://member.fasciavibes.com" },
-                  { label: "Ansökan (SE)", href: "https://member.fasciavibes.com/checkout/course-leader-fascia-academy" },
-                  { label: "Ansökan (EN)", href: "https://member.fasciavibes.com/checkout/course-leader-fascia-academy-en" },
+                  { label: "Ansökan (SE)", href: "https://api.leadconnectorhq.com/widget/form/H7Sr0Jo215UWPUcOR5QE" },
+                  { label: "Ansökan (EN)", href: "https://api.leadconnectorhq.com/widget/form/mYDJbenKalP3E0Zbgnhx" },
                   { label: "fasciaacademy.com", href: "https://www.fasciaacademy.com" },
                 ].map((link, i) => (
                   <a key={i} href={link.href} target="_blank" rel="noopener noreferrer"
