@@ -162,25 +162,56 @@ function SlideBookingIntro() {
           </div>
         </div>
         <div>
-          <EH3 sid={sid} fkey="confirm_email_heading" def="Bekräftelsemail — Intro SE (exempel)" />
+          <EH3 sid={sid} fkey="confirm_email_heading" def="Bekräftelsemail — Intro SE (faktisk mall)" />
           <div className="mt-2">
             <EmailMock
-              subject="Bokningsbekräftelse — Fascia Intro-kurs"
-              body={getField(sid, "confirm_email_body", `Hej [Förnamn],
+              subject="Din bokning är bekräftad - Välkommen till Fascia Academy!"
+              body={getField(sid, "confirm_email_body", `Hej {{contact.first_name}},
 
-Tack för din bokning! Vi ser fram emot att träffa dig.
+Din bokning är bekräftad - Välkommen till Fascia Academy!
+Datum: {{appointment.formatted_start_date}}
+Tid: {{appointment.start_time}}
 
-Kurs: Fascia Intro
-Datum: [Datum]
-Plats: [Adress]
-Kursledare: [Kursledarens namn]
+Kursinformation – schema, tider och plats
+All praktisk information om ditt kurstillfälle, inklusive tider, plats och kursledare, hittar du på hemsidan via den länk du använde vid bokning.
 
-Du behöver inte ta med dig något särskilt — allt material tillhandahålls på plats.
+Inför kursdagen
+Du behöver inte ta med någon egen utrustning – allt som används under kursdagen finns på plats. Vi rekommenderar bekväma kläder som möjliggör rörelse och praktiskt arbete.
 
-Vid frågor, kontakta din kursledare eller info@fasciaacademy.com.
+Ditt kursmaterial – FasciaVibes
+Det digitala kursmaterialet ingår i kursen och finns tillgängligt direkt. Logga in eller skapa ditt konto via länken nedan:
+Länk: Gå till kursmaterial – Introduktionskurs Fascia
 
-Välkommen!
-Fascia Academy`)}
+Materialet är uppdelat i:
+• Introduktionsdag Fascia – digitalt upplägg
+• Grundläggande synsätt på kroppen och fascia
+• Kunskapsperspektiv och förståelse
+• Den levande kroppen
+• Föreläsning om fascia och den levande kroppen
+• Praktiska delar
+
+Inför kursdagen ska du ha gått igenom del 1–4.
+Du behåller åtkomsten till materialet via ditt konto i FasciaVibes även efter avslutad kurs.
+
+När du aktiverat din åtkomst får du även ett direktmeddelande från Fascia Academy med mer information.
+
+FasciaVibes Open
+Genom ditt köp har du även tillgång till FasciaVibes Open – den kostnadsfria delen av plattformen med inspelade webbinarier, digitala kurser och övrigt material.
+
+FasciaVibes Member
+Vill du fördjupa dig och utvecklas inom fascia som yrke? Som medlem får du tillgång till forum, fördjupade resurser, digitala workshops och inspelade sessioner. 149 kr/månad, ingen bindningstid.
+Länk: Bli FasciaVibes Member
+
+Kvitto
+Ditt kvitto har skickats separat från Stripe till din e-postadress.
+
+Frågor
+Kontakta gärna din kursledare direkt (telefonnummer finns i kursinformationen).
+Eller maila oss på info@fasciaacademy.com
+
+Vänliga hälsningar,
+Fascia Academy
+info@fasciaacademy.com`)}
             />
           </div>
           {editMode && (
@@ -215,20 +246,24 @@ function SlideReminderIntro() {
             <EH3 sid={sid} fkey="reminder_heading" def="Påminnelsemail — 7 dagar innan" />
             <div className="mt-2">
               <EmailMock
-                subject="Påminnelse — din Fascia Intro-kurs om 7 dagar"
-                body={getField(sid, "reminder_email_body", `Hej [Förnamn],
+                subject="Påminnelse - din kurs startar om 7 dagar"
+                body={getField(sid, "reminder_email_body", `Hej {{contact.first_name}},
 
-Vi påminner om att din Fascia Intro-kurs börjar om 7 dagar!
+Påminnelse - din kurs startar om 7 dagar
+Du har en bokad kurs: {{appointment.title}}
+Kursstart: {{appointment.start_time}}
 
-Kurs: Fascia Intro
-Datum: [Datum]
-Tid: [Starttid] – [Sluttid]
-Plats: [Adress]
-Kursledare: [Kursledarens namn]
+Inför kurstillfället
+Kom ihåg att gå igenom det förberedande kursmaterialet innan kursstart. Vilka delar detta gäller samt exakt upplägg framgår i kursinformationen på hemsidan.
 
-Vi ser fram emot att träffa dig!
+Kursinformation - schema, tider och upplägg
+All praktisk information om ditt kurstillfälle, inklusive tider, plats och kursledare, hittar du på hemsidan via den länk du använde vid bokning.
 
-Fascia Academy`)}
+Vid frågor
+Kontakta gärna din kursledare direkt (telefonnummer finns i kursinformationen). Eller mejla oss på info@fasciaacademy.com
+
+Vänliga hälsningar
+Fascia Academy info@fasciaacademy.com`)}
               />
             </div>
             {editMode && (
@@ -280,25 +315,67 @@ function SlideBookingDiplo() {
           </div>
         </div>
         <div>
-          <EH3 sid={sid} fkey="confirm_heading" def="Bekräftelsemail — Diplo SE (exempel)" />
+          <EH3 sid={sid} fkey="confirm_heading" def="Bekräftelsemail — Diplo SE (faktisk mall)" />
           <div className="mt-2">
             <EmailMock
-              subject="Bokningsbekräftelse — Fascia Diplom-kurs"
-              body={getField(sid, "confirm_email_body", `Hej [Förnamn],
+              subject="Din bokning är bekräftad - Välkommen till Fascia Academy!"
+              body={getField(sid, "confirm_email_body", `Hej {{contact.first_name}},
 
-Tack för din bokning av Fascia Diplom-kursen!
+Din bokning är bekräftad - Välkommen till Fascia Academy!
+Datum: {{appointment.formatted_start_date}}
+Tid: {{appointment.start_time}}
 
-Kurs: Fascia Diplom
-Datum: [Datum dag 1] – [Datum dag 2]
-Plats: [Adress]
-Kursledare: [Kursledarens namn]
+Kursinformation – schema, tider och plats
+All praktisk information om ditt kurstillfälle, inklusive tider, plats och kursledare, hittar du på hemsidan via den länk du använde vid bokning.
 
-Du kommer att få tillgång till digitalt kursmaterial inför kursen. Provet ingår i materialet och skrivs under eller efter kursen.
+Inför kursdagen
+Du behöver inte ta med någon egen utrustning – allt som används under kursdagen finns på plats. Vi rekommenderar bekväma kläder som möjliggör rörelse och praktiskt arbete.
 
-Vid frågor, kontakta din kursledare eller info@fasciaacademy.com.
+Upplägg
+Utbildningen består av fyra kursdagar med fokus på praktiskt behandlingsarbete. Upplägget inkluderar:
+• Fyra kursdagar med fokus på manuell och maskinell fasciabehandling
+• Digitalt utbildningsmaterial med teori
+• Videomaterial på behandlingstekniker
+• Digitalt prov
 
-Välkommen!
-Fascia Academy`)}
+Ditt kursmaterial – FasciaVibes
+Det digitala kursmaterialet ingår i kursen och finns tillgängligt direkt. Logga in eller skapa ditt konto via länken nedan:
+Länk: Gå till kursmaterial – Diplomerad Fasciaspecialist
+
+Materialet är uppdelat i:
+• Modul 1 – Fasciakunskap, maskinkunskap och fascialinjer
+• Praktik 1 – Introduktion (behandlingsfilmer)
+• Modul 2 – Föreläsningar om kroppen, behandling och yrket som terapeut
+• Modul 3 – Anatomi, scanning
+• Modul 4 – Nersystemet, behandlingsschema, cervikalen
+• Praktik 2
+• Prov
+
+Inför kursdagen ska du ha gått igenom Modul 1–4.
+Du behåller åtkomsten till materialet via ditt konto i FasciaVibes även efter avslutad kurs.
+
+När du aktiverat din åtkomst får du även ett direktmeddelande från Fascia Academy med mer information.
+
+Diplom – krav för godkännande
+För att erhålla diplomet krävs både godkänt deltagande och godkänt digitalt prov. Det digitala provet hittar du sist i kursmaterialet och kan göras innan eller efter ditt kurstillfälle. Provet rättas manuellt.
+
+FasciaVibes Open
+Genom ditt köp har du även tillgång till FasciaVibes Open – den kostnadsfria delen av plattformen med inspelade webbinarier, digitala kurser och övrigt material.
+
+FasciaVibes Member
+Vill du fördjupa dig och utvecklas inom fascia som yrke? Som medlem får du tillgång till forum, fördjupade resurser, digitala workshops och inspelade sessioner. 149 kr/månad, ingen bindningstid.
+Länk: Bli FasciaVibes Member
+
+Kvitto
+Ditt kvitto har skickats separat från Stripe till din e-postadress.
+
+Frågor
+Kontakta gärna din kursledare direkt (telefonnummer finns i kursinformationen).
+Eller maila oss på info@fasciaacademy.com
+
+Vänliga hälsningar,
+Fascia Academy
+info@fasciaacademy.com`)}
             />
           </div>
           {editMode && (
