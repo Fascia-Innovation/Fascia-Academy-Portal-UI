@@ -616,6 +616,90 @@ function SlideSummary() {
   );
 }
 
+// ─── Slide 7: My Statistics ─────────────────────────────────────────────────
+function SlideMyStatistics() {
+  const { editMode, getField, getList, save, saveList } = useEdit();
+  const sid = "my_statistics";
+  const intro = getField(sid, "intro_text",
+    "My Statistics ger kursledaren en personlig översikt av sin verksamhet — intäkter, deltagare och kurshistorik. Sidan uppdateras automatiskt baserat på godkända avräkningar och registrerade kurser."
+  );
+  const sections = getList(sid, "sections", [
+    "Intäktsöversikt — total utbetald provision per månad och år",
+    "Kursstatistik — antal genomförda kurser per kurstyp (Intro / Diplo / Cert / Videre)",
+    "Deltagarstatistik — totalt antal showed-deltagare historiskt",
+    "Trend — jämförelse mot föregående period (månad/kvartal/år)",
+    "Toppkurser — kurser med flest deltagare eller högst intäkt",
+  ]);
+  const charts = getList(sid, "charts", [
+    "Stapeldiagram — månadsintäkt (SEK/EUR) de senaste 6 eller 12 månaderna",
+    "Cirkeldiagram — fördelning per kurstyp (Intro / Diplo / Cert)",
+    "Linjediagram — deltagartrend över tid",
+  ]);
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 gap-6">
+        <div className="space-y-4">
+          <EH3 sid={sid} fkey="left_heading" def="My Statistics — personlig statistik" />
+          <EditableField value={intro} onSave={(v) => save(sid, "intro_text", v)} editMode={editMode} multiline>
+            {(v) => <p className="text-sm text-[oklch(0.75_0.03_250)] leading-relaxed">{v}</p>}
+          </EditableField>
+          <div>
+            <EH3 sid={sid} fkey="sections_heading" def="Vad visas på My Statistics?" />
+            <EditableList items={sections} onSave={(items) => saveList(sid, "sections", items)} editMode={editMode}>
+              {(items) => (
+                <ul className="space-y-1.5 mt-2">
+                  {items.map((item, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm text-[oklch(0.75_0.03_250)]">
+                      <BarChart2 className="h-4 w-4 text-[oklch(0.72_0.12_75)] shrink-0 mt-0.5" />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </EditableList>
+          </div>
+        </div>
+        <div className="space-y-4">
+          <EH3 sid={sid} fkey="charts_heading" def="Grafer och visualiseringar" />
+          <EditableList items={charts} onSave={(items) => saveList(sid, "charts", items)} editMode={editMode}>
+            {(items) => (
+              <div className="space-y-2">
+                {items.map((item, i) => (
+                  <div key={i} className="flex items-start gap-3 bg-[oklch(0.20_0.04_255)] rounded-xl p-3 border border-[oklch(0.28_0.04_255)]">
+                    <div className="w-5 h-5 rounded-full bg-[oklch(0.72_0.12_75)]/20 flex items-center justify-center shrink-0 mt-0.5">
+                      <BarChart2 className="h-3 w-3 text-[oklch(0.72_0.12_75)]" />
+                    </div>
+                    <span className="text-sm text-[oklch(0.80_0.03_250)]">{item}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </EditableList>
+          {/* Mock stats widget */}
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              { label: "Total intäkt (år)", value: "42 000 kr", sub: "+12% vs förra året" },
+              { label: "Kurser genomförda", value: "18", sub: "Intro: 12, Diplo: 6" },
+              { label: "Showed deltagare", value: "156", sub: "Senaste 12 mån" },
+              { label: "Snitt per kurs", value: "2 333 kr", sub: "Baserat på avräkningar" },
+            ].map((w, i) => (
+              <div key={i} className="bg-[oklch(0.20_0.04_255)] rounded-xl p-3 border border-[oklch(0.28_0.04_255)]">
+                <div className="text-xs text-[oklch(0.55_0.03_250)] mb-1">{w.label}</div>
+                <div className="text-lg font-bold text-white">{w.value}</div>
+                <div className="text-[10px] text-[oklch(0.72_0.12_75)] mt-0.5">{w.sub}</div>
+              </div>
+            ))}
+          </div>
+          <div>
+            <p className="text-xs text-[oklch(0.50_0.03_250)] mb-2">Skärmdump — My Statistics</p>
+            <EImg sid={sid} fkey="my_statistics_screenshot" alt="My Statistics skärmdump" label="Skärmdump från portalen — My Statistics" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Slide registry ───────────────────────────────────────────────────────────
 const SLIDES = [
   { id: "overview", label: "Portalöversikt", component: SlideOverview },
@@ -624,6 +708,7 @@ const SLIDES = [
   { id: "course_form", label: "Register Course", component: SlideCourseForm },
   { id: "settlements", label: "My Settlements", component: SlideSettlements },
   { id: "notifications", label: "Notifications", component: SlideNotifications },
+  { id: "my_statistics", label: "My Statistics", component: SlideMyStatistics },
   { id: "summary", label: "Sammanfattning", component: SlideSummary },
 ];
 

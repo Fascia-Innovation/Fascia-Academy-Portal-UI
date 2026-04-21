@@ -31,7 +31,7 @@ const GUIDE_MODULES: GuideModule[] = [
     icon: LayoutDashboard,
     href: "/guide/del2",
     available: true,
-    slides: 7,
+    slides: 8,
   },
   {
     id: "del3",
