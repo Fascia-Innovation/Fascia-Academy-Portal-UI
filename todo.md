@@ -625,3 +625,6 @@
 - [x] Del 2: Update all slides to use correct English nav names: Home, My Courses, My Statistics, My Settlements, Notifications (in topbar)
 - [x] Del 2: Fix sidebar mock to match actual portal UI (Home, My Courses, My Statistics, My Settlements; Notifications in topbar)
 - [x] Build Del 3: Kursregistrering och genomförande (7 slides: overview, register course form, admin approval, participant list, showed marking, settlement, summary)
+- [x] Del 3 Slide 1: "Betalar via FasciaVibes" → "Betalar via Stripe", update flow step 5
+- [x] Del 3 Slide 1: Add that Diplo/Cert participants write exam in digital course material
+- [x] Del 3 Slide 4: Remove "e-post" from participant list — course leaders don't see emails

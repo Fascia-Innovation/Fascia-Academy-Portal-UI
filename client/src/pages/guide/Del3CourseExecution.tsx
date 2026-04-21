@@ -105,7 +105,7 @@ function SlideOverview() {
     "2. Admin granskar och godkänner i Pending Actions",
     "3. Kursen publiceras på fasciaacademy.com",
     "4. Admin skapar tillgänglighet för startdatum i HL",
-    "5. Deltagare bokar och betalas via FasciaVibes",
+    "5. Deltagare bokar via fasciaacademy.com och betalar via Stripe",
     "6. Kursledaren markerar showed efter genomförd kurs",
     "7. Avräkning genereras och kursledaren fakturerar FA",
   ]);
@@ -141,7 +141,7 @@ function SlideOverview() {
             {[
               { role: "Kursledare", color: "oklch(0.72_0.12_75)", tasks: ["Registrerar kurstillfälle", "Markerar showed", "Fakturerar FA"] },
               { role: "FA-Admin", color: "oklch(0.65_0.15_200)", tasks: ["Granskar och godkänner", "Skapar HL-tillgänglighet", "Genererar avräkning"] },
-              { role: "Deltagare", color: "oklch(0.65_0.12_130)", tasks: ["Bokar via fasciaacademy.com", "Betalar via FasciaVibes", "Genomför kursen"] },
+              { role: "Deltagare", color: "oklch(0.65_0.12_130)", tasks: ["Bokar via fasciaacademy.com", "Betalar via Stripe", "Genomför kursen", "Diplo/Cert: Skriver prov i digitalt kursmaterial"] },
             ].map((r, i) => (
               <div key={i} className="bg-[oklch(0.20_0.04_255)] rounded-xl p-3 border border-[oklch(0.28_0.04_255)]">
                 <div className="text-xs font-semibold mb-1.5" style={{ color: `oklch(${r.color.replace("oklch(", "").replace(")", "")})` }}>{r.role}</div>
@@ -344,7 +344,7 @@ function SlideParticipants() {
   );
   const listInfo = getList(sid, "list_info", [
     "Deltagarlistan uppdateras automatiskt när deltagare bokar",
-    "Varje deltagare visas med namn, e-post och betalningsstatus",
+    "Varje deltagare visas med namn och betalningsstatus (ej e-post)",
     "Kursledaren kan se antal bokade vs. max deltagare",
     "Avbokningar visas med status Cancellation requested",
     "Kursledaren kan skicka meddelanden till deltagare i portalen",
