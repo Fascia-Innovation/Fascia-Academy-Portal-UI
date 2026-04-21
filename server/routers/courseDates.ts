@@ -1531,7 +1531,7 @@ export const courseDatesRouter = router({
           const courseTypeForCert = course.courseType as "intro" | "diplo" | "cert" | "vidare";
           const langForCert = (course.language as "sv" | "en" | undefined) ?? "sv";
           if ((courseTypeForCert === "intro" || courseTypeForCert === "vidare") && contactId) {
-            // Intro/Vidare: issue certificate immediately on showed
+            // Intro/Vidare: create certificate as Draft on showed — admin must send manually via Issued Certificates
             await issueCertificateForParticipant({
               ghlContactId: contactId,
               contactName: name,
