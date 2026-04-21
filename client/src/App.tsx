@@ -7,6 +7,7 @@ import { DashAuthProvider, useDashAuth } from "./contexts/DashAuthContext";
 import DashboardShell from "./components/DashboardShell";
 import Login from "./pages/Login";
 import AdminOverview from "./pages/AdminOverview";
+import AdminHome from "./pages/AdminHome";
 import CourseLeaderRanking from "./pages/CourseLeaderRanking";
 import AffiliateRanking from "./pages/AffiliateRanking";
 import CoursesAdmin from "./pages/CoursesAdmin";
@@ -71,7 +72,8 @@ function AppRoutes() {
     <DashboardShell>
       <Switch>
         {/* Admin routes */}
-        {user.role === "admin" && <Route path="/" component={AdminOverview} />}
+        {user.role === "admin" && <Route path="/" component={AdminHome} />}
+        {user.role === "admin" && <Route path="/statistics" component={AdminOverview} />}
         {user.role === "admin" && <Route path="/courses-admin" component={CoursesAdmin} />}
         {user.role === "admin" && <Route path="/students" component={Students} />}
         {user.role === "admin" && <Route path="/course-leaders" component={CourseLeaderRanking} />}

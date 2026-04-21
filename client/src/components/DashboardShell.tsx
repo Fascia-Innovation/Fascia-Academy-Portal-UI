@@ -56,7 +56,8 @@ type NavItem = {
 
 const NAV_ITEMS: NavItem[] = [
   // Admin
-  { label: "Overview", href: "/", icon: LayoutDashboard, roles: ["admin"] },
+  { label: "Home", href: "/", icon: LayoutDashboard, roles: ["admin"] },
+  { label: "Statistics", href: "/statistics", icon: BarChart3, roles: ["admin"] },
   { label: "Courses", href: "/courses-admin", icon: BookOpen, roles: ["admin"] },
   { label: "Students", href: "/students", icon: GraduationCap, roles: ["admin"] },
   { label: "Course Leaders", href: "/course-leaders", icon: Users, roles: ["admin"] },

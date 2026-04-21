@@ -557,3 +557,12 @@
 - [x] Frontend: "Generate All" button on Settlements admin list page
 - [x] Frontend: bulk preview dialog — month picker, checklist of eligible users (pre-checked), booking count + estimated payout per user, confirm button
 - [x] Frontend: progress feedback during bulk generation (success/error per user)
+
+## Round 23: Admin Home Dashboard
+- [x] Backend: adminHome query — pending counts (submissions, messages, settlements), upcoming courses (7 days), monthly stats (showed count, estimated payout, active leaders), activity log (last 10 events)
+- [x] Frontend: AdminHome page — Pending Tasks section with counts + quick links
+- [x] Frontend: AdminHome page — Upcoming Courses section (next 7 days from course_dates)
+- [x] Frontend: AdminHome page — Monthly Overview section (current month stats)
+- [x] Frontend: AdminHome page — Activity Log section (last 10 events)
+- [x] Routing: wire AdminHome as default route for admin (replace current Home.tsx)
+- [x] Sidebar: add "Home" nav item for admin pointing to AdminHome
