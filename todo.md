@@ -608,3 +608,13 @@
 - [x] Frontend: EditableList component — editable bullet lists (add/remove/reorder items)
 - [x] Frontend: Del 1 slides — wrap all editable text fields with EditableField/EditableList
 - [x] Frontend: Edit mode toggle in top bar (admin only) — shows/hides edit affordances
+
+## Guide — Bug Fixes & Image Upload
+
+- [x] Fix EditableList: same optimistic update + cache invalidation as EditableField
+- [x] Add EditableImage component: click to upload replacement image in edit mode (S3 upload)
+- [x] Backend: extend guideRouter to handle image field upserts (content = S3 URL)
+- [x] Wire EditableImage into Del 1 slides where images/screenshots appear
+- [x] Fix EditableList: optimistic update + cache invalidation (same as EditableField)
+- [x] Make slide headings (h3) editable via EditableField
+- [x] Replace all GHL references with HL throughout Del 1

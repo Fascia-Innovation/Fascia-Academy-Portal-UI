@@ -2,7 +2,10 @@
  * Del 1 — Kursledare: Från ansökan till aktiv
  *
  * Interactive Swedish presentation with 7 slides covering the full course leader journey.
- * Admins can toggle "Edit Mode" to edit any text field inline — changes are saved to the DB.
+ * Admins can toggle "Edit Mode" to edit any text field, heading, or list inline.
+ * Changes are saved to the DB with optimistic updates for instant feedback.
+ *
+ * Note: "HL" = HighLevel (GoHighLevel CRM). GHL is not used.
  */
 import { useState, useCallback, createContext, useContext } from "react";
 import { Link } from "wouter";
@@ -20,7 +23,6 @@ import {
   Shield,
   Laptop,
   GraduationCap,
-  Banknote,
   Circle,
   Pencil,
   PencilOff,
@@ -36,16 +38,16 @@ const PRES_ID = "del1";
 // ─── Edit context ─────────────────────────────────────────────────────────────
 type EditCtx = {
   editMode: boolean;
-  content: Record<string, string>;
   save: (slideId: string, fieldKey: string, value: string) => Promise<void>;
+  saveList: (slideId: string, fieldKey: string, items: string[]) => Promise<void>;
   getField: (slideId: string, fieldKey: string, defaultVal: string) => string;
   getList: (slideId: string, fieldKey: string, defaultItems: string[]) => string[];
 };
 
 const EditContext = createContext<EditCtx>({
   editMode: false,
-  content: {},
   save: async () => {},
+  saveList: async () => {},
   getField: (_s, _f, d) => d,
   getList: (_s, _f, d) => d,
 });
@@ -57,7 +59,7 @@ type Slide = { id: string; title: string; subtitle?: string };
 
 const SLIDES: Slide[] = [
   { id: "overview", title: "Kursledarresan", subtitle: "Översikt — vad innebär det att vara kursledare hos FA?" },
-  { id: "application", title: "Steg 1 — Ansökan", subtitle: "Ansökningsformuläret och vad som händer i GHL" },
+  { id: "application", title: "Steg 1 — Ansökan", subtitle: "Ansökningsformuläret och vad som händer i HL" },
   { id: "review", title: "Steg 2 — Granskning och avtal", subtitle: "NDA, kontrakt och skapande av portalkonto" },
   { id: "registration", title: "Steg 3 — Registrering och FasciaVibes", subtitle: "Registreringsformulär, välkomstmail och betalning" },
   { id: "onboarding", title: "Steg 4 — Onboarding och utbildning", subtitle: "FasciaVibes-material, utbildning i Sollentuna" },
@@ -90,12 +92,12 @@ function PipelineStep({ label, sublabel, active, completed, isLast }: {
   );
 }
 
-function InfoCard({ icon: Icon, title, children, accent }: { icon: React.ComponentType<{ className?: string }>; title: string; children: React.ReactNode; accent?: string }) {
+function InfoCard({ icon: Icon, title, children }: { icon: React.ComponentType<{ className?: string }>; title: string; children: React.ReactNode }) {
   return (
     <div className="rounded-xl border border-[oklch(0.28_0.04_255)] bg-[oklch(0.20_0.04_255)] p-5">
       <div className="flex items-center gap-2 mb-3">
-        <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center", accent || "bg-[oklch(0.72_0.12_75)]/20")}>
-          <Icon className={cn("h-4 w-4", accent ? "text-white" : "text-[oklch(0.72_0.12_75)]")} />
+        <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-[oklch(0.72_0.12_75)]/20">
+          <Icon className="h-4 w-4 text-[oklch(0.72_0.12_75)]" />
         </div>
         <span className="text-sm font-semibold text-white">{title}</span>
       </div>
@@ -115,9 +117,20 @@ function StepBadge({ n, label }: { n: number; label: string }) {
   );
 }
 
+// Helper: editable h3 heading
+function EH3({ sid, fkey, def }: { sid: string; fkey: string; def: string }) {
+  const { editMode, getField, save } = useEdit();
+  const val = getField(sid, fkey, def);
+  return (
+    <EditableField value={val} onSave={(v) => save(sid, fkey, v)} editMode={editMode} className="block">
+      {(v) => <h3 className="text-base font-semibold text-white">{v}</h3>}
+    </EditableField>
+  );
+}
+
 // ─── Slide: Overview ──────────────────────────────────────────────────────────
 function SlideOverview() {
-  const { editMode, getField, getList, save } = useEdit();
+  const { editMode, getField, getList, save, saveList } = useEdit();
   const sid = "overview";
 
   const introText = getField(sid, "intro_text",
@@ -131,7 +144,7 @@ function SlideOverview() {
     "Fakturerar FA månadsvis för genomförda kurser",
   ]);
   const pipelineNote = getField(sid, "pipeline_note",
-    "Hela processen hanteras i GHL (GoHighLevel) CRM under \"Course Leaders\"-pipelinen."
+    "Hela processen hanteras i HL (HighLevel) CRM under \"Course Leaders\"-pipelinen."
   );
 
   const steps = [
@@ -147,11 +160,11 @@ function SlideOverview() {
     <div className="space-y-8">
       <div className="grid grid-cols-2 gap-6">
         <div className="space-y-4">
-          <h3 className="text-base font-semibold text-white">Vad är en kursledare hos Fascia Academy?</h3>
+          <EH3 sid={sid} fkey="h_what" def="Vad är en kursledare hos Fascia Academy?" />
           <EditableField value={introText} onSave={(v) => save(sid, "intro_text", v)} editMode={editMode} multiline className="block">
             {(v) => <p className="text-sm text-[oklch(0.75_0.03_250)] leading-relaxed">{v}</p>}
           </EditableField>
-          <EditableList items={bullets} onSave={(items) => save(sid, "bullets", JSON.stringify(items))} editMode={editMode}>
+          <EditableList items={bullets} onSave={(items) => saveList(sid, "bullets", items)} editMode={editMode}>
             {(items) => (
               <div className="space-y-2">
                 {items.map((item, i) => (
@@ -166,7 +179,7 @@ function SlideOverview() {
         </div>
 
         <div className="space-y-4">
-          <h3 className="text-base font-semibold text-white">Kursledarens resa — snabböversikt</h3>
+          <EH3 sid={sid} fkey="h_journey" def="Kursledarens resa — snabböversikt" />
           <div className="bg-[oklch(0.22_0.04_255)] rounded-xl p-4 space-y-2">
             {steps.map((s, i) => (
               <div key={i} className="flex items-center gap-3">
@@ -187,7 +200,7 @@ function SlideOverview() {
       </div>
 
       <div>
-        <h3 className="text-sm font-semibold text-[oklch(0.65_0.03_250)] uppercase tracking-wider mb-4">GHL Pipeline — Course Leaders</h3>
+        <h3 className="text-sm font-semibold text-[oklch(0.65_0.03_250)] uppercase tracking-wider mb-4">HL Pipeline — Course Leaders</h3>
         <div className="bg-[oklch(0.20_0.04_255)] rounded-xl p-5 overflow-x-auto">
           <div className="flex items-start gap-0 min-w-max">
             {steps.map((s, i) => (
@@ -203,7 +216,7 @@ function SlideOverview() {
 
 // ─── Slide: Application ───────────────────────────────────────────────────────
 function SlideApplication() {
-  const { editMode, getField, getList, save } = useEdit();
+  const { editMode, getField, getList, save, saveList } = useEdit();
   const sid = "application";
 
   const introText = getField(sid, "intro_text",
@@ -227,13 +240,13 @@ function SlideApplication() {
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-6">
         <div className="space-y-4">
-          <h3 className="text-base font-semibold text-white">Ansökningsformuläret</h3>
+          <EH3 sid={sid} fkey="h_form" def="Ansökningsformuläret" />
           <EditableField value={introText} onSave={(v) => save(sid, "intro_text", v)} editMode={editMode} multiline className="block">
             {(v) => <p className="text-sm text-[oklch(0.75_0.03_250)] leading-relaxed">{v}</p>}
           </EditableField>
           <div>
             <div className="text-xs font-semibold text-[oklch(0.65_0.03_250)] uppercase tracking-wider mb-2">Formuläret innehåller</div>
-            <EditableList items={formFields} onSave={(items) => save(sid, "form_fields", JSON.stringify(items))} editMode={editMode}>
+            <EditableList items={formFields} onSave={(items) => saveList(sid, "form_fields", items)} editMode={editMode}>
               {(items) => (
                 <div className="space-y-2">
                   {items.map((item, i) => (
@@ -253,8 +266,8 @@ function SlideApplication() {
         </div>
 
         <div className="space-y-4">
-          <h3 className="text-base font-semibold text-white">Vad händer automatiskt i GHL?</h3>
-          <EditableList items={ghlSteps} onSave={(items) => save(sid, "ghl_steps", JSON.stringify(items))} editMode={editMode}>
+          <EH3 sid={sid} fkey="h_hl" def="Vad händer automatiskt i HL?" />
+          <EditableList items={ghlSteps} onSave={(items) => saveList(sid, "ghl_steps", items)} editMode={editMode}>
             {(items) => (
               <div className="space-y-3">
                 {items.map((text, i) => <StepBadge key={i} n={i + 1} label={text} />)}
@@ -273,7 +286,7 @@ function SlideApplication() {
           <p>Course Leader Application — EN</p>
           <p className="text-[oklch(0.50_0.03_250)] text-xs mt-1">member.fasciavibes.com</p>
         </InfoCard>
-        <InfoCard icon={Users} title="GHL Pipeline Stage">
+        <InfoCard icon={Users} title="HL Pipeline Stage">
           <p className="font-mono text-[oklch(0.72_0.12_75)]">Prospect</p>
           <p className="text-[oklch(0.50_0.03_250)] text-xs mt-1">Tag: cl - prospect</p>
         </InfoCard>
@@ -284,11 +297,11 @@ function SlideApplication() {
 
 // ─── Slide: Review ────────────────────────────────────────────────────────────
 function SlideReview() {
-  const { editMode, getField, getList, save } = useEdit();
+  const { editMode, getField, getList, save, saveList } = useEdit();
   const sid = "review";
 
   const introText = getField(sid, "intro_text",
-    "FA-teamet granskar varje ansökan individuellt. Processen är manuell och sker via GHL CRM. Kandidaten kontaktas direkt av FA för vidare dialog."
+    "FA-teamet granskar varje ansökan individuellt. Processen är manuell och sker via HL CRM. Kandidaten kontaktas direkt av FA för vidare dialog."
   );
   const pipelineStages = getList(sid, "pipeline_stages", [
     "Prospect — Ansökan mottagen, granskning pågår",
@@ -297,25 +310,25 @@ function SlideReview() {
   ]);
   const afterContractSteps = getList(sid, "after_contract_steps", [
     "Admin skapar portalkonto manuellt i User Management",
-    "GHL User ID och GHL Contact ID fylls i (båda obligatoriska)",
+    "HL User ID och HL Contact ID fylls i (båda obligatoriska)",
     "Kursledaren får en registreringslänk via e-post",
     "Kursledaren sätter sitt lösenord och loggar in i portalen",
   ]);
   const ghlWarning = getField(sid, "ghl_warning",
-    "Portalkontot måste kopplas till rätt GHL-kontakt via GHL Contact ID. Utan denna koppling kan systemet inte hämta bokningar, skicka e-post eller generera avräkningar korrekt."
+    "Portalkontot måste kopplas till rätt HL-kontakt via HL Contact ID. Utan denna koppling kan systemet inte hämta bokningar, skicka e-post eller generera avräkningar korrekt."
   );
 
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-6">
         <div className="space-y-4">
-          <h3 className="text-base font-semibold text-white">FA granskar ansökan manuellt</h3>
+          <EH3 sid={sid} fkey="h_review" def="FA granskar ansökan manuellt" />
           <EditableField value={introText} onSave={(v) => save(sid, "intro_text", v)} editMode={editMode} multiline className="block">
             {(v) => <p className="text-sm text-[oklch(0.75_0.03_250)] leading-relaxed">{v}</p>}
           </EditableField>
           <div>
             <div className="text-xs font-semibold text-[oklch(0.65_0.03_250)] uppercase tracking-wider mb-2">Pipeline-progression</div>
-            <EditableList items={pipelineStages} onSave={(items) => save(sid, "pipeline_stages", JSON.stringify(items))} editMode={editMode}>
+            <EditableList items={pipelineStages} onSave={(items) => saveList(sid, "pipeline_stages", items)} editMode={editMode}>
               {(items) => (
                 <div className="space-y-2">
                   {items.map((item, i) => {
@@ -337,8 +350,8 @@ function SlideReview() {
         </div>
 
         <div className="space-y-4">
-          <h3 className="text-base font-semibold text-white">När Contract Signed är nått</h3>
-          <EditableList items={afterContractSteps} onSave={(items) => save(sid, "after_contract_steps", JSON.stringify(items))} editMode={editMode}>
+          <EH3 sid={sid} fkey="h_after_contract" def="När Contract Signed är nått" />
+          <EditableList items={afterContractSteps} onSave={(items) => saveList(sid, "after_contract_steps", items)} editMode={editMode}>
             {(items) => (
               <div className="space-y-3">
                 {items.map((text, i) => <StepBadge key={i} n={i + 1} label={text} />)}
@@ -350,7 +363,7 @@ function SlideReview() {
             <div className="flex items-start gap-2">
               <Shield className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" />
               <div>
-                <div className="text-sm font-semibold text-amber-300">Viktigt — GHL-koppling</div>
+                <div className="text-sm font-semibold text-amber-300">Viktigt — HL-koppling</div>
                 <EditableField value={ghlWarning} onSave={(v) => save(sid, "ghl_warning", v)} editMode={editMode} multiline className="block mt-1">
                   {(v) => <p className="text-xs text-amber-200/80 leading-relaxed">{v}</p>}
                 </EditableField>
@@ -367,7 +380,7 @@ function SlideReview() {
         </InfoCard>
         <InfoCard icon={Laptop} title="Portalkonto — User Management">
           <p>Admin → Settings → User Management → Add User</p>
-          <p className="text-[oklch(0.50_0.03_250)] text-xs mt-1">Roll: Course Leader. GHL User ID + GHL Contact ID krävs.</p>
+          <p className="text-[oklch(0.50_0.03_250)] text-xs mt-1">Roll: Course Leader. HL User ID + HL Contact ID krävs.</p>
         </InfoCard>
       </div>
     </div>
@@ -376,11 +389,11 @@ function SlideReview() {
 
 // ─── Slide: Registration ──────────────────────────────────────────────────────
 function SlideRegistration() {
-  const { editMode, getField, getList, save } = useEdit();
+  const { editMode, getField, getList, save, saveList } = useEdit();
   const sid = "registration";
 
   const introText = getField(sid, "intro_text",
-    "Efter signerat avtal fyller kursledaren i ett registreringsformulär i GHL. Detta triggar ett GHL-workflow som skickar välkomstmail och betalningslänkar."
+    "Efter signerat avtal fyller kursledaren i ett registreringsformulär i HL. Detta triggar ett HL-workflow som skickar välkomstmail och betalningslänkar."
   );
   const formFields = getList(sid, "form_fields", [
     "Bekräftelse av personuppgifter",
@@ -402,13 +415,13 @@ function SlideRegistration() {
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-6">
         <div className="space-y-4">
-          <h3 className="text-base font-semibold text-white">Course Leader Registration-formuläret</h3>
+          <EH3 sid={sid} fkey="h_form" def="Course Leader Registration-formuläret" />
           <EditableField value={introText} onSave={(v) => save(sid, "intro_text", v)} editMode={editMode} multiline className="block">
             {(v) => <p className="text-sm text-[oklch(0.75_0.03_250)] leading-relaxed">{v}</p>}
           </EditableField>
           <div>
             <div className="text-xs font-semibold text-[oklch(0.65_0.03_250)] uppercase tracking-wider mb-2">Formuläret samlar in</div>
-            <EditableList items={formFields} onSave={(items) => save(sid, "form_fields", JSON.stringify(items))} editMode={editMode}>
+            <EditableList items={formFields} onSave={(items) => saveList(sid, "form_fields", items)} editMode={editMode}>
               {(items) => (
                 <div className="space-y-2">
                   {items.map((item, i) => (
@@ -424,8 +437,8 @@ function SlideRegistration() {
         </div>
 
         <div className="space-y-4">
-          <h3 className="text-base font-semibold text-white">GHL Workflow — Confirmation</h3>
-          <EditableList items={workflowSteps} onSave={(items) => save(sid, "workflow_steps", JSON.stringify(items))} editMode={editMode}>
+          <EH3 sid={sid} fkey="h_workflow" def="HL Workflow — Confirmation" />
+          <EditableList items={workflowSteps} onSave={(items) => saveList(sid, "workflow_steps", items)} editMode={editMode}>
             {(items) => (
               <div className="space-y-3">
                 {items.map((text, i) => <StepBadge key={i} n={i + 1} label={text} />)}
@@ -465,7 +478,7 @@ function SlideRegistration() {
 
 // ─── Slide: Onboarding ────────────────────────────────────────────────────────
 function SlideOnboarding() {
-  const { editMode, getField, getList, save } = useEdit();
+  const { editMode, getField, getList, save, saveList } = useEdit();
   const sid = "onboarding";
 
   const introText = getField(sid, "intro_text",
@@ -485,7 +498,7 @@ function SlideOnboarding() {
   const sollentunaSteps = getList(sid, "sollentuna_steps", [
     "Kursledaren kontaktar Victor för att boka datum",
     "Praktisk utbildning genomförs i Sollentuna",
-    "GHL-stage uppdateras till \"Training Complete\"",
+    "HL-stage uppdateras till \"Training Complete\"",
     "Check-in med FA innan kursledarens första kurs",
   ]);
   const portalNote = getField(sid, "portal_note",
@@ -496,13 +509,13 @@ function SlideOnboarding() {
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-6">
         <div className="space-y-4">
-          <h3 className="text-base font-semibold text-white">Onboarding i FasciaVibes</h3>
+          <EH3 sid={sid} fkey="h_fv" def="Onboarding i FasciaVibes" />
           <EditableField value={introText} onSave={(v) => save(sid, "intro_text", v)} editMode={editMode} multiline className="block">
             {(v) => <p className="text-sm text-[oklch(0.75_0.03_250)] leading-relaxed">{v}</p>}
           </EditableField>
           <div>
             <div className="text-xs font-semibold text-[oklch(0.65_0.03_250)] uppercase tracking-wider mb-2">Tillgängligt i FasciaVibes</div>
-            <EditableList items={fasciaVibesItems} onSave={(items) => save(sid, "fasciavibes_items", JSON.stringify(items))} editMode={editMode}>
+            <EditableList items={fasciaVibesItems} onSave={(items) => saveList(sid, "fasciavibes_items", items)} editMode={editMode}>
               {(items) => (
                 <div className="space-y-2">
                   {items.map((item, i) => (
@@ -518,11 +531,11 @@ function SlideOnboarding() {
         </div>
 
         <div className="space-y-4">
-          <h3 className="text-base font-semibold text-white">Utbildning i Sollentuna</h3>
+          <EH3 sid={sid} fkey="h_sollentuna" def="Utbildning i Sollentuna" />
           <EditableField value={sollentunaText} onSave={(v) => save(sid, "sollentuna_text", v)} editMode={editMode} multiline className="block">
             {(v) => <p className="text-sm text-[oklch(0.75_0.03_250)] leading-relaxed">{v}</p>}
           </EditableField>
-          <EditableList items={sollentunaSteps} onSave={(items) => save(sid, "sollentuna_steps", JSON.stringify(items))} editMode={editMode}>
+          <EditableList items={sollentunaSteps} onSave={(items) => saveList(sid, "sollentuna_steps", items)} editMode={editMode}>
             {(items) => (
               <div className="space-y-3">
                 {items.map((text, i) => <StepBadge key={i} n={i + 1} label={text} />)}
@@ -561,11 +574,11 @@ function SlideOnboarding() {
 
 // ─── Slide: Active ────────────────────────────────────────────────────────────
 function SlideActive() {
-  const { editMode, getField, getList, save } = useEdit();
+  const { editMode, getField, getList, save, saveList } = useEdit();
   const sid = "active";
 
   const introText = getField(sid, "intro_text",
-    "När GHL-stage är satt till \"Active\" är kursledaren redo att hålla kurser. Portalen är det primära verktyget för kursadministration."
+    "När HL-stage är satt till \"Active\" är kursledaren redo att hålla kurser. Portalen är det primära verktyget för kursadministration."
   );
   const canDoBullets = getList(sid, "can_do_bullets", [
     "Registrera kurstillfällen i portalen",
@@ -589,13 +602,13 @@ function SlideActive() {
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-6">
         <div className="space-y-4">
-          <h3 className="text-base font-semibold text-white">Kursledaren är nu aktiv</h3>
+          <EH3 sid={sid} fkey="h_active" def="Kursledaren är nu aktiv" />
           <EditableField value={introText} onSave={(v) => save(sid, "intro_text", v)} editMode={editMode} multiline className="block">
             {(v) => <p className="text-sm text-[oklch(0.75_0.03_250)] leading-relaxed">{v}</p>}
           </EditableField>
           <div>
             <div className="text-xs font-semibold text-[oklch(0.65_0.03_250)] uppercase tracking-wider mb-2">Kursledaren kan nu</div>
-            <EditableList items={canDoBullets} onSave={(items) => save(sid, "can_do_bullets", JSON.stringify(items))} editMode={editMode}>
+            <EditableList items={canDoBullets} onSave={(items) => saveList(sid, "can_do_bullets", items)} editMode={editMode}>
               {(items) => (
                 <div className="space-y-2">
                   {items.map((item, i) => (
@@ -611,7 +624,7 @@ function SlideActive() {
         </div>
 
         <div className="space-y-4">
-          <h3 className="text-base font-semibold text-white">Licens och avgifter</h3>
+          <EH3 sid={sid} fkey="h_license" def="Licens och avgifter" />
           <div className="bg-[oklch(0.22_0.04_255)] rounded-xl p-4 space-y-3 border border-[oklch(0.28_0.04_255)]">
             <div className="text-xs font-semibold text-[oklch(0.65_0.03_250)] uppercase tracking-wider">Licensavgift — aktiv kursledare</div>
             <div className="grid grid-cols-2 gap-3">
@@ -633,7 +646,7 @@ function SlideActive() {
 
           <div className="bg-[oklch(0.22_0.04_255)] rounded-xl p-4 space-y-2 border border-[oklch(0.28_0.04_255)]">
             <div className="text-xs font-semibold text-[oklch(0.65_0.03_250)] uppercase tracking-wider">Avräkning och fakturering</div>
-            <EditableList items={settlementBullets} onSave={(items) => save(sid, "settlement_bullets", JSON.stringify(items))} editMode={editMode}>
+            <EditableList items={settlementBullets} onSave={(items) => saveList(sid, "settlement_bullets", items)} editMode={editMode}>
               {(items) => (
                 <div className="space-y-1.5">
                   {items.map((item, i) => (
@@ -654,11 +667,11 @@ function SlideActive() {
 
 // ─── Slide: Summary ───────────────────────────────────────────────────────────
 function SlideSummary() {
-  const { editMode, getField, getList, save } = useEdit();
+  const { editMode, getField, getList, save, saveList } = useEdit();
   const sid = "summary";
 
   const flowSteps = getList(sid, "flow_steps", [
-    "Ansökan — Formulär på FasciaVibes → GHL Prospect",
+    "Ansökan — Formulär på FasciaVibes → HL Prospect",
     "NDA — Sekretessavtal undertecknas",
     "Avtal — Kursledaravtal → Admin skapar portalkonto",
     "Registrering — Registreringsformulär → Välkomstmail + betalningslänk",
@@ -678,8 +691,8 @@ function SlideSummary() {
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-6">
         <div className="space-y-4">
-          <h3 className="text-base font-semibold text-white">Hela flödet — sammanfattning</h3>
-          <EditableList items={flowSteps} onSave={(items) => save(sid, "flow_steps", JSON.stringify(items))} editMode={editMode}>
+          <EH3 sid={sid} fkey="h_flow" def="Hela flödet — sammanfattning" />
+          <EditableList items={flowSteps} onSave={(items) => saveList(sid, "flow_steps", items)} editMode={editMode}>
             {(items) => (
               <div className="space-y-2">
                 {items.map((item, i) => {
@@ -702,7 +715,7 @@ function SlideSummary() {
         </div>
 
         <div className="space-y-4">
-          <h3 className="text-base font-semibold text-white">Kontakt och resurser</h3>
+          <EH3 sid={sid} fkey="h_contact" def="Kontakt och resurser" />
           <div className="space-y-3">
             <div className="bg-[oklch(0.22_0.04_255)] rounded-xl p-4 border border-[oklch(0.28_0.04_255)]">
               <div className="text-xs font-semibold text-[oklch(0.65_0.03_250)] uppercase tracking-wider mb-2">Primär kontakt</div>
@@ -779,7 +792,6 @@ export default function Del1CourseLeader() {
   const { data: contentMap = {} } = trpc.guide.getContent.useQuery({ presentationId: PRES_ID });
   const upsert = trpc.guide.upsertContent.useMutation({
     onSuccess: () => {
-      // Refetch the content map so the UI reflects the saved value
       void utils.guide.getContent.invalidate({ presentationId: PRES_ID });
     },
   });
@@ -799,8 +811,18 @@ export default function Del1CourseLeader() {
     try { return JSON.parse(raw) as string[]; } catch { return defaultItems; }
   }, [contentMap]);
 
+  // Save a plain text field — with optimistic update
   const save = useCallback(async (slideId: string, fieldKey: string, value: string) => {
-    // Optimistically update the local cache so the UI shows the new value immediately
+    utils.guide.getContent.setData(
+      { presentationId: PRES_ID },
+      (old) => ({ ...(old ?? {}), [`${slideId}__${fieldKey}`]: value })
+    );
+    await upsert.mutateAsync({ presentationId: PRES_ID, slideId, fieldKey, content: value });
+  }, [upsert, utils]);
+
+  // Save a list field — serialise to JSON, then optimistic update
+  const saveList = useCallback(async (slideId: string, fieldKey: string, items: string[]) => {
+    const value = JSON.stringify(items);
     utils.guide.getContent.setData(
       { presentationId: PRES_ID },
       (old) => ({ ...(old ?? {}), [`${slideId}__${fieldKey}`]: value })
@@ -809,7 +831,7 @@ export default function Del1CourseLeader() {
   }, [upsert, utils]);
 
   return (
-    <EditContext.Provider value={{ editMode, content: contentMap, save, getField, getList }}>
+    <EditContext.Provider value={{ editMode, save, saveList, getField, getList }}>
       <div className="min-h-screen bg-[oklch(0.14_0.04_255)] flex flex-col">
         {/* Top bar */}
         <div className="flex items-center justify-between px-6 py-3 border-b border-[oklch(0.22_0.04_255)] bg-[oklch(0.17_0.04_255)] shrink-0">
@@ -824,7 +846,6 @@ export default function Del1CourseLeader() {
             <span className="text-xs text-[oklch(0.65_0.03_250)]">Del 1</span>
           </div>
           <div className="flex items-center gap-3">
-            {/* Edit mode toggle */}
             <button
               onClick={() => setEditMode((v) => !v)}
               className={cn(
@@ -849,7 +870,7 @@ export default function Del1CourseLeader() {
           <div className="flex items-center gap-2 px-6 py-2 bg-[oklch(0.72_0.12_75)]/10 border-b border-[oklch(0.72_0.12_75)]/30 shrink-0">
             <Pencil className="h-3.5 w-3.5 text-[oklch(0.72_0.12_75)]" />
             <span className="text-xs text-[oklch(0.72_0.12_75)] font-medium">Redigeringsläge aktivt</span>
-            <span className="text-xs text-[oklch(0.60_0.03_250)]">— Klicka på valfri text för att redigera. Ändringar sparas automatiskt.</span>
+            <span className="text-xs text-[oklch(0.60_0.03_250)]">— Klicka på valfri text, rubrik eller lista för att redigera. Ändringar sparas automatiskt.</span>
           </div>
         )}
 
