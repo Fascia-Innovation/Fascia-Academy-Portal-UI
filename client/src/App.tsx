@@ -30,6 +30,10 @@ import GuideIndex from "./pages/guide/GuideIndex";
 import Del1CourseLeader from "./pages/guide/Del1CourseLeader";
 import Del2Portal from "./pages/guide/Del2Portal";
 import Del3CourseExecution from "./pages/guide/Del3CourseExecution";
+import Del4Admin from "./pages/guide/Del4Admin";
+import Del5Affiliate from "./pages/guide/Del5Affiliate";
+import Del6Examiner from "./pages/guide/Del6Examiner";
+import Del7Student from "./pages/guide/Del7Student";
 import { Loader2 } from "lucide-react";
 
 function AppRoutes() {
@@ -92,6 +96,10 @@ function AppRoutes() {
         {user.role === "admin" && <Route path="/guide/del1" component={Del1CourseLeader} />}
         {user.role === "admin" && <Route path="/guide/del2" component={Del2Portal} />}
         {user.role === "admin" && <Route path="/guide/del3" component={Del3CourseExecution} />}
+        {user.role === "admin" && <Route path="/guide/del4" component={Del4Admin} />}
+        {user.role === "admin" && <Route path="/guide/del5" component={Del5Affiliate} />}
+        {user.role === "admin" && <Route path="/guide/del6" component={Del6Examiner} />}
+        {user.role === "admin" && <Route path="/guide/del7" component={Del7Student} />}
         {/* Course Leader routes */}
         {user.role === "course_leader" && <Route path="/my-overview" component={LeaderHome} />}
         {(user.role === "admin" || user.role === "course_leader") && <Route path="/my-statistics" component={MyOverview} />}

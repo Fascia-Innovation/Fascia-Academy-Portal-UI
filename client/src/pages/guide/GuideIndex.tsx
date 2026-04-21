@@ -50,8 +50,8 @@ const GUIDE_MODULES: GuideModule[] = [
     subtitle: "Home dashboard, Pending Actions, Settlements, User Management, Exam Queue",
     icon: LayoutDashboard,
     href: "/guide/del4",
-    available: false,
-    slides: 0,
+    available: true,
+    slides: 8,
   },
   {
     id: "del5",
@@ -60,8 +60,8 @@ const GUIDE_MODULES: GuideModule[] = [
     subtitle: "Affiliate-dashboard, provisioner, avräkningar och kommissionsvy",
     icon: Award,
     href: "/guide/del5",
-    available: false,
-    slides: 0,
+    available: true,
+    slides: 3,
   },
   {
     id: "del6",
@@ -70,8 +70,8 @@ const GUIDE_MODULES: GuideModule[] = [
     subtitle: "Exam Queue, godkänna/underkänna, certifikatutfärdande",
     icon: CheckSquare,
     href: "/guide/del6",
-    available: false,
-    slides: 0,
+    available: true,
+    slides: 3,
   },
   {
     id: "del7",
@@ -80,8 +80,8 @@ const GUIDE_MODULES: GuideModule[] = [
     subtitle: "Bokningsflöde, HL pipeline, kursgenomförande, certifikat och verifiering",
     icon: GraduationCap,
     href: "/guide/del7",
-    available: false,
-    slides: 0,
+    available: true,
+    slides: 6,
   },
 ];
 

@@ -628,3 +628,7 @@
 - [x] Del 3 Slide 1: "Betalar via FasciaVibes" → "Betalar via Stripe", update flow step 5
 - [x] Del 3 Slide 1: Add that Diplo/Cert participants write exam in digital course material
 - [x] Del 3 Slide 4: Remove "e-post" from participant list — course leaders don't see emails
+- [ ] Build Del 4: Portalen — Admin (8 slides: Home, Statistics, Courses, Students, Course Leaders, Affiliates, Settlements, Pending Actions, Exam Queue, Issued Certificates, Cert Templates)
+- [ ] Build Del 5: Portalen — Affiliate (3 slides: affiliate vy, rollkombination kursledare+affiliate, admin-setup)
+- [ ] Build Del 6: Portalen — Rättare (3 slides: rättarens roll, Exam Queue-flöde, intygsflöde showed+prov→admin→intyg)
+- [ ] Build Del 7: Kursdeltagare (6 slides: Intro bokning→mail→kurs→showed→intyg, Diplo bokning→mail→kurs→showed+prov→admin→intyg)
