@@ -2172,4 +2172,24 @@ export const courseDatesRouter = router({
       const result = await refreshSnapshotForCourse(input.courseDateId);
       return { count: result.count };
     }),
+
+  // ─── Admin: debug raw GHL calendar teamMembers (clears cache) ────────────────
+  debugCalendars: adminProcedure.query(async () => {
+    // Force fresh fetch by clearing in-memory cache
+    ghlCalendarsCache = null;
+    ghlUsersCache = null;
+    const [calendars, users] = await Promise.all([getGhlCalendars(), getGhlUsers()]);
+    return {
+      totalCalendars: calendars.length,
+      totalUsers: users.length,
+      users: users.map((u) => ({ id: u.id, name: u.name, email: u.email })),
+      // Return first 15 calendars with their teamMembers for diagnosis
+      calendars: calendars.slice(0, 15).map((c) => ({
+        id: c.id,
+        name: c.name,
+        groupId: c.groupId ?? null,
+        teamMembers: c.teamMembers ?? [],
+      })),
+    };
+  }),
 });
