@@ -191,6 +191,19 @@ const CITY_COORDS: Record<string, { lat: number; lng: number }> = {
   "Västervik": { lat: 57.7590, lng: 16.6380 },
   "Piteå": { lat: 65.3172, lng: 21.4793 },
   "Örnsköldsvik": { lat: 63.2909, lng: 18.7157 },
+  "Ljung": { lat: 58.0167, lng: 13.0667 },
+  "Skövde": { lat: 58.3905, lng: 13.8452 },
+  "Trollhättan": { lat: 58.2837, lng: 12.2886 },
+  "Uddevalla": { lat: 58.3489, lng: 11.9381 },
+  "Norrköping": { lat: 58.5877, lng: 16.1924 },
+  "Lund": { lat: 55.7047, lng: 13.1910 },
+  "Umeå": { lat: 63.8258, lng: 20.2630 },
+  "Luleå": { lat: 65.5848, lng: 22.1567 },
+  "Gävle": { lat: 60.6749, lng: 17.1413 },
+  "Karlstad": { lat: 59.3793, lng: 13.5036 },
+  "Växjö": { lat: 56.8777, lng: 14.8091 },
+  "Eskilstuna": { lat: 59.3666, lng: 16.5077 },
+  "Kalmar": { lat: 56.6634, lng: 16.3566 },
 };
 
 function getCityCoords(city: string): { lat: number; lng: number } | null {

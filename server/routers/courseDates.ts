@@ -15,6 +15,7 @@ import { parse as parseCookies } from "cookie";
 import { getSessionUser } from "../dashboardAuth";
 import { issueCertificateForParticipant } from "./certificatesRouter";
 import { setGhlTag, getCalendarFreeSlots } from "../ghl";
+import { parseGhlLocation } from "../parseGhlLocation";
 
 const DASH_SESSION = "fa_dash_session";
 
@@ -337,32 +338,9 @@ export const courseDatesRouter = router({
         const primaryMember = c.teamMembers?.find((m) => m.isPrimary) ?? c.teamMembers?.[0];
         const user = primaryMember ? userMap.get(primaryMember.userId) : null;
         // Parse meetingLocation for address/city auto-fill
-        // GHL format: "Street\tPostalCode\tCity" (tab-separated, 3 parts)
         const rawLocation = primaryMember?.meetingLocation ?? "";
-        const parts = rawLocation.split(/\t/).map((s: string) => s.trim()).filter(Boolean);
+        const { address: autoAddress, city: autoCity } = parseGhlLocation(rawLocation);
         let autoVenueName: string | null = null;
-        let autoAddress: string | null = null;
-        let autoCity: string | null = null;
-        if (parts.length >= 3) {
-          // "Berga allé 1\t25452\tHelsingborg" → street, zip, city
-          const street = parts[0];
-          const zip = parts[1];
-          const city = parts[2];
-          autoCity = city;
-          // Format zip nicely: "25452" → "254 52" if 5 digits
-          const formattedZip = /^\d{5}$/.test(zip) ? `${zip.slice(0, 3)} ${zip.slice(3)}` : zip;
-          autoAddress = `${street}, ${formattedZip} ${city}`;
-          autoVenueName = null; // Venue Name is always manual
-        } else if (parts.length === 2) {
-          // "Street\tCity"
-          autoAddress = `${parts[0]}, ${parts[1]}`;
-          autoCity = parts[1];
-        } else if (parts.length === 1 && parts[0] && !parts[0].includes("ÄNDRA") && !parts[0].includes("Varies")) {
-          autoAddress = parts[0];
-          // Try to extract city from last comma-separated part
-          const addrParts = parts[0].split(",").map((s: string) => s.trim());
-          autoCity = addrParts[addrParts.length - 1] ?? null;
-        }
         return {
           id: c.id,
           name: c.name,
@@ -584,24 +562,8 @@ export const courseDatesRouter = router({
 
       // Parse address/city from meetingLocation
       const rawLocation = primaryMember?.meetingLocation ?? "";
-      const parts = rawLocation.split(/\t/).map((s: string) => s.trim()).filter(Boolean);
-      let autoAddress: string | null = null;
-      let autoCity = "";
-      if (parts.length >= 3) {
-        const street = parts[0];
-        const zip = parts[1];
-        const city = parts[2];
-        autoCity = city;
-        const formattedZip = /^\d{5}$/.test(zip) ? `${zip.slice(0, 3)} ${zip.slice(3)}` : zip;
-        autoAddress = `${street}, ${formattedZip} ${city}`;
-      } else if (parts.length === 2) {
-        autoAddress = `${parts[0]}, ${parts[1]}`;
-        autoCity = parts[1];
-      } else if (parts.length === 1 && parts[0]) {
-        autoAddress = parts[0];
-        const addrParts = parts[0].split(",").map((s: string) => s.trim());
-        autoCity = addrParts[addrParts.length - 1] ?? "";
-      }
+      const { address: autoAddress, city: parsedCity } = parseGhlLocation(rawLocation);
+      let autoCity = parsedCity ?? "";
 
       const maxSeats = cal.appoinmentPerSlot ?? 12;
 
@@ -921,17 +883,8 @@ export const courseDatesRouter = router({
 
       // Parse address/city from meetingLocation
       const rawLocation = primaryMember?.meetingLocation ?? "";
-      const locParts = rawLocation.split(/\t/).map((s: string) => s.trim()).filter(Boolean);
-      let autoAddress: string | null = null;
-      let autoCity = "";
-      if (locParts.length >= 3) {
-        const formattedZip = /^\d{5}$/.test(locParts[1]) ? `${locParts[1].slice(0, 3)} ${locParts[1].slice(3)}` : locParts[1];
-        autoAddress = `${locParts[0]}, ${formattedZip} ${locParts[2]}`;
-        autoCity = locParts[2];
-      } else if (locParts.length === 2) {
-        autoAddress = `${locParts[0]}, ${locParts[1]}`;
-        autoCity = locParts[1];
-      }
+      const { address: autoAddress, city: parsedCity3 } = parseGhlLocation(rawLocation);
+      let autoCity = parsedCity3 ?? "";
 
       // Validate each date entry
       const MIN_DAYS: Record<string, number> = { intro: 1, diplo: 4, cert: 6, vidare: 2 };
