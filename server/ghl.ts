@@ -847,3 +847,4 @@ export async function sendCertificateEmail(opts: {
     throw new Error(`GHL sendCertificateEmail error ${res.status}: ${text}`);
   }
 }
+// GHL_API_KEY updated 2026-04-30T10:47:57Z
