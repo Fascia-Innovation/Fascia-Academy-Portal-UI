@@ -47,8 +47,8 @@ const T = {
     viewLeaders: "Kursledare",
     viewCalendar: "Kalender",
     viewMap: "Karta",
-    book: "Boka",
-    moreInfo: "Mer info",
+    book: "Se tillgängliga tider",
+    moreInfo: "Mer info om kursen",
     seats: "platser",
     seatsLeft: "platser kvar",
     noResults: "Inga kurser hittades med dessa filter.",
@@ -101,8 +101,8 @@ const T = {
     viewLeaders: "Leaders",
     viewCalendar: "Calendar",
     viewMap: "Map",
-    book: "Book",
-    moreInfo: "More info",
+    book: "See available times",
+    moreInfo: "More info about course",
     seats: "seats",
     seatsLeft: "spots left",
     noResults: "No courses found with these filters.",
@@ -152,17 +152,17 @@ type CourseType = "intro" | "diplo" | "cert" | "vidare";
 type ViewMode = "calendar" | "map" | "leaders";
 
 const COURSE_TYPE_COLORS: Record<CourseType, string> = {
-  intro: "bg-blue-100 text-blue-800 border-blue-200",
-  diplo: "bg-purple-100 text-purple-800 border-purple-200",
+  intro: "bg-green-100 text-green-800 border-green-200",
+  diplo: "bg-blue-100 text-blue-800 border-blue-200",
   cert: "bg-amber-100 text-amber-800 border-amber-200",
-  vidare: "bg-green-100 text-green-800 border-green-200",
+  vidare: "bg-red-100 text-red-800 border-red-200",
 };
 
 const COURSE_TYPE_ACCENT: Record<CourseType, string> = {
-  intro: "#3b82f6",
-  diplo: "#8b5cf6",
-  cert: "#f59e0b",
-  vidare: "#10b981",
+  intro: "#16a34a",   // green-600
+  diplo: "#2563eb",   // blue-600
+  cert: "#d97706",    // amber-600
+  vidare: "#dc2626",  // red-600
 };
 
 // Course info links — TODO: update URLs when fasciaacademy.com pages are ready
@@ -288,10 +288,15 @@ function BookingModal({
             </div>
           </div>
 
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
-            {lang === "sv"
-              ? "Du kommer att föras vidare till bokningssidan för att slutföra din anmälan och betalning."
-              : "You will be taken to the booking page to complete your registration and payment."}
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800 space-y-1">
+            <p className="font-semibold">
+              {lang === "sv" ? "ℹ️ Nästa steg: välj datum & tid" : "ℹ️ Next step: choose date & time"}
+            </p>
+            <p>
+              {lang === "sv"
+                ? "Du väljer datum och tid i nästa steg, sedan slutför du din anmälan och betalning."
+                : "You choose the date and time in the next step, then complete your registration and payment."}
+            </p>
           </div>
 
           <a
@@ -300,8 +305,8 @@ function BookingModal({
             rel="noopener noreferrer"
             className="flex items-center justify-center gap-2 w-full bg-amber-500 hover:bg-amber-600 text-white font-semibold py-3 px-6 rounded-xl transition-colors"
           >
+            <CalendarDays className="h-4 w-4" />
             {lang === "sv" ? "Gå till bokning" : "Go to booking"}
-            <ExternalLink className="h-4 w-4" />
           </a>
 
           <button
@@ -518,7 +523,7 @@ function MoreInfoModal({
                 onClick={() => { onBook(); onClose(); }}
                 className="w-full py-3 bg-gray-900 text-white font-semibold rounded-xl hover:bg-gray-700 transition-colors flex items-center justify-center gap-2"
               >
-                {t.book}
+                {lang === "sv" ? "Gå till bokning" : "Go to booking"}
                 <ArrowRight className="h-4 w-4" />
               </button>
             </div>
@@ -773,7 +778,7 @@ function MapViewSection({
                 </div>
                 <div style="display:flex;gap:4px;">
                   <button onclick="window.__moreInfoCourse('${d.id}')" style="background:#f3f4f6;color:#374151;border:none;padding:3px 8px;border-radius:5px;font-size:11px;cursor:pointer;">ℹ</button>
-                  <button onclick="window.__bookCourse('${d.id}')" style="background:#111827;color:white;border:none;padding:3px 8px;border-radius:5px;font-size:11px;cursor:pointer;">${t.book}</button>
+                  <button onclick="window.__bookCourse('${d.id}')" style="background:#111827;color:white;border:none;padding:3px 8px;border-radius:5px;font-size:11px;cursor:pointer;">${lang === 'sv' ? 'Se tider' : 'See times'}</button>
                 </div>
               </div>
             `;
@@ -957,7 +962,7 @@ function CourseLeaderCard({
                         className="px-3 py-1.5 border border-gray-200 text-gray-600 text-xs font-medium rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-1"
                       >
                         <Info className="h-3 w-3" />
-                        {lang === "sv" ? "Mer info om kursen" : "More info about course"}
+                        {t.moreInfo}
                       </button>
                       <button
                         onClick={() => onBook(date)}
@@ -1075,6 +1080,59 @@ function MoreAboutCourses({ lang, t }: { lang: Lang; t: (typeof T)[Lang] }) {
               <div className="flex items-center gap-1 text-xs text-blue-600 group-hover:text-blue-800 transition-colors">
                 {t.learnMore}
                 <ExternalLink className="h-3 w-3" />
+              </div>
+            </a>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Sidebar: Mer om kurserna (compact vertical) ────────────────────────────
+function MoreAboutCoursesSidebar({ lang, t }: { lang: Lang; t: (typeof T)[Lang] }) {
+  const courseTypes: CourseType[] = ["intro", "diplo", "cert", "vidare"];
+  return (
+    <div className="sticky top-16">
+      <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-3">{t.moreAboutCourses}</h2>
+      <a
+        href="https://www.fasciaacademy.com"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 mb-4"
+      >
+        {lang === "sv" ? "Läs mer på fasciaacademy.com" : "Read more at fasciaacademy.com"}
+        <ExternalLink className="h-3 w-3" />
+      </a>
+      <div className="space-y-3">
+        {courseTypes.map((ct, idx) => {
+          const stepInfo = COURSE_STEPS[lang][ct];
+          return (
+            <a
+              key={ct}
+              href={COURSE_INFO_URLS[ct]}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group flex items-start gap-3 p-3 bg-white rounded-xl border border-gray-100 hover:shadow-sm hover:border-gray-200 transition-all"
+            >
+              {/* Color dot */}
+              <div
+                className="w-3 h-3 rounded-full shrink-0 mt-1"
+                style={{ backgroundColor: COURSE_TYPE_ACCENT[ct] }}
+              />
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-semibold uppercase tracking-wider mb-0.5" style={{ color: COURSE_TYPE_ACCENT[ct] }}>
+                  {stepInfo.step}
+                </div>
+                <div className="font-semibold text-gray-900 text-xs leading-snug mb-1">
+                  {(t.courseTypes as Record<string, string>)[ct]}
+                </div>
+                <div className="text-xs text-gray-500 leading-relaxed">
+                  {stepInfo.description}
+                </div>
+                <div className="text-xs font-semibold text-gray-600 mt-1.5">
+                  {(t.prices as Record<string, string>)[ct]}
+                </div>
               </div>
             </a>
           );
@@ -1287,57 +1345,66 @@ export default function PublicCourses() {
         </div>
       </div>
 
-      {/* Content */}
+      {/* Content — two-column layout: main view left, course info sidebar right */}
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
-        {/* More about courses section — shown above the course list */}
-        <div className="mb-10">
-          <MoreAboutCourses lang={lang} t={t} />
-        </div>
-
-        {isLoading ? (
-          <div className="flex items-center justify-center py-20">
-            <Loader2 className="h-8 w-8 animate-spin text-gray-300" />
-          </div>
-        ) : filteredDates.length === 0 && viewMode !== "map" ? (
-          <div className="text-center py-16">
-            <Calendar className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-500 font-medium">{t.noResults}</p>
-            <p className="text-sm text-gray-400 mt-1">{t.noResultsSub}</p>
-          </div>
-        ) : viewMode === "calendar" ? (
-          <CalendarView
-            dates={filteredDates}
-            lang={lang}
-            t={t}
-            onBook={handleBook}
-            onMoreInfo={setMoreInfoDate}
-          />
-        ) : viewMode === "map" ? (
-          <MapViewSection
-            dates={filteredDates}
-            lang={lang}
-            t={t}
-            onBook={handleBook}
-            onMoreInfo={setMoreInfoDate}
-          />
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {byLeader.map(([leaderName, { photo, profileUrl, dates }]) => (
-              <CourseLeaderCard
-                key={leaderName}
-                leaderName={leaderName}
-                profilePhoto={photo}
-                profileUrl={profileUrl}
-                dates={dates}
+        <div className="flex gap-8 items-start">
+          {/* Main view */}
+          <div className="flex-1 min-w-0">
+            {isLoading ? (
+              <div className="flex items-center justify-center py-20">
+                <Loader2 className="h-8 w-8 animate-spin text-gray-300" />
+              </div>
+            ) : filteredDates.length === 0 && viewMode !== "map" ? (
+              <div className="text-center py-16">
+                <Calendar className="h-10 w-10 text-gray-300 mx-auto mb-3" />
+                <p className="text-gray-500 font-medium">{t.noResults}</p>
+                <p className="text-sm text-gray-400 mt-1">{t.noResultsSub}</p>
+              </div>
+            ) : viewMode === "calendar" ? (
+              <CalendarView
+                dates={filteredDates}
                 lang={lang}
                 t={t}
                 onBook={handleBook}
                 onMoreInfo={setMoreInfoDate}
               />
-            ))}
+            ) : viewMode === "map" ? (
+              <MapViewSection
+                dates={filteredDates}
+                lang={lang}
+                t={t}
+                onBook={handleBook}
+                onMoreInfo={setMoreInfoDate}
+              />
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2">
+                {byLeader.map(([leaderName, { photo, profileUrl, dates }]) => (
+                  <CourseLeaderCard
+                    key={leaderName}
+                    leaderName={leaderName}
+                    profilePhoto={photo}
+                    profileUrl={profileUrl}
+                    dates={dates}
+                    lang={lang}
+                    t={t}
+                    onBook={handleBook}
+                    onMoreInfo={setMoreInfoDate}
+                  />
+                ))}
+              </div>
+            )}
           </div>
-        )}
 
+          {/* Sidebar: Mer om kurserna */}
+          <div className="hidden lg:block w-72 shrink-0">
+            <MoreAboutCoursesSidebar lang={lang} t={t} />
+          </div>
+        </div>
+
+        {/* Mobile: show course info below */}
+        <div className="lg:hidden mt-10">
+          <MoreAboutCourses lang={lang} t={t} />
+        </div>
       </div>
 
       {/* Footer */}
