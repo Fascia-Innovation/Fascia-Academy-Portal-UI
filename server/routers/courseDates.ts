@@ -599,8 +599,18 @@ export const courseDatesRouter = router({
         autoCity = parts[1];
       } else if (parts.length === 1 && parts[0]) {
         autoAddress = parts[0];
-        const addrParts = parts[0].split(",").map((s: string) => s.trim());
-        autoCity = addrParts[addrParts.length - 1] ?? "";
+        // Try comma-separated last part first
+        const commaParts = parts[0].split(",").map((s: string) => s.trim());
+        if (commaParts.length > 1) {
+          autoCity = commaParts[commaParts.length - 1] ?? "";
+        } else {
+          // No commas — extract last space-separated word (likely city name)
+          // e.g. "Tingsvägen 17191 61 Sollentuna" → "Sollentuna"
+          const spaceParts = parts[0].split(" ").map((s: string) => s.trim()).filter(Boolean);
+          const lastWord = spaceParts[spaceParts.length - 1] ?? "";
+          // Only use last word as city if it looks like a city (no digits)
+          autoCity = /^\d/.test(lastWord) ? parts[0] : lastWord;
+        }
       }
 
       const maxSeats = cal.appoinmentPerSlot ?? 12;
@@ -931,6 +941,16 @@ export const courseDatesRouter = router({
       } else if (locParts.length === 2) {
         autoAddress = `${locParts[0]}, ${locParts[1]}`;
         autoCity = locParts[1];
+      } else if (locParts.length === 1 && locParts[0]) {
+        autoAddress = locParts[0];
+        const commaParts = locParts[0].split(",").map((s: string) => s.trim());
+        if (commaParts.length > 1) {
+          autoCity = commaParts[commaParts.length - 1] ?? "";
+        } else {
+          const spaceParts = locParts[0].split(" ").map((s: string) => s.trim()).filter(Boolean);
+          const lastWord = spaceParts[spaceParts.length - 1] ?? "";
+          autoCity = /^\d/.test(lastWord) ? locParts[0] : lastWord;
+        }
       }
 
       // Validate each date entry

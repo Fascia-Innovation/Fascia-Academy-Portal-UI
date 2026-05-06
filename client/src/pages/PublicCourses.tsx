@@ -47,7 +47,7 @@ const T = {
     viewLeaders: "Kursledare",
     viewCalendar: "Kalender",
     viewMap: "Karta",
-    book: "Se tillgängliga tider",
+    book: "Till bokning",
     moreInfo: "Mer info om kursen",
     seats: "platser",
     seatsLeft: "platser kvar",
@@ -101,7 +101,7 @@ const T = {
     viewLeaders: "Leaders",
     viewCalendar: "Calendar",
     viewMap: "Map",
-    book: "See available times",
+    book: "To booking",
     moreInfo: "More info about course",
     seats: "seats",
     seatsLeft: "spots left",
@@ -778,7 +778,7 @@ function MapViewSection({
                 </div>
                 <div style="display:flex;gap:4px;">
                   <button onclick="window.__moreInfoCourse('${d.id}')" style="background:#f3f4f6;color:#374151;border:none;padding:3px 8px;border-radius:5px;font-size:11px;cursor:pointer;">ℹ</button>
-                  <button onclick="window.__bookCourse('${d.id}')" style="background:#111827;color:white;border:none;padding:3px 8px;border-radius:5px;font-size:11px;cursor:pointer;">${lang === 'sv' ? 'Se tider' : 'See times'}</button>
+                  <button onclick="window.__bookCourse('${d.id}')" style="background:#111827;color:white;border:none;padding:3px 8px;border-radius:5px;font-size:11px;cursor:pointer;">${lang === 'sv' ? 'Till bokning' : 'To booking'}</button>
                 </div>
               </div>
             `;
@@ -868,112 +868,94 @@ function CourseLeaderCard({
   onBook: (date: CourseEntry) => void;
   onMoreInfo: (date: CourseEntry) => void;
 }) {
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(false);
   const locale = lang === "sv" ? sv : enUS;
 
-  // Unique course types for this leader
-  const courseTypes = Array.from(new Set(dates.map((d) => d.courseType as CourseType)));
-  // Unique cities
+  // Unique course types ordered by progression
+  const courseTypeOrder: CourseType[] = ["intro", "diplo", "cert", "vidare"];
+  const presentTypes = courseTypeOrder.filter((ct) => dates.some((d) => d.courseType === ct));
   const cities = Array.from(new Set(dates.map((d) => d.city)));
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
-      {/* Leader header */}
-      <div className="p-5">
-        <div className="flex items-start gap-4">
-          {profilePhoto ? (
-            <img
-              src={profilePhoto}
-              alt={leaderName}
-              className="h-16 w-16 rounded-full object-cover ring-2 ring-gray-100 shrink-0"
-            />
-          ) : (
-            <div className="h-16 w-16 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center ring-2 ring-gray-100 shrink-0">
-              <User className="h-7 w-7 text-gray-400" />
+    <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+      {/* Compact summary row — click to expand */}
+      <button
+        onClick={() => setExpanded((v) => !v)}
+        className="w-full text-left px-4 py-3.5 flex items-center gap-3 hover:bg-gray-50/60 transition-colors"
+      >
+        {profilePhoto ? (
+          <img src={profilePhoto} alt={leaderName} className="h-11 w-11 rounded-full object-cover ring-2 ring-gray-100 shrink-0" />
+        ) : (
+          <div className="h-11 w-11 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center ring-2 ring-gray-100 shrink-0">
+            <User className="h-5 w-5 text-gray-400" />
+          </div>
+        )}
+        <div className="flex-1 min-w-0">
+          <div className="font-semibold text-gray-900 text-sm leading-tight">{leaderName}</div>
+          <div className="flex items-center gap-1 text-xs text-gray-500 mt-0.5">
+            <MapPin className="h-3 w-3 shrink-0" />
+            <span className="truncate">{cities.join(", ")}</span>
+          </div>
+          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+            {presentTypes.map((ct) => (
+              <span key={ct} className="flex items-center gap-1 text-xs text-gray-600">
+                <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: COURSE_TYPE_ACCENT[ct] }} />
+                {(t.courseTypesShort as Record<string, string>)[ct]}
+              </span>
+            ))}
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="text-xs text-gray-400">{dates.length} {lang === "sv" ? "kurser" : "courses"}</span>
+          <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${expanded ? "rotate-180" : ""}`} />
+        </div>
+      </button>
+
+      {/* Expanded date list */}
+      {expanded && (
+        <div className="border-t border-gray-100">
+          {profileUrl && (
+            <div className="px-4 py-2 bg-gray-50 border-b border-gray-100">
+              <a href={profileUrl} target="_blank" rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800">
+                <ExternalLink className="h-3 w-3" />
+                {lang === "sv" ? "Mer info om kursledaren" : "More about the course leader"}
+              </a>
             </div>
           )}
-          <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-gray-900 text-base">{leaderName}</h3>
-            {/* Cities */}
-            <div className="flex items-center gap-1 mt-0.5 text-xs text-gray-500">
-              <MapPin className="h-3 w-3 shrink-0" />
-              <span className="truncate">{cities.join(", ")}</span>
-            </div>
-            {/* Profile link — now as a button */}
-            {profileUrl && (
-              <a
-                href={profileUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 mt-2 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-medium rounded-lg transition-colors"
-              >
-                <User className="h-3 w-3" />
-                {lang === "sv" ? "Mer info om kursledaren" : "More about the course leader"}
-                <ExternalLink className="h-3 w-3" />
-              </a>
-            )}
-          </div>
-          <button
-            onClick={() => setExpanded((v) => !v)}
-            className="h-8 w-8 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-colors shrink-0 mt-0.5"
-          >
-            <ChevronDown className={`h-4 w-4 transition-transform ${expanded ? "rotate-180" : ""}`} />
-          </button>
-        </div>
-      </div>
-
-      {/* Dates list */}
-      {expanded && (
-        <div className="border-t border-gray-50">
           {dates.length === 0 ? (
-            <div className="px-5 py-4 text-sm text-gray-400 text-center">{t.noDates}</div>
+            <div className="px-4 py-4 text-sm text-gray-400 text-center">{t.noDates}</div>
           ) : (
             <div className="divide-y divide-gray-50">
-              {dates.map((date) => {
-                const isMultiDay = date.additionalDays && date.additionalDays.length > 0;
-                return (
-                  <div key={date.id} className="px-5 py-3 flex items-center gap-3 hover:bg-gray-50/50 transition-colors">
-                    <div
-                      className="h-2.5 w-2.5 rounded-full shrink-0"
-                      style={{ backgroundColor: COURSE_TYPE_ACCENT[date.courseType] }}
-                    />
-                    <div className="flex-1 min-w-0">
-                      {/* Full course name */}
-                      <div className="font-medium text-xs text-gray-900">
-                        {(t.courseTypes as Record<string, string>)[date.courseType]}
-                      </div>
-                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                        <span className="text-xs text-gray-600 flex items-center gap-1">
-                          <CalendarDays className="h-3 w-3" />
-                          {format(date.startDate, "d MMMM yyyy", { locale })}
-                        </span>
-                        <span className="text-xs text-gray-400 flex items-center gap-1">
-                          <MapPin className="h-3 w-3" />
-                          {date.city}
-                        </span>
-                        <span className="text-xs font-medium text-gray-600">
-                          {(t.prices as Record<string, string>)[date.courseType]}
-                        </span>
-                      </div>
+              {dates.map((date) => (
+                <div key={date.id} className="px-4 py-3 flex items-center gap-3 hover:bg-gray-50/40 transition-colors">
+                  <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: COURSE_TYPE_ACCENT[date.courseType] }} />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-semibold text-gray-900">
+                      {(t.courseTypesShort as Record<string, string>)[date.courseType]}
                     </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <button
-                        onClick={() => onMoreInfo(date)}
-                        className="px-3 py-1.5 border border-gray-200 text-gray-600 text-xs font-medium rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-1"
-                      >
-                        <Info className="h-3 w-3" />
-                        {t.moreInfo}
-                      </button>
-                      <button
-                        onClick={() => onBook(date)}
-                        className="px-3.5 py-1.5 bg-gray-900 text-white text-xs font-semibold rounded-lg hover:bg-gray-700 transition-colors"
-                      >
-                        {t.book}
-                      </button>
+                    <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-500 flex-wrap">
+                      <span className="flex items-center gap-1">
+                        <CalendarDays className="h-3 w-3" />
+                        {format(date.startDate, "d MMM yyyy", { locale })}
+                      </span>
+                      <span>{format(date.startDate, "HH:mm")}–{format(date.endDate, "HH:mm")}</span>
+                      <span className="font-medium text-gray-600">{(t.prices as Record<string, string>)[date.courseType]}</span>
                     </div>
                   </div>
-                );
-              })}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button onClick={() => onMoreInfo(date)}
+                      className="p-1.5 border border-gray-200 text-gray-500 rounded-lg hover:bg-gray-50 transition-colors"
+                      title={t.moreInfo}>
+                      <Info className="h-3.5 w-3.5" />
+                    </button>
+                    <button onClick={() => onBook(date)}
+                      className="px-3 py-1.5 bg-gray-900 text-white text-xs font-semibold rounded-lg hover:bg-gray-700 transition-colors">
+                      {t.book}
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>
