@@ -298,8 +298,8 @@ function RegisterCourseDialog({
         for (const bd of batchDates) {
           await registerMut.mutateAsync({
             ghlCalendarId: calendarId,
-            startDate: `${bd.date}T${bd.startTime}:00`,
-            endDate: `${bd.date}T${bd.endTime}:00`,
+            startDate: `${bd.date}T${bd.startTime}:00+02:00`,
+            endDate: `${bd.date}T${bd.endTime}:00+02:00`,
             venueName,
             bookingInfo: bookingInfo || undefined,
             leaderMessage: leaderMessage || undefined,
@@ -310,12 +310,12 @@ function RegisterCourseDialog({
       } else {
         await registerMut.mutateAsync({
           ghlCalendarId: calendarId,
-          startDate: `${startDate}T${startTime}:00`,
-          endDate: `${startDate}T${endTime}:00`,
-          venueName,
-          bookingInfo: bookingInfo || undefined,
-          leaderMessage: leaderMessage || undefined,
-          additionalDays: additionalDays.length > 0 ? JSON.stringify(additionalDays) : undefined,
+startDate: `${startDate}T${startTime}:00+02:00`,
+          endDate: `${startDate}T${endTime}:00+02:00`,
+            venueName,
+            bookingInfo: bookingInfo || undefined,
+            leaderMessage: leaderMessage || undefined,
+            additionalDays: additionalDays.length > 0 ? JSON.stringify(additionalDays) : undefined,
         });
         toast.success("Course submitted for approval");
       }
@@ -489,8 +489,8 @@ function EditRevisionDialog({ open, onOpenChange, course, calendars }: {
     try {
       await resubmitMut.mutateAsync({
         id: course.id,
-        startDate: `${startDate}T${startTime}:00`,
-        endDate: `${startDate}T${endTime}:00`,
+        startDate: `${startDate}T${startTime}:00+02:00`,
+        endDate: `${startDate}T${endTime}:00+02:00`,
         venueName,
         bookingInfo: bookingInfo || undefined,
         additionalDays: additionalDays.length > 0 ? JSON.stringify(additionalDays) : undefined,
@@ -659,8 +659,8 @@ function RescheduleDialog({ open, onOpenChange, course }: {
     try {
       await rescheduleMut.mutateAsync({
         id: course.id,
-        newStartDate: `${newDate}T${newStartTime}:00`,
-        newEndDate: `${newDate}T${newEndTime}:00`,
+        newStartDate: `${newDate}T${newStartTime}:00+02:00`,
+        newEndDate: `${newDate}T${newEndTime}:00+02:00`,
         newAdditionalDays: newAdditionalDays.length > 0 ? JSON.stringify(newAdditionalDays) : undefined,
         leaderMessage: msg || undefined,
       });
