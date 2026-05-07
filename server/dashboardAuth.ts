@@ -2,7 +2,7 @@
  * Dashboard authentication helpers — email + password, separate from Manus OAuth.
  */
 import { eq, and, gt } from "drizzle-orm";
-import { createHash, randomBytes } from "crypto";
+import { createHash, randomBytes, timingSafeEqual } from "crypto";
 import bcrypt from "bcrypt";
 import { getDb } from "./db";
 import { dashboardUsers, dashboardSessions, passwordResetTokens, type DashboardUser } from "../drizzle/schema";
@@ -27,12 +27,17 @@ export function hashNewPassword(password: string): string {
 
 export function verifyPassword(password: string, stored: string): boolean {
   if (isLegacyHash(stored)) {
-    // Legacy SHA-256 verification (will be re-hashed on next successful login)
+    // Legacy SHA-256 verification with timing-safe comparison
     const [salt, hash] = stored.split(":");
     if (!salt || !hash) return false;
-    return legacyHashPassword(password, salt) === hash;
+    const computed = legacyHashPassword(password, salt);
+    // Use timingSafeEqual to prevent timing attacks
+    const a = Buffer.from(computed, "hex");
+    const b = Buffer.from(hash, "hex");
+    if (a.length !== b.length) return false;
+    return timingSafeEqual(a, b);
   }
-  // bcrypt verification
+  // bcrypt.compareSync is already timing-safe internally
   return bcrypt.compareSync(password, stored);
 }
 
@@ -195,6 +200,8 @@ export async function resetPasswordWithToken(token: string, newPassword: string)
   if (!resetToken) return false;
   const passwordHash = hashNewPassword(newPassword);
   await db.update(dashboardUsers).set({ passwordHash }).where(eq(dashboardUsers.id, resetToken.userId));
+  // Invalidate ALL existing sessions for this user (security: prevent compromised sessions from persisting)
+  await db.delete(dashboardSessions).where(eq(dashboardSessions.userId, resetToken.userId));
   await db.delete(passwordResetTokens).where(eq(passwordResetTokens.id, resetToken.id));
   return true;
 }

@@ -8,6 +8,11 @@ export function registerStorageProxy(app: Express) {
       res.status(400).send("Missing storage key");
       return;
     }
+    // Security: reject path traversal and absolute paths
+    if (key.includes("..") || key.startsWith("/") || /[\x00-\x1f]/.test(key)) {
+      res.status(400).send("Invalid storage key");
+      return;
+    }
     if (!ENV.forgeApiUrl || !ENV.forgeApiKey) {
       res.status(500).send("Storage proxy not configured");
       return;

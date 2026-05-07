@@ -34,33 +34,48 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 async function startServer() {
   const app = express();
   const server = createServer(app);
-  // Configure body parser with larger size limit for file uploads
-  app.use(express.json({ limit: "50mb" }));
-  app.use(express.urlencoded({ limit: "50mb", extended: true }));
+  // Body parser: small default limit, larger for specific upload routes
+  app.use(express.json({ limit: "1mb" }));
+  app.use(express.urlencoded({ limit: "1mb", extended: true }));
+  // Override with larger limit for storage/upload routes
+  app.use("/api/storage", express.json({ limit: "50mb" }));
+  app.use("/manus-storage", express.json({ limit: "50mb" }));
 
-  // Allow GHL booking widget (LeadConnector) and Stripe to load inside iframes
-  // Stripe requires specific Permissions-Policy and CSP headers to work in iframes
+  // ─── Security headers ────────────────────────────────────────────────────────
   app.use((_req, res, next) => {
-    // Only remove X-Frame-Options for public/widget routes, keep it for admin/dashboard
     const path = _req.path;
+    // X-Frame-Options: allow embedding only for public/widget routes
     if (path.startsWith("/courses") || path.startsWith("/api/webhooks") || path === "/") {
       res.removeHeader("X-Frame-Options");
     } else {
       res.setHeader("X-Frame-Options", "SAMEORIGIN");
     }
-    // Permissions-Policy: grant payment and other required features to all origins
+    // Standard security headers (helmet-equivalent)
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+    res.setHeader("X-DNS-Prefetch-Control", "off");
+    res.setHeader("X-Download-Options", "noopen");
+    res.setHeader("X-Permitted-Cross-Domain-Policies", "none");
+    if (process.env.NODE_ENV === "production") {
+      res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+    }
+    // Permissions-Policy: scoped to specific origins (Stripe + GHL)
     res.setHeader(
       "Permissions-Policy",
-      "payment=*, camera=*, microphone=*, clipboard-read=*, clipboard-write=*, geolocation=*, fullscreen=*"
+      "payment=(self \"https://js.stripe.com\"), camera=(), microphone=(), geolocation=(), fullscreen=(self)"
     );
-    // Content-Security-Policy: allow Stripe and GHL/LeadConnector frame-src
+    // Content-Security-Policy
+    const scriptSrc = process.env.NODE_ENV === "production"
+      ? "script-src 'self' 'unsafe-inline' https://js.stripe.com https://api.leadconnectorhq.com https://widgets.leadconnectorhq.com https://cdn.jsdelivr.net https://fonts.googleapis.com"
+      : "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://api.leadconnectorhq.com https://widgets.leadconnectorhq.com https://cdn.jsdelivr.net https://fonts.googleapis.com";
     res.setHeader(
       "Content-Security-Policy",
       [
         "default-src 'self'",
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://api.leadconnectorhq.com https://widgets.leadconnectorhq.com https://cdn.jsdelivr.net https://fonts.googleapis.com",
+        scriptSrc,
         "frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://api.leadconnectorhq.com https://widgets.leadconnectorhq.com https://*.stripe.com https://*.leadconnectorhq.com",
-        "connect-src 'self' https://api.stripe.com https://api.leadconnectorhq.com wss://*.leadconnectorhq.com",
+        "frame-ancestors 'self'",
+        "connect-src 'self' https://api.stripe.com https://api.leadconnectorhq.com wss://*.leadconnectorhq.com https://*.manus.im",
         "img-src 'self' data: blob: https: http:",
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
         "font-src 'self' data: https://fonts.gstatic.com",

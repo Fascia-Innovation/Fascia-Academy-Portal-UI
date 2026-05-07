@@ -141,7 +141,7 @@ export const appRouter = router({
         ctx.res.cookie(DASH_SESSION, result.sessionId, {
           httpOnly: true,
           secure: true,
-          sameSite: "none",
+          sameSite: "lax",
           maxAge: 7 * 24 * 60 * 60 * 1000,
           path: "/",
         });
@@ -205,12 +205,12 @@ export const appRouter = router({
       .input(z.object({ token: z.string() }))
       .query(async ({ input }) => {
         const user = await getUserByResetToken(input.token);
-        return { valid: !!user, name: user?.name ?? null };
+        return { valid: !!user };
       }),
 
     // Reset password using a valid token
     resetPassword: publicProcedure
-      .input(z.object({ token: z.string(), newPassword: z.string().min(6) }))
+      .input(z.object({ token: z.string(), newPassword: z.string().min(10) }))
       .mutation(async ({ input }) => {
         const success = await resetPasswordWithToken(input.token, input.newPassword);
         if (!success) throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid or expired reset link" });
@@ -228,7 +228,7 @@ export const appRouter = router({
     createUser: adminProcedure
       .input(z.object({
         email: z.string().email(),
-        password: z.string().min(6),
+        password: z.string().min(10),
         name: z.string().min(1),
         role: z.enum(["admin", "course_leader", "affiliate"]),
         ghlContactId: z.string().optional(),
@@ -254,7 +254,7 @@ export const appRouter = router({
         isAffiliate: z.boolean().optional(),
         canExamineExams: z.boolean().optional(),
         active: z.boolean().optional(),
-        password: z.string().min(6).optional(),
+        password: z.string().min(10).optional(),
         ghlUserId: z.string().optional().nullable(),
       }))
       .mutation(async ({ input }) => {
@@ -308,7 +308,7 @@ export const appRouter = router({
         ctx.res.cookie(DASH_SESSION, sessionId, {
           httpOnly: true,
           secure: true,
-          sameSite: "none",
+          sameSite: "lax",
           maxAge: 60 * 60 * 1000,
           path: "/",
         });
@@ -317,7 +317,7 @@ export const appRouter = router({
           ctx.res.cookie("fa_dash_admin_session", originalSessionId, {
             httpOnly: true,
             secure: true,
-            sameSite: "none",
+            sameSite: "lax",
             maxAge: 60 * 60 * 1000,
             path: "/",
           });
@@ -347,7 +347,7 @@ export const appRouter = router({
         ctx.res.cookie(DASH_SESSION, adminSessionId, {
           httpOnly: true,
           secure: true,
-          sameSite: "none",
+          sameSite: "lax",
           maxAge: 7 * 24 * 60 * 60 * 1000,
           path: "/",
         });

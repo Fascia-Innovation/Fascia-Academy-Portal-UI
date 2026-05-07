@@ -29,8 +29,8 @@ export default function ResetPassword() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newPassword || newPassword.length < 6) {
-      toast.error("Password must be at least 6 characters");
+    if (!newPassword || newPassword.length < 10) {
+      toast.error("Password must be at least 10 characters");
       return;
     }
     if (newPassword !== confirm) {
@@ -100,7 +100,7 @@ export default function ResetPassword() {
         <div className="bg-white rounded-2xl shadow-2xl p-8">
           <h2 className="text-xl font-semibold text-foreground mb-1">Set New Password</h2>
           <p className="text-sm text-muted-foreground mb-6">
-            Hi {tokenData.name}, choose a new password for your account.
+            Choose a new password for your account (minimum 10 characters).
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-5">
