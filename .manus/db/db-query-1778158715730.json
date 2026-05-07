@@ -1,0 +1,9 @@
+{
+  "query": "\nCREATE INDEX idx_certificates_status ON certificates (status);\nCREATE INDEX idx_certificates_course_type ON certificates (courseType, status);\nCREATE INDEX idx_settlements_user_period ON settlements (userId, periodYear, periodMonth);\nCREATE INDEX idx_settlements_status ON settlements (status);\nCREATE INDEX idx_settlement_lines_settlement ON settlement_lines (settlementId);\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway05.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2dHixsayHgu1qvC.root --database 9QUcsw5GGBSBi2Ysai3uDd --execute \nCREATE INDEX idx_certificates_status ON certificates (status);\nCREATE INDEX idx_certificates_course_type ON certificates (courseType, status);\nCREATE INDEX idx_settlements_user_period ON settlements (userId, periodYear, periodMonth);\nCREATE INDEX idx_settlements_status ON settlements (status);\nCREATE INDEX idx_settlement_lines_settlement ON settlement_lines (settlementId);\n",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 1846
+}

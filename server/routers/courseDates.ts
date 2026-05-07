@@ -222,16 +222,16 @@ export const courseDatesRouter = router({
         dashUsers.map((u) => [u.name.toLowerCase(), u.profileUrl ?? null])
       );
 
-      // Fetch live booked seats and max seats from GHL
+      // Use DB-cached bookedSeats (synced every 5 min by bookedSeatsSync job)
+      // Only fetch calendars for maxSeats (in-memory cached, no extra API call)
       const calendars = await getGhlCalendars();
       const calMap = new Map(calendars.map((c) => [c.id, c]));
-      const liveBooked = await getLiveBookedSeats(filtered);
       return filtered.map((row) => ({
         ...row,
         profilePhoto: row.ghlUserId ? (userMap.get(row.ghlUserId)?.profilePhoto ?? null) : null,
         profileUrl: profileUrlByName.get(row.courseLeaderName.toLowerCase()) ?? null,
-        bookedSeats: liveBooked.get(row.id) ?? 0,
-        maxSeats: calMap.get(row.ghlCalendarId)?.appoinmentPerSlot ?? 20,
+        bookedSeats: row.bookedSeats, // from DB, synced by background job
+        maxSeats: calMap.get(row.ghlCalendarId)?.appoinmentPerSlot ?? row.maxSeats,
       }));
     }),
 

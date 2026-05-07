@@ -658,3 +658,8 @@
 - [ ] A9: Handle email failure after approve gracefully
 - [ ] B6: Max length on template emailBody
 - [ ] B10: Remove hardcoded fallback URLs
+
+## Performance Optimizations (May 2026)
+- [x] Add DB indexes on course_dates (status+startDate, calendarId+startDate)
+- [x] Implement GHL data cache with background sync job (bookedSeatsSync.ts)
+- [x] Update public courses endpoint to read from DB cache instead of live GHL

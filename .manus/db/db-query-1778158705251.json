@@ -1,0 +1,9 @@
+{
+  "query": "\nCREATE INDEX idx_course_dates_status_start ON course_dates (status, startDate);\nCREATE INDEX idx_course_dates_calendar_start ON course_dates (ghlCalendarId, startDate);\nCREATE INDEX idx_course_dates_published_start ON course_dates (published, startDate);\nCREATE INDEX idx_course_dates_course_type ON course_dates (courseType, language, startDate);\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway05.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2dHixsayHgu1qvC.root --database 9QUcsw5GGBSBi2Ysai3uDd --execute \nCREATE INDEX idx_course_dates_status_start ON course_dates (status, startDate);\nCREATE INDEX idx_course_dates_calendar_start ON course_dates (ghlCalendarId, startDate);\nCREATE INDEX idx_course_dates_published_start ON course_dates (published, startDate);\nCREATE INDEX idx_course_dates_course_type ON course_dates (courseType, language, startDate);\n",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 1946
+}
