@@ -213,6 +213,43 @@ After schema changes: read the generated `.sql` file in `drizzle/migrations/` an
 
 ---
 
+## Security Hardening
+
+The following security measures are in place:
+
+| Measure | Details |
+|---------|--------|
+| Password hashing | bcrypt (cost 12), with transparent migration from legacy SHA-256 |
+| Timing-safe comparison | `crypto.timingSafeEqual` for legacy hash path |
+| Rate limiting | Login + password reset: max 10 attempts per 15 min per IP |
+| Session invalidation | All sessions destroyed on password reset |
+| Cookie security | `httpOnly`, `secure` (prod), `sameSite=lax`, `maxAge=7d` |
+| CSP | Strict Content-Security-Policy (no `unsafe-eval` in production) |
+| Headers | HSTS, X-Content-Type-Options, Referrer-Policy, X-Frame-Options (admin routes) |
+| Permissions-Policy | Scoped: payment (self + Stripe), camera/mic/geo disabled |
+| Input validation | Zod schemas on all tRPC inputs; min password 10 chars |
+| SQL injection | Parameterized queries only (Drizzle ORM + prepared statements) |
+| XSS prevention | HTML-escaped user content in email templates |
+| Storage proxy | Path traversal protection with allowlist validation |
+| API data exposure | `passwordHash` stripped from all API responses |
+| Certificate soft-delete | Revoked certificates return 404 on public verification |
+| Settlement bounds | Adjustment amounts capped at ±100,000 SEK; paidInclVat capped at 500,000 SEK |
+
+---
+
+## Performance Optimizations
+
+| Optimization | Impact |
+|-------------|--------|
+| Database indexes | 9 composite indexes on `course_dates`, `certificates`, `settlements`, `settlement_lines` |
+| Background sync | `bookedSeatsSync.ts` updates booked seats from GHL every 5 min |
+| Zero live GHL calls | Public booking page reads entirely from DB — no GHL API calls per visitor |
+| In-memory cache | GHL users (10 min TTL), calendars (10 min TTL) for admin views |
+
+The public booking page can now handle thousands of concurrent visitors without hitting GHL rate limits (previously limited to ~100 req/min).
+
+---
+
 ## Deployment
 
 Hosted on [Manus](https://manus.im). Click **Publish** in the Management UI after creating a checkpoint. Custom domain can be configured under Settings → Domains.
