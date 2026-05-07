@@ -220,7 +220,10 @@ export const appRouter = router({
 
   // ── Admin procedures ───────────────────────────────────────────────────────
   admin: router({
-    listUsers: adminProcedure.query(async () => getAllDashboardUsers()),
+    listUsers: adminProcedure.query(async () => {
+      const users = await getAllDashboardUsers();
+      return users.map(({ passwordHash, ...rest }) => rest);
+    }),
 
     createUser: adminProcedure
       .input(z.object({

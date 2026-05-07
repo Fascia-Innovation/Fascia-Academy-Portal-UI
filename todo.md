@@ -632,3 +632,12 @@
 - [ ] Build Del 5: Portalen — Affiliate (3 slides: affiliate vy, rollkombination kursledare+affiliate, admin-setup)
 - [ ] Build Del 6: Portalen — Rättare (3 slides: rättarens roll, Exam Queue-flöde, intygsflöde showed+prov→admin→intyg)
 - [ ] Build Del 7: Kursdeltagare (6 slides: Intro bokning→mail→kurs→showed→intyg, Diplo bokning→mail→kurs→showed+prov→admin→intyg)
+
+## Security Audit Fixes (May 2026)
+- [x] K2: Strip passwordHash from listUsers API response
+- [x] H4: Remove debug-payload webhook endpoint
+- [x] H2: Add rate limiting on login endpoint
+- [x] H3: Fix SQL interpolation in ghl.ts getMockCache
+- [x] K1: Migrate password hashing from SHA-256 to bcrypt
+- [x] M1: Add maxAge to session cookie (already present)
+- [x] M4: Scope X-Frame-Options removal to public routes only

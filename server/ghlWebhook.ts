@@ -28,13 +28,6 @@ import { detectCourseType, getCalendars, searchContactByEmail, sendAdminExamNoti
 import { generateCertificatePdf } from "./certificatePdf";
 
 export function registerGhlWebhookRoutes(app: Express): void {
-  // DEBUG endpoint — logs raw body so we can see exactly what GHL sends
-  app.post("/api/webhooks/debug-payload", (req: Request, res: Response) => {
-    const raw = req.body;
-    console.log("[DEBUG] Raw body:", JSON.stringify(raw, null, 2));
-    console.log("[DEBUG] Keys:", Object.keys(raw));
-    return res.json({ received: raw, keys: Object.keys(raw) });
-  });
 
   app.post("/api/webhooks/ghl-shown", async (req: Request, res: Response) => {
     try {

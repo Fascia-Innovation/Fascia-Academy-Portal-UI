@@ -3,28 +3,49 @@
  */
 import { eq, and, gt } from "drizzle-orm";
 import { createHash, randomBytes } from "crypto";
+import bcrypt from "bcrypt";
 import { getDb } from "./db";
 import { dashboardUsers, dashboardSessions, passwordResetTokens, type DashboardUser } from "../drizzle/schema";
 
-// ─── Password hashing (SHA-256 + salt, no bcrypt to avoid native deps) ────────
-function hashPassword(password: string, salt: string): string {
+const BCRYPT_ROUNDS = 12;
+
+// ─── Password hashing (bcrypt, with legacy SHA-256 fallback for migration) ────
+function legacyHashPassword(password: string, salt: string): string {
   return createHash("sha256").update(salt + password).digest("hex");
 }
 
-function generateSalt(): string {
-  return randomBytes(16).toString("hex");
+function isLegacyHash(stored: string): boolean {
+  // Legacy format: "<32-char-hex-salt>:<64-char-hex-hash>"
+  const parts = stored.split(":");
+  return parts.length === 2 && parts[0].length === 32 && parts[1].length === 64;
 }
 
 export function hashNewPassword(password: string): string {
-  const salt = generateSalt();
-  const hash = hashPassword(password, salt);
-  return `${salt}:${hash}`;
+  // Synchronous bcrypt hash for new passwords
+  return bcrypt.hashSync(password, BCRYPT_ROUNDS);
 }
 
 export function verifyPassword(password: string, stored: string): boolean {
-  const [salt, hash] = stored.split(":");
-  if (!salt || !hash) return false;
-  return hashPassword(password, salt) === hash;
+  if (isLegacyHash(stored)) {
+    // Legacy SHA-256 verification (will be re-hashed on next successful login)
+    const [salt, hash] = stored.split(":");
+    if (!salt || !hash) return false;
+    return legacyHashPassword(password, salt) === hash;
+  }
+  // bcrypt verification
+  return bcrypt.compareSync(password, stored);
+}
+
+/**
+ * Re-hash a password with bcrypt if it's still using the legacy SHA-256 format.
+ * Call this after a successful login to transparently migrate users.
+ */
+export async function upgradeHashIfNeeded(userId: number, password: string, currentHash: string): Promise<void> {
+  if (!isLegacyHash(currentHash)) return; // already bcrypt
+  const db = await getDb();
+  if (!db) return;
+  const newHash = hashNewPassword(password);
+  await db.update(dashboardUsers).set({ passwordHash: newHash }).where(eq(dashboardUsers.id, userId));
 }
 
 // ─── Session management ───────────────────────────────────────────────────────
@@ -75,6 +96,8 @@ export async function loginUser(
   const user = rows[0];
   if (!user) return null;
   if (!verifyPassword(password, user.passwordHash)) return null;
+  // Transparently upgrade legacy SHA-256 hash to bcrypt on successful login
+  await upgradeHashIfNeeded(user.id, password, user.passwordHash);
   const sessionId = await createSession(user.id);
   return { sessionId, user };
 }

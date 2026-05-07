@@ -1,5 +1,6 @@
 import "dotenv/config";
 import express from "express";
+import rateLimit from "express-rate-limit";
 import { createServer } from "http";
 import net from "net";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
@@ -40,8 +41,13 @@ async function startServer() {
   // Allow GHL booking widget (LeadConnector) and Stripe to load inside iframes
   // Stripe requires specific Permissions-Policy and CSP headers to work in iframes
   app.use((_req, res, next) => {
-    // Remove X-Frame-Options so our own pages can embed GHL iframes
-    res.removeHeader("X-Frame-Options");
+    // Only remove X-Frame-Options for public/widget routes, keep it for admin/dashboard
+    const path = _req.path;
+    if (path.startsWith("/courses") || path.startsWith("/api/webhooks") || path === "/") {
+      res.removeHeader("X-Frame-Options");
+    } else {
+      res.setHeader("X-Frame-Options", "SAMEORIGIN");
+    }
     // Permissions-Policy: grant payment and other required features to all origins
     res.setHeader(
       "Permissions-Policy",
@@ -69,6 +75,18 @@ async function startServer() {
   registerOAuthRoutes(app);
   // GHL webhook for course completion events
   registerGhlWebhookRoutes(app);
+  // Rate limiting on auth endpoints (brute-force protection)
+  const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 10, // max 10 attempts per IP per window
+    message: { error: "Too many attempts, please try again later" },
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+  app.use("/api/trpc/dashboard.login", authLimiter);
+  app.use("/api/trpc/dashboard.requestPasswordReset", authLimiter);
+  app.use("/api/trpc/dashboard.resetPassword", authLimiter);
+
   // tRPC API
   app.use(
     "/api/trpc",

@@ -146,8 +146,9 @@ async function getMockCache<T>(key: string): Promise<T | null> {
   try {
     const db = await getDb();
     if (!db) return null;
+    const { sql } = await import("drizzle-orm");
     const rows = await db.execute(
-      `SELECT cache_value FROM ghl_cache WHERE cache_key = '${key.replace(/'/g, "''")}' AND expires_at > NOW() LIMIT 1`
+      sql`SELECT cache_value FROM ghl_cache WHERE cache_key = ${key} AND expires_at > NOW() LIMIT 1`
     ) as unknown as [Array<{ cache_value: string }>];
     const row = rows[0]?.[0];
     if (!row) return null;
