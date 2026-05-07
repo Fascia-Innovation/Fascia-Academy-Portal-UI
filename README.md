@@ -58,9 +58,36 @@ The portal serves three user roles:
 
 | Route | Description |
 |-------|-------------|
-| `/courses` | Public course booking page (from DB course dates) |
+| `/courses` | Public course booking page (calendar, map, course leader views) |
 | `/certificate/:id` | Public certificate verification page |
 | `/login` | Dashboard login |
+
+---
+
+## Public Booking Page (`/courses`)
+
+The public-facing booking page lets visitors find and book courses without logging in.
+
+### Views
+- **Kalender** — chronological list of all upcoming courses grouped by month
+- **Karta** — Google Maps view with clustered pins per city; click a pin to see courses in that city
+- **Kursledare** — compact course leader cards (photo, name, city, course type colour dots); click to expand and see all upcoming dates with times, price and booking button
+
+### Colour coding (course type)
+| Colour | Course type |
+|--------|-------------|
+| Green | Introduktionskurs Fascia (Intro) |
+| Blue | Diplomerad Fasciaspecialist (Diplo) |
+| Yellow | Certifierad Fasciaspecialist (Cert) |
+| Red | Vidareutbildning för Certifierade Fasciaspecialister (Vidare) |
+
+### Buttons
+- **Mer info om kursen** — opens a detail modal with course description
+- **Till bokning** — opens the booking modal; confirms the date and links to the GHL booking widget with the date pre-selected
+- **Gå till bokning** (inside modal) — navigates to the GHL booking widget
+
+### Sidebar — Mer om kurserna
+Sticky sidebar on desktop (below list on mobile) with a short description and price for each course type, linking to `fasciaacademy.com` for full details.
 
 ---
 
@@ -76,6 +103,27 @@ The portal serves three user roles:
 1. Course added in portal but not yet configured in GHL calendar
 2. Date changed in GHL without updating the portal
 3. All slots for that date are fully booked in GHL (no free slots returned)
+
+---
+
+## Address / City Parsing
+
+When a course leader registers a course, the city is auto-extracted from the GHL calendar's `meetingLocation` field. The parser handles three formats:
+
+| Format | Example | Result |
+|--------|---------|--------|
+| Tab-separated (standard) | `Berga allé 1\t25452\tHelsingborg` | city = `Helsingborg` |
+| Two parts | `Storgatan 1\tStockholm` | city = `Stockholm` |
+| Single string with commas | `Storgatan 1, 123 45 Stockholm` | city = `Stockholm` (last comma part) |
+| Single string without commas | `Tingsvägen 17191 61 Sollentuna` | city = `Sollentuna` (last non-numeric word) |
+
+> **Note:** The GHL user's `meetingLocation` should ideally be set in tab-separated format (`Street\tPostalCode\tCity`) for best results.
+
+---
+
+## Timezone
+
+All course dates are stored and handled in **Europe/Stockholm (UTC+2)**. Date strings sent from the frontend always include the `+02:00` offset to prevent UTC drift.
 
 ---
 
@@ -169,6 +217,8 @@ After schema changes: read the generated `.sql` file in `drizzle/migrations/` an
 
 Hosted on [Manus](https://manus.im). Click **Publish** in the Management UI after creating a checkpoint. Custom domain can be configured under Settings → Domains.
 
+Live URL: `fascidash-9qucsw5g.manus.space`
+
 ---
 
-*Last updated: April 2026*
+*Last updated: May 2026*
