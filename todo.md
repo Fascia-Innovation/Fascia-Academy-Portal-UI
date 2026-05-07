@@ -641,3 +641,20 @@
 - [x] K1: Migrate password hashing from SHA-256 to bcrypt
 - [x] M1: Add maxAge to session cookie (already present)
 - [x] M4: Scope X-Frame-Options removal to public routes only
+
+## Security Audit Round 3 — Settlements & Certificates (May 2026)
+- [ ] B1: Whitelist getByUuid return fields (stop PII leak)
+- [ ] B2: HTML-escape contactName in certificate emails
+- [ ] A3: Add min/max bounds on addAdjustment amount
+- [ ] B4: Require non-empty certificateIds in sendCertificates
+- [ ] A1: Migrate settlements to central adminProcedure
+- [ ] A2: Wrap generate/recalculate in DB transaction + unique constraint
+- [ ] B3: Use UUID-based PDF S3 keys (no PII in path)
+- [ ] B5: Randomize verification codes
+- [ ] A4/B9: Soft-delete for recalculate and certificate deletion
+- [ ] A5: Return NOT_FOUND for both non-existent and unauthorized settlements
+- [ ] A6: Upper bound on paid_amount from GHL
+- [ ] A7: Rate-limit resendEmail
+- [ ] A9: Handle email failure after approve gracefully
+- [ ] B6: Max length on template emailBody
+- [ ] B10: Remove hardcoded fallback URLs

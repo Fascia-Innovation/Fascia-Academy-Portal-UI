@@ -39,7 +39,7 @@ import {
 import { notifyOwner } from "../_core/notification";
 import { sendSettlementApprovalEmail, type SettlementEmailLine } from "../settlementEmail";
 
-// ─── Auth helpers ─────────────────────────────────────────────────────────────
+// ─── Auth helpers (A1: central middleware instead of inline checks) ───────────
 const DASH_SESSION = "fa_dash_session";
 
 function getDashCookie(req: { headers: { cookie?: string } }): string | undefined {
@@ -47,19 +47,20 @@ function getDashCookie(req: { headers: { cookie?: string } }): string | undefine
   return cookies[DASH_SESSION];
 }
 
-async function requireDashUser(ctx: { req: { headers: { cookie?: string } } }): Promise<DashboardUser> {
+const dashboardProcedure = publicProcedure.use(async ({ ctx, next }) => {
   const sessionId = getDashCookie(ctx.req);
   if (!sessionId) throw new TRPCError({ code: "UNAUTHORIZED" });
   const user = await getSessionUser(sessionId);
   if (!user) throw new TRPCError({ code: "UNAUTHORIZED" });
-  return user as DashboardUser;
-}
+  return next({ ctx: { ...ctx, dashUser: user as DashboardUser } });
+});
 
-async function requireAdmin(ctx: { req: { headers: { cookie?: string } } }): Promise<DashboardUser> {
-  const user = await requireDashUser(ctx);
-  if (user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
-  return user;
-}
+const adminProcedure = dashboardProcedure.use(({ ctx, next }) => {
+  if ((ctx as { dashUser: DashboardUser }).dashUser.role !== "admin") {
+    throw new TRPCError({ code: "FORBIDDEN" });
+  }
+  return next({ ctx });
+});
 
 // ─── FA company details shown on settlements ──────────────────────────────────
 export const FA_COMPANY = {
@@ -119,7 +120,8 @@ async function buildLine(
   const rawPaid      = paidField?.value;
   const missingAmount = rawPaid === undefined || rawPaid === null || rawPaid === "";
   // 0 kr is intentional (free booking) — do NOT fall back to standard price
-  const paidInclVat = missingAmount ? 0 : Math.max(0, Number(rawPaid) || 0);
+  // A6: Cap paidInclVat at 500000 to prevent unreasonable amounts from corrupted data
+  const paidInclVat = missingAmount ? 0 : Math.min(500000, Math.max(0, Number(rawPaid) || 0));
 
   const affiliateCode = affiliateField?.value ? String(affiliateField.value).trim() : "";
 
@@ -291,7 +293,8 @@ async function generateForAffiliate(
     );
     const rawPaid = paidField?.value;
     const missingAmount = rawPaid === undefined || rawPaid === null || rawPaid === "";
-    const paidInclVat = missingAmount ? 0 : Math.max(0, Number(rawPaid) || 0);
+    // A6: Cap paidInclVat at 500000 to prevent unreasonable amounts from corrupted data
+  const paidInclVat = missingAmount ? 0 : Math.min(500000, Math.max(0, Number(rawPaid) || 0));
     const currency = detectCurrency(cal.name);
     const courseDate = appt.startTime ? appt.startTime.slice(0, 10) : "";
     const netExclVat = paidInclVat / (1 + VAT_RATE);
@@ -369,10 +372,9 @@ export const settlementsRouter = router({
    * Admin: generate settlements for all active course leaders + affiliates for a given month.
    * Skips users who already have a non-amended settlement for that period.
    */
-  generate: publicProcedure
+  generate: adminProcedure
     .input(z.object({ year: z.number(), month: z.number().min(1).max(12) }))
     .mutation(async ({ input, ctx }) => {
-      await requireAdmin(ctx);
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
 
@@ -440,10 +442,9 @@ export const settlementsRouter = router({
    * Returns a list of users with estimated payout and booking count.
    * Does NOT write anything to the database.
    */
-  previewBulkGenerate: publicProcedure
+  previewBulkGenerate: adminProcedure
     .input(z.object({ year: z.number(), month: z.number().min(1).max(12) }))
     .query(async ({ input, ctx }) => {
-      await requireAdmin(ctx);
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
 
@@ -516,7 +517,8 @@ export const settlementsRouter = router({
             );
             const rawPaid = paidField?.value;
             const missingAmount = rawPaid === undefined || rawPaid === null || rawPaid === "";
-            const paidInclVat = missingAmount ? 0 : Math.max(0, Number(rawPaid) || 0);
+            // A6: Cap paidInclVat at 500000 to prevent unreasonable amounts from corrupted data
+  const paidInclVat = missingAmount ? 0 : Math.min(500000, Math.max(0, Number(rawPaid) || 0));
             const affiliateField = allFields.find(
               (f) => f.id.toLowerCase().includes("affiliate_code") || f.id.toLowerCase().includes("affiliatecode")
             );
@@ -574,14 +576,13 @@ export const settlementsRouter = router({
    * Admin: bulk generate settlements for specific users (selective).
    * Accepts optional userIds — if provided, only generates for those users.
    */
-  bulkGenerate: publicProcedure
+  bulkGenerate: adminProcedure
     .input(z.object({
       year:    z.number(),
       month:   z.number().min(1).max(12),
       userIds: z.array(z.number()).optional(), // if omitted, generates for all active users
     }))
     .mutation(async ({ input, ctx }) => {
-      await requireAdmin(ctx);
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
 
@@ -650,7 +651,7 @@ export const settlementsRouter = router({
   /**
    * List settlements. Admin sees all; others see only their own approved settlements.
    */
-  list: publicProcedure
+  list: dashboardProcedure
     .input(z.object({
       year:   z.number().optional(),
       month:  z.number().optional(),
@@ -658,7 +659,7 @@ export const settlementsRouter = router({
       userId: z.number().optional(),
     }))
     .query(async ({ input, ctx }) => {
-      const user = await requireDashUser(ctx);
+      const user = (ctx as { dashUser: DashboardUser }).dashUser;
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
 
@@ -692,10 +693,10 @@ export const settlementsRouter = router({
   /**
    * Get a single settlement with lines and adjustments.
    */
-  get: publicProcedure
+  get: dashboardProcedure
     .input(z.object({ id: z.number() }))
     .query(async ({ input, ctx }) => {
-      const user = await requireDashUser(ctx);
+      const user = (ctx as { dashUser: DashboardUser }).dashUser;
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
 
@@ -753,10 +754,10 @@ export const settlementsRouter = router({
   /**
    * Admin: approve a settlement and send notification.
    */
-  approve: publicProcedure
+  approve: adminProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ input, ctx }) => {
-      const admin = await requireAdmin(ctx);
+      const admin = (ctx as { dashUser: DashboardUser }).dashUser;
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
 
@@ -827,10 +828,9 @@ export const settlementsRouter = router({
    * Admin: resend the approval email to the course leader/affiliate.
    * Only works on approved settlements.
    */
-  resendEmail: publicProcedure
+  resendEmail: adminProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ input, ctx }) => {
-      await requireAdmin(ctx);
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
 
@@ -898,15 +898,15 @@ export const settlementsRouter = router({
   /**
    * Admin: add a manual adjustment row. Recalculates totalAdjustments and totalPayout.
    */
-  addAdjustment: publicProcedure
+  addAdjustment: adminProcedure
     .input(z.object({
       settlementId: z.number(),
-      amount:       z.number(),
+      amount:       z.number().min(-100000).max(100000),  // A3: sane bounds to prevent extreme adjustments
       currency:     z.enum(["SEK", "EUR"]),
       comment:      z.string().min(1).max(500),
     }))
     .mutation(async ({ input, ctx }) => {
-      const admin = await requireAdmin(ctx);
+      const admin = (ctx as { dashUser: DashboardUser }).dashUser;
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
 
@@ -950,10 +950,9 @@ export const settlementsRouter = router({
    * Admin: amend an approved settlement.
    * Marks the old one as 'amended' and generates a fresh one from GHL data.
    */
-  amend: publicProcedure
+  amend: adminProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ input, ctx }) => {
-      await requireAdmin(ctx);
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
 
@@ -997,10 +996,9 @@ export const settlementsRouter = router({
    * Admin: recalculate a pending settlement from fresh GHL data.
    * Deletes and regenerates. Use amend for approved settlements.
    */
-  recalculate: publicProcedure
+  recalculate: adminProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ input, ctx }) => {
-      await requireAdmin(ctx);
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
 

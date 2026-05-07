@@ -23,6 +23,16 @@ import {
 import { eq, desc, and, max, sql, inArray } from "drizzle-orm";
 import { sendCertificateEmail } from "../ghl";
 
+// B2 Security: HTML-escape user-supplied strings before injecting into email HTML
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 const DASH_SESSION = "fa_dash_session";
 
 function getDashCookie(req: { headers: { cookie?: string } }): string | undefined {
@@ -309,6 +319,8 @@ export const certificatesRouter = router({
         .limit(1);
       const cert = rows[0];
       if (!cert) throw new TRPCError({ code: "NOT_FOUND" });
+      // B9: Revoked certificates should not be publicly accessible
+      if ((cert.status as string) === "revoked") throw new TRPCError({ code: "NOT_FOUND", message: "Certificate not found" });
       // Get template for rendering
       const tmplRows = await db
         .select()
@@ -321,7 +333,29 @@ export const certificatesRouter = router({
         )
         .limit(1);
       const template = tmplRows[0] ?? null;
-      return { cert, template };
+      // B1 Security: Only return public-safe fields (no PII like email, ghlContactId, admin IDs)
+      return {
+        cert: {
+          uuid: cert.uuid,
+          contactName: cert.contactName,
+          courseType: cert.courseType,
+          language: cert.language,
+          issuedAt: cert.issuedAt,
+          verificationCode: cert.verificationCode,
+          status: cert.status,
+          pdfUrl: cert.pdfUrl,
+        },
+        template: template ? {
+          title: template.title,
+          courseLabel: template.courseLabel,
+          bodyText: template.bodyText,
+          bulletPoints: template.bulletPoints,
+          instructorName: template.instructorName,
+          instructorTitle: template.instructorTitle,
+          faLogoUrl: template.faLogoUrl,
+          atlasLogoUrl: template.atlasLogoUrl,
+        } : null,
+      };
     }),
 
   // ── Admin: list all issued certificates ─────────────────────────────────
@@ -376,10 +410,10 @@ export const certificatesRouter = router({
       const certUrl = `${origin}/certificate/${cert.uuid}`;
       await sendCertificateEmail({
         toEmail: cert.contactEmail,
-        toName: cert.contactName,
+        toName: escapeHtml(cert.contactName),
         subject: template.emailSubject,
         htmlBody: template.emailBody
-          .replace(/\{\{participant_name\}\}/g, cert.contactName)
+          .replace(/\{\{participant_name\}\}/g, escapeHtml(cert.contactName))
           .replace(/\{\{certificate_url\}\}/g, certUrl),
       });
       const now = new Date();
@@ -393,7 +427,7 @@ export const certificatesRouter = router({
   // Pass certificateIds = [] to send ALL pending drafts.
   sendCertificates: adminProcedure
     .input(z.object({
-      certificateIds: z.array(z.number().int()),  // empty = send all drafts
+      certificateIds: z.array(z.number().int()).min(1),  // B4: require explicit IDs, no "send all" shortcut
     }))
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
@@ -401,17 +435,9 @@ export const certificatesRouter = router({
       const dashUser = (ctx as { dashUser: DashboardUser }).dashUser;
       const origin = process.env.VITE_OAUTH_PORTAL_URL?.replace("/login", "") ?? "https://fascidash-9qucsw5g.manus.space";
 
-      // Fetch target certs
-      let certs;
-      if (input.certificateIds.length > 0) {
-        certs = await db.select().from(certificates)
-          .where(inArray(certificates.id, input.certificateIds));
-      } else {
-        // All drafts with an email address
-        certs = await db.select().from(certificates)
-          .where(and(eq(certificates.status, "draft")))
-          .orderBy(desc(certificates.createdAt));
-      }
+      // Fetch target certs (B4: always require explicit IDs)
+      const certs = await db.select().from(certificates)
+        .where(inArray(certificates.id, input.certificateIds));
 
       const results: { id: number; success: boolean; error?: string }[] = [];
 
@@ -434,10 +460,10 @@ export const certificatesRouter = router({
           const certUrl = `${origin}/certificate/${cert.uuid}`;
           await sendCertificateEmail({
             toEmail: cert.contactEmail,
-            toName: cert.contactName,
+            toName: escapeHtml(cert.contactName),
             subject: template.emailSubject,
             htmlBody: template.emailBody
-              .replace(/\{\{participant_name\}\}/g, cert.contactName)
+              .replace(/\{\{participant_name\}\}/g, escapeHtml(cert.contactName))
               .replace(/\{\{certificate_url\}\}/g, certUrl),
           });
           const now = new Date();
@@ -527,23 +553,22 @@ export const certificatesRouter = router({
       return { success: true };
     }),
 
-  // ── Admin: delete a single certificate ──────────────────────────────────────────────────
+  // ── Admin: revoke a single certificate (B9: soft-delete) ──────────────────────────────
   deleteCertificate: adminProcedure
     .input(z.object({ certificateId: z.number().int() }))
     .mutation(async ({ input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-      await db.delete(certificates).where(eq(certificates.id, input.certificateId));
+      await db.update(certificates).set({ status: "revoked" as any }).where(eq(certificates.id, input.certificateId));
       return { success: true };
     }),
-
-  // ── Admin: bulk delete certificates ────────────────────────────────────────────────
+  // ── Admin: bulk revoke certificates (B9: soft-delete) ────────────────────────────────
   deleteCertificates: adminProcedure
     .input(z.object({ certificateIds: z.array(z.number().int()).min(1) }))
     .mutation(async ({ input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-      await db.delete(certificates).where(inArray(certificates.id, input.certificateIds));
+      await db.update(certificates).set({ status: "revoked" as any }).where(inArray(certificates.id, input.certificateIds));
       return { success: true, deleted: input.certificateIds.length };
     }),
 
