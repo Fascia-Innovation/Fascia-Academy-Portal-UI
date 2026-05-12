@@ -1,0 +1,66 @@
+{
+  "query": "SELECT id, courseType, language, faLogoUrl, atlasLogoUrl FROM certificate_templates;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway05.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2dHixsayHgu1qvC.root --database 9QUcsw5GGBSBi2Ysai3uDd --execute SELECT id, courseType, language, faLogoUrl, atlasLogoUrl FROM certificate_templates;",
+  "rows": [
+    {
+      "id": "1",
+      "courseType": "intro",
+      "language": "sv",
+      "faLogoUrl": "NULL",
+      "atlasLogoUrl": "NULL"
+    },
+    {
+      "id": "2",
+      "courseType": "intro",
+      "language": "en",
+      "faLogoUrl": "NULL",
+      "atlasLogoUrl": "NULL"
+    },
+    {
+      "id": "3",
+      "courseType": "diplo",
+      "language": "sv",
+      "faLogoUrl": "NULL",
+      "atlasLogoUrl": "NULL"
+    },
+    {
+      "id": "4",
+      "courseType": "diplo",
+      "language": "en",
+      "faLogoUrl": "NULL",
+      "atlasLogoUrl": "NULL"
+    },
+    {
+      "id": "5",
+      "courseType": "cert",
+      "language": "sv",
+      "faLogoUrl": "NULL",
+      "atlasLogoUrl": "NULL"
+    },
+    {
+      "id": "6",
+      "courseType": "cert",
+      "language": "en",
+      "faLogoUrl": "NULL",
+      "atlasLogoUrl": "NULL"
+    },
+    {
+      "id": "7",
+      "courseType": "vidare",
+      "language": "sv",
+      "faLogoUrl": "NULL",
+      "atlasLogoUrl": "NULL"
+    },
+    {
+      "id": "8",
+      "courseType": "vidare",
+      "language": "en",
+      "faLogoUrl": "NULL",
+      "atlasLogoUrl": "NULL"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tcourseType\tlanguage\tfaLogoUrl\tatlasLogoUrl\n1\tintro\tsv\tNULL\tNULL\n2\tintro\ten\tNULL\tNULL\n3\tdiplo\tsv\tNULL\tNULL\n4\tdiplo\ten\tNULL\tNULL\n5\tcert\tsv\tNULL\tNULL\n6\tcert\ten\tNULL\tNULL\n7\tvidare\tsv\tNULL\tNULL\n8\tvidare\ten\tNULL\tNULL\n",
+  "stderr": "",
+  "execution_time_ms": 691
+}

@@ -663,3 +663,7 @@
 - [x] Add DB indexes on course_dates (status+startDate, calendarId+startDate)
 - [x] Implement GHL data cache with background sync job (bookedSeatsSync.ts)
 - [x] Update public courses endpoint to read from DB cache instead of live GHL
+
+## Certificate Improvements (May 2026)
+- [x] Fix white box in certificate footer (removed Atlas Balans logo, centered FA logo)
+- [x] Add manual certificate creation and sending feature for admin

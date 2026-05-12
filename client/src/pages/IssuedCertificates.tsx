@@ -10,9 +10,10 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import {
-  Search, Mail, ExternalLink, RefreshCw, Award, Send, CheckSquare, Square, Trash2,
+  Search, Mail, ExternalLink, RefreshCw, Award, Send, CheckSquare, Square, Trash2, Plus,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import CreateCertificateDialog from "@/components/CreateCertificateDialog";
 
 const COURSE_TYPE_LABELS: Record<string, string> = {
   intro: "Intro",
@@ -31,6 +32,7 @@ const COURSE_TYPE_COLORS: Record<string, string> = {
 export default function IssuedCertificates() {
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [createOpen, setCreateOpen] = useState(false);
 
   const { data: certs, isLoading, refetch } = trpc.certificates.listAll.useQuery({ limit: 200 });
 
@@ -164,8 +166,23 @@ export default function IssuedCertificates() {
             <RefreshCw className="h-4 w-4 mr-2" />
             Uppdatera
           </Button>
+          <Button
+            size="sm"
+            className="bg-amber-600 hover:bg-amber-700 text-white"
+            onClick={() => setCreateOpen(true)}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Skapa intyg
+          </Button>
         </div>
       </div>
+
+      {/* Create certificate dialog */}
+      <CreateCertificateDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        onCreated={() => refetch()}
+      />
 
       {/* Search */}
       <div className="relative">

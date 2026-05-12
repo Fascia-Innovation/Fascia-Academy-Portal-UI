@@ -115,9 +115,8 @@ function CertificatePreview({ tmpl }: { tmpl: Template }) {
           {tmpl.instructorTitle}
         </p>
       </div>
-      <div style={{ display: "flex", justifyContent: "center", gap: "20px", marginTop: "10px" }}>
-        <img src={tmpl.faLogoUrl ?? "/manus-storage/fa-logo_9f3873fa.png"} alt="FA" style={{ height: "28px", objectFit: "contain", filter: "brightness(0) invert(1)" }} />
-        <img src={tmpl.atlasLogoUrl ?? "/manus-storage/atlasbalans-logo_3f37aa31.png"} alt="Atlas" style={{ height: "28px", objectFit: "contain", filter: "brightness(0) invert(1)" }} />
+      <div style={{ display: "flex", justifyContent: "center", marginTop: "10px" }}>
+        <img src={tmpl.faLogoUrl ?? "/manus-storage/fa-logo_9f3873fa.png"} alt="Fascia Academy" style={{ height: "28px", objectFit: "contain", filter: "brightness(0) invert(1)" }} />
       </div>
     </div>
   );

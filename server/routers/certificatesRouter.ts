@@ -593,4 +593,78 @@ export const certificatesRouter = router({
       });
       return { success: true, ...result };
     }),
+
+  // ── Admin: manually create a certificate (draft) ─────────────────────────
+  createManual: adminProcedure
+    .input(z.object({
+      contactName: z.string().min(2).max(255),
+      contactEmail: z.string().email().optional(),
+      courseType: z.enum(["intro", "diplo", "cert", "vidare"]),
+      language: z.enum(["sv", "en"]).default("sv"),
+      issuedAt: z.string().optional(), // ISO date string, defaults to now
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const dashUser = (ctx as { dashUser: DashboardUser }).dashUser;
+      const issuedAt = input.issuedAt ? new Date(input.issuedAt) : new Date();
+      const result = await issueCertificateForParticipant({
+        ghlContactId: "manual-" + randomUUID().slice(0, 8),
+        contactName: input.contactName,
+        contactEmail: input.contactEmail ?? null,
+        courseType: input.courseType,
+        language: input.language,
+        issuedBy: dashUser.id,
+        showedAt: issuedAt,
+      });
+      return { success: true, ...result };
+    }),
+
+  // ── Admin: manually create AND immediately send a certificate ────────────
+  createAndSend: adminProcedure
+    .input(z.object({
+      contactName: z.string().min(2).max(255),
+      contactEmail: z.string().email(),
+      courseType: z.enum(["intro", "diplo", "cert", "vidare"]),
+      language: z.enum(["sv", "en"]).default("sv"),
+      issuedAt: z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const dashUser = (ctx as { dashUser: DashboardUser }).dashUser;
+      const issuedAt = input.issuedAt ? new Date(input.issuedAt) : new Date();
+      const result = await issueCertificateForParticipant({
+        ghlContactId: "manual-" + randomUUID().slice(0, 8),
+        contactName: input.contactName,
+        contactEmail: input.contactEmail,
+        courseType: input.courseType,
+        language: input.language,
+        issuedBy: dashUser.id,
+        showedAt: issuedAt,
+      });
+      // Immediately send the email
+      const tmplRows = await db.select().from(certificateTemplates)
+        .where(and(
+          eq(certificateTemplates.courseType, input.courseType),
+          eq(certificateTemplates.language, input.language)
+        )).limit(1);
+      const template = tmplRows[0];
+      if (!template) throw new TRPCError({ code: "NOT_FOUND", message: "No template found for this course type" });
+      const origin = process.env.VITE_OAUTH_PORTAL_URL?.replace("/login", "") ?? "https://fascidash-9qucsw5g.manus.space";
+      const certUrl = `${origin}/certificate/${result.uuid}`;
+      await sendCertificateEmail({
+        toEmail: input.contactEmail,
+        toName: escapeHtml(input.contactName),
+        subject: template.emailSubject,
+        htmlBody: template.emailBody
+          .replace(/\{\{participant_name\}\}/g, escapeHtml(input.contactName))
+          .replace(/\{\{certificate_url\}\}/g, certUrl),
+      });
+      const now = new Date();
+      await db.update(certificates)
+        .set({ emailSentAt: now, status: "sent", sentAt: now, sentBy: dashUser.id })
+        .where(eq(certificates.id, result.id));
+      return { success: true, ...result, emailSent: true };
+    }),
 });

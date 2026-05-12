@@ -47,7 +47,7 @@ function CertificateRender({
   const instructorName = template?.instructorName ?? "Ivar Bohlin";
   const instructorTitle = template?.instructorTitle ?? "Ansvarig lärare Ivar Bohlin";
   const faLogo = template?.faLogoUrl ?? "/manus-storage/fa-logo_9f3873fa.png";
-  const atlasLogo = template?.atlasLogoUrl ?? "/manus-storage/atlasbalans-logo_3f37aa31.png";
+
 
   const issuedDate = new Date(cert.issuedAt).toLocaleDateString(
     lang === "sv" ? "sv-SE" : "en-GB",
@@ -219,11 +219,6 @@ function CertificateRender({
         <img
           src={faLogo}
           alt="Fascia Academy"
-          style={{ height: "48px", objectFit: "contain", filter: "brightness(0) invert(1)" }}
-        />
-        <img
-          src={atlasLogo}
-          alt="Atlasbalans"
           style={{ height: "48px", objectFit: "contain", filter: "brightness(0) invert(1)" }}
         />
       </div>
