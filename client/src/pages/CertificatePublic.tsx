@@ -103,7 +103,7 @@ function CertificateRender({
               fontStyle: "italic",
               color: DARK,
               margin: "0",
-              fontFamily: "'Great Vibes', cursive",
+              fontFamily: "'Playfair Display', Georgia, serif",
             }}
           >
             {cert.contactName}

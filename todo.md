@@ -669,3 +669,4 @@
 - [x] Add manual certificate creation and sending feature for admin
 - [x] Update GHL API key with conversations.write scope (fix 401 on certificate email send)
 - [x] Change Ivar's signature font to a more professional/elegant style (Great Vibes)
+- [x] Change participant name font on certificates to a cleaner, more readable style (Playfair Display italic, keep Great Vibes for signature only)

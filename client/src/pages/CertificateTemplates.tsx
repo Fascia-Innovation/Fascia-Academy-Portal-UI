@@ -71,7 +71,7 @@ function CertificatePreview({ tmpl }: { tmpl: Template }) {
           {tmpl.title || "INTYG"}
         </h1>
         <div style={{ borderBottom: `1px solid ${DARK}`, marginBottom: "6px", paddingBottom: "2px" }}>
-          <p style={{ fontSize: "16px", fontStyle: "italic", color: DARK, margin: 0, fontFamily: "'Great Vibes', cursive" }}>
+          <p style={{ fontSize: "16px", fontStyle: "italic", color: DARK, margin: 0, fontFamily: "'Playfair Display', Georgia, serif" }}>
             Förnamn Efternamn
           </p>
         </div>
