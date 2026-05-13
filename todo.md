@@ -667,3 +667,5 @@
 ## Certificate Improvements (May 2026)
 - [x] Fix white box in certificate footer (removed Atlas Balans logo, centered FA logo)
 - [x] Add manual certificate creation and sending feature for admin
+- [x] Update GHL API key with conversations.write scope (fix 401 on certificate email send)
+- [x] Change Ivar's signature font to a more professional/elegant style (Great Vibes)

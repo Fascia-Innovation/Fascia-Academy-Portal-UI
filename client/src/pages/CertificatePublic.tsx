@@ -3,7 +3,7 @@
  * Renders the certificate in the Fascia Academy gold/white design.
  * Allows downloading as PDF via browser print.
  */
-import { useParams } from "wouter";
+import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Download, Share2, Loader2, AlertTriangle } from "lucide-react";
@@ -103,7 +103,7 @@ function CertificateRender({
               fontStyle: "italic",
               color: DARK,
               margin: "0",
-              fontFamily: "'Dancing Script', 'Brush Script MT', cursive",
+              fontFamily: "'Great Vibes', cursive",
             }}
           >
             {cert.contactName}
@@ -182,7 +182,7 @@ function CertificateRender({
               fontStyle: "italic",
               color: DARK,
               margin: 0,
-              fontFamily: "'Dancing Script', 'Brush Script MT', cursive",
+              fontFamily: "'Great Vibes', cursive",
             }}
           >
             {instructorName}
@@ -227,8 +227,9 @@ function CertificateRender({
 }
 
 export default function CertificatePublic() {
-  const params = useParams<{ uuid: string }>();
-  const uuid = params.uuid ?? "";
+  // Extract UUID from URL path directly (component rendered without Route wrapper)
+  const [location] = useLocation();
+  const uuid = location.split("/certificate/")[1] ?? "";
 
   const { data, isLoading, error } = trpc.certificates.getByUuid.useQuery(
     { uuid },
@@ -277,7 +278,7 @@ export default function CertificatePublic() {
     <>
       {/* Print styles */}
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600&display=swap');
+        /* Great Vibes loaded globally via index.html */
         @media print {
           .no-print { display: none !important; }
           body { margin: 0; background: white; }

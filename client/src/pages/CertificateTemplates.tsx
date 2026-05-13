@@ -71,7 +71,7 @@ function CertificatePreview({ tmpl }: { tmpl: Template }) {
           {tmpl.title || "INTYG"}
         </h1>
         <div style={{ borderBottom: `1px solid ${DARK}`, marginBottom: "6px", paddingBottom: "2px" }}>
-          <p style={{ fontSize: "16px", fontStyle: "italic", color: DARK, margin: 0, fontFamily: "cursive" }}>
+          <p style={{ fontSize: "16px", fontStyle: "italic", color: DARK, margin: 0, fontFamily: "'Great Vibes', cursive" }}>
             Förnamn Efternamn
           </p>
         </div>
@@ -107,7 +107,7 @@ function CertificatePreview({ tmpl }: { tmpl: Template }) {
           </p>
         </div>
         <div style={{ textAlign: "left", borderBottom: `1px solid ${DARK}`, paddingBottom: "2px", marginBottom: "2px", maxWidth: "120px" }}>
-          <p style={{ fontSize: "13px", fontStyle: "italic", color: DARK, margin: 0, fontFamily: "cursive" }}>
+          <p style={{ fontSize: "13px", fontStyle: "italic", color: DARK, margin: 0, fontFamily: "'Great Vibes', cursive" }}>
             {tmpl.instructorName}
           </p>
         </div>
