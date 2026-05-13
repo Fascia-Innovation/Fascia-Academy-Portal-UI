@@ -299,8 +299,8 @@ export async function issueCertificateForParticipant(opts: {
     examPassedAt: opts.examPassedAt ?? null,
   }).$returningId();
 
-  const origin = opts.origin ?? process.env.VITE_OAUTH_PORTAL_URL?.replace("/login", "") ?? "https://fascidash-9qucsw5g.manus.space";
-  const certUrl = `${origin}/certificate/${uuid}`;
+const origin = opts.origin ?? "https://fascidash-9qucsw5g.manus.space";
+   const certUrl = `${origin}/certificate/${uuid}`;
 
   return { uuid, certUrl, id: inserted.id, verificationCode };
 }
@@ -319,8 +319,7 @@ export const certificatesRouter = router({
         .limit(1);
       const cert = rows[0];
       if (!cert) throw new TRPCError({ code: "NOT_FOUND" });
-      // B9: Revoked certificates should not be publicly accessible
-      if ((cert.status as string) === "revoked") throw new TRPCError({ code: "NOT_FOUND", message: "Certificate not found" });
+      // Note: deleted certificates are hard-deleted, so no need to check for revoked status
       // Get template for rendering
       const tmplRows = await db
         .select()
@@ -406,7 +405,7 @@ export const certificatesRouter = router({
       const template = tmplRows[0];
       if (!template) throw new TRPCError({ code: "NOT_FOUND", message: "No template found" });
 
-      const origin = process.env.VITE_OAUTH_PORTAL_URL?.replace("/login", "") ?? "https://fascidash-9qucsw5g.manus.space";
+      const origin = "https://fascidash-9qucsw5g.manus.space";
       const certUrl = `${origin}/certificate/${cert.uuid}`;
       await sendCertificateEmail({
         toEmail: cert.contactEmail,
@@ -433,7 +432,7 @@ export const certificatesRouter = router({
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
       const dashUser = (ctx as { dashUser: DashboardUser }).dashUser;
-      const origin = process.env.VITE_OAUTH_PORTAL_URL?.replace("/login", "") ?? "https://fascidash-9qucsw5g.manus.space";
+      const origin = "https://fascidash-9qucsw5g.manus.space";
 
       // Fetch target certs (B4: always require explicit IDs)
       const certs = await db.select().from(certificates)
@@ -553,22 +552,22 @@ export const certificatesRouter = router({
       return { success: true };
     }),
 
-  // ── Admin: revoke a single certificate (B9: soft-delete) ──────────────────────────────
+  // ── Admin: delete a single certificate (hard delete) ──────────────────────────────
   deleteCertificate: adminProcedure
     .input(z.object({ certificateId: z.number().int() }))
     .mutation(async ({ input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-      await db.update(certificates).set({ status: "revoked" as any }).where(eq(certificates.id, input.certificateId));
+      await db.delete(certificates).where(eq(certificates.id, input.certificateId));
       return { success: true };
     }),
-  // ── Admin: bulk revoke certificates (B9: soft-delete) ────────────────────────────────
+  // ── Admin: bulk delete certificates (hard delete) ────────────────────────────────
   deleteCertificates: adminProcedure
     .input(z.object({ certificateIds: z.array(z.number().int()).min(1) }))
     .mutation(async ({ input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-      await db.update(certificates).set({ status: "revoked" as any }).where(inArray(certificates.id, input.certificateIds));
+      await db.delete(certificates).where(inArray(certificates.id, input.certificateIds));
       return { success: true, deleted: input.certificateIds.length };
     }),
 
@@ -651,7 +650,7 @@ export const certificatesRouter = router({
         )).limit(1);
       const template = tmplRows[0];
       if (!template) throw new TRPCError({ code: "NOT_FOUND", message: "No template found for this course type" });
-      const origin = process.env.VITE_OAUTH_PORTAL_URL?.replace("/login", "") ?? "https://fascidash-9qucsw5g.manus.space";
+      const origin = "https://fascidash-9qucsw5g.manus.space";
       const certUrl = `${origin}/certificate/${result.uuid}`;
       await sendCertificateEmail({
         toEmail: input.contactEmail,

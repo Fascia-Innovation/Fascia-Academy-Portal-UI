@@ -822,22 +822,28 @@ export async function sendCertificateEmail(opts: {
     // non-fatal
   }
 
+  // contactId is REQUIRED by the GHL conversations/messages API
+  if (!contactId) {
+    throw new Error(`GHL sendCertificateEmail: no GHL contact found for email ${toEmail}`);
+  }
+
   const body: Record<string, unknown> = {
     type: "Email",
+    contactId,
     emailTo: toEmail,
     emailFrom: "info@fasciaacademy.com",
     subject,
     html: htmlBody,
+    message: subject,
     status: "pending",
   };
-  if (contactId) body.contactId = contactId;
 
   const url = `${GHL_BASE}/conversations/messages`;
   const res = await fetch(url, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${API_KEY}`,
-      Version: "2021-04-15",
+      Version: "2023-02-21",
       "Content-Type": "application/json",
       Accept: "application/json",
     },

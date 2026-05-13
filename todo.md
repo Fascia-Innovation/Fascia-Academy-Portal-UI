@@ -670,3 +670,6 @@
 - [x] Update GHL API key with conversations.write scope (fix 401 on certificate email send)
 - [x] Change Ivar's signature font to a more professional/elegant style (Great Vibes)
 - [x] Change participant name font on certificates to a cleaner, more readable style (Playfair Display italic, keep Great Vibes for signature only)
+- [x] Fix certificate delete button - 'revoked' not valid in DB status enum (changed to hard delete)
+- [x] Fix GHL email 401 - correct scope is conversations/message.write + updated API version to 2023-02-21
+- [x] Fix certificate email link URL - hardcoded to fascidash-9qucsw5g.manus.space (VITE_OAUTH_PORTAL_URL is manus.im login portal)
