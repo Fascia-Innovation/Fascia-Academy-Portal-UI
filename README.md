@@ -20,8 +20,9 @@ The portal serves three user roles:
 
 - **Frontend:** React 19, Vite, Tailwind CSS 4, shadcn/ui, tRPC client
 - **Backend:** Express 4, tRPC 11, Drizzle ORM (MySQL/TiDB)
-- **External:** GoHighLevel (GHL) REST API — calendars, contacts, appointments, tags
+- **External:** GoHighLevel (GHL) REST API — calendars, contacts, appointments, conversations
 - **Auth:** Custom session-based auth (`fa_dash_session` cookie) with bcrypt password hashing
+- **Fonts:** Inter (UI), Playfair Display (certificate names), Great Vibes (signatures)
 
 ---
 
@@ -40,8 +41,8 @@ The portal serves three user roles:
 | Settlements | `/settlements` | Generate, review and approve settlement PDFs |
 | Pending Actions | `/pending-actions` | Course registration approvals, reschedule/cancellation requests |
 | Exam Queue | `/exam-queue` | Review and grade diploma/cert exam submissions |
-| Issued Certificates | `/issued-certificates` | View, delete and bulk-delete issued certificates |
-| Certificate Templates | `/certificate-templates` | Manage PDF certificate templates |
+| Issued Certificates | `/issued-certificates` | View, send, resend, and delete issued certificates |
+| Certificate Templates | `/certificate-templates` | Manage certificate templates with bullet points per course type |
 | Settings | `/settings` | Dashboard user management (add/edit/delete/activate/deactivate) |
 
 ### Course Leader
@@ -59,8 +60,79 @@ The portal serves three user roles:
 | Route | Description |
 |-------|-------------|
 | `/courses` | Public course booking page (calendar, map, course leader views) |
-| `/certificate/:id` | Public certificate verification page |
+| `/certificate/:uuid` | Public certificate verification page with download/share |
 | `/login` | Dashboard login |
+
+---
+
+## Certificate System
+
+### Features
+
+- **Manual creation** — Admin creates certificates for individual participants
+- **Bulk creation** — Auto-generate certificates for all "showed" participants in a course
+- **Draft workflow** — All certificates start as drafts; admin must explicitly send
+- **Email delivery** — Sent via GHL Conversations API from `info@fasciaacademy.com`
+- **Duplicate send warning** — Confirmation dialog if certificate was already sent
+- **Public verification page** — Accessible via unique UUID link
+- **Download/Print** — Recipients can download as PDF via browser print
+- **Share** — Native share or copy-to-clipboard
+
+### Verification System
+
+| Feature | Details |
+|---------|---------|
+| Code format | `FA-YYYY-XXXXXX` (6 random alphanumeric chars, excluding O/0/I/1) |
+| Uniqueness | Guaranteed unique — retries on collision (up to 10 attempts) |
+| Rate limiting | 3 lookups per 15 minutes per IP address |
+| GDPR compliance | Verification result shows only name + course type (no email/personal data) |
+| Brute-force protection | Random codes with ~800M combinations, impossible to enumerate |
+
+### Certificate Templates
+
+Each course type (Intro, Diplom, Cert, Vidare) has templates in Swedish and English with:
+- Title (e.g., "INTYG", "DIPLOM")
+- Course label
+- Body text
+- Bullet points ("En godkänd elev:" section)
+- Instructor name and title
+- Email subject and body
+
+### Email Safety Gate
+
+All outbound customer emails require admin action:
+
+| Email type | Approval flow |
+|-----------|---------------|
+| Certificates | Created as **draft** → Admin clicks "Send" |
+| Course leader messages | Created as **pending_approval** → Admin approves and sends |
+| Exam results | **Exception:** Examiner can send directly to individual student |
+
+---
+
+## GHL Integration
+
+### Required API Scopes
+
+| Scope | Purpose |
+|-------|---------|
+| `calendars.readonly` | Read calendar data |
+| `calendars/events.readonly` | Read bookings/appointments |
+| `calendars/groups.readonly` | Read calendar groups |
+| `calendars/resources.readonly` | Read calendar resources |
+| `contacts.readonly` | Search contacts by email |
+| `contacts.write` | Auto-create contacts for manual certificates |
+| `users.readonly` | Read GHL users |
+| `conversations.write` | Manage conversations |
+| `conversations/message.write` | Send emails via conversations |
+
+### API Version
+
+All GHL API calls use version `2023-02-21`.
+
+### Auto-create Contact
+
+When sending a certificate to an email not found in GHL, the system automatically creates a new contact with the participant's name and email before sending.
 
 ---
 
@@ -139,7 +211,8 @@ All course dates are stored and handled in **Europe/Stockholm (UTC+2)**. Date st
 | `settlement_adjustments` | Manual adjustments to settlements |
 | `exams` | Exam submissions from course leaders |
 | `certificates` | Issued certificates (linked to exam or direct) |
-| `participant_snapshots` | Point-in-time snapshots of course participants |
+| `certificate_templates` | Certificate templates per course type and language |
+| `course_participant_snapshots` | Point-in-time snapshots of course participants |
 | `course_leader_messages` | Messages between admin and course leader on a course date |
 | `password_reset_tokens` | One-time tokens for password reset |
 | `users` | Manus OAuth users (framework, not used for dashboard auth) |
@@ -175,7 +248,7 @@ drizzle/
 |----------|---------|
 | `DATABASE_URL` | MySQL/TiDB connection string |
 | `JWT_SECRET` | Session cookie signing |
-| `GHL_API_KEY` | GoHighLevel API key |
+| `GHL_API_KEY` | GoHighLevel API key (requires scopes listed above) |
 | `GHL_LOCATION_ID` | GHL location ID |
 | `BUILT_IN_FORGE_API_KEY` | Manus built-in API key (server-side) |
 | `BUILT_IN_FORGE_API_URL` | Manus built-in API base URL |
@@ -195,33 +268,14 @@ After schema changes: read the generated `.sql` file in `drizzle/migrations/` an
 
 ---
 
-## Removing a Participant from a Course
-
-1. Go to **Course Calendar** in the admin menu
-2. Expand a slot to see the participant list
-3. Click the red trash icon next to the participant's name
-4. Confirm — the appointment is cancelled in GHL and the list refreshes
-
----
-
-## User Management (Settings)
-
-- **Add user** — create admin, course leader or affiliate account
-- **Edit user** — update name, email, role, GHL contact ID, profile URL
-- **Activate / Deactivate** — toggle active status (inactive users cannot log in)
-- **Delete user** — permanently removes the user; admins can delete themselves (blocked if last active admin)
-
----
-
 ## Security Hardening
-
-The following security measures are in place:
 
 | Measure | Details |
 |---------|--------|
 | Password hashing | bcrypt (cost 12), with transparent migration from legacy SHA-256 |
 | Timing-safe comparison | `crypto.timingSafeEqual` for legacy hash path |
 | Rate limiting | Login + password reset: max 10 attempts per 15 min per IP |
+| Certificate verification rate limit | Max 3 lookups per 15 min per IP |
 | Session invalidation | All sessions destroyed on password reset |
 | Cookie security | `httpOnly`, `secure` (prod), `sameSite=lax`, `maxAge=7d` |
 | CSP | Strict Content-Security-Policy (no `unsafe-eval` in production) |
@@ -232,8 +286,10 @@ The following security measures are in place:
 | XSS prevention | HTML-escaped user content in email templates |
 | Storage proxy | Path traversal protection with allowlist validation |
 | API data exposure | `passwordHash` stripped from all API responses |
-| Certificate soft-delete | Revoked certificates return 404 on public verification |
+| Certificate deletion | Hard-delete — removed certificates return 404 on public verification |
 | Settlement bounds | Adjustment amounts capped at ±100,000 SEK; paidInclVat capped at 500,000 SEK |
+| Verification codes | Random alphanumeric (not sequential), impossible to enumerate |
+| GDPR on verification | Public verification shows only name + course type, no personal data |
 
 ---
 
@@ -258,4 +314,12 @@ Live URL: `fascidash-9qucsw5g.manus.space`
 
 ---
 
-*Last updated: May 2026*
+## Future Roadmap
+
+- **Public verification page** — standalone page where anyone can enter a verification code (FA-YYYY-XXXXXX) and view the certificate, embeddable on fasciaacademy.com
+- **Customer portal** — customers log in to view booked sessions, receipts, certificates, and digital course materials (depends on booking system)
+- **Custom domain** — e.g., `portal.fasciaacademy.com` for professional certificate links
+
+---
+
+*Last updated: May 13, 2026*

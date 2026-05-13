@@ -684,3 +684,4 @@
 - [x] Rate limiting on verification lookups (3 per 15 min per IP)
 - [x] Limited info on verification result (name + course only, no email/personal data)
 - [x] Auto-create GHL contact if not found when sending certificate email
+- [x] Add bullet point lists to certificates showing what the student has achieved per course type (En godkänd elev: section) - ALREADY IMPLEMENTED
