@@ -97,7 +97,7 @@ async function ghlGet<T>(path: string, params: Record<string, string> = {}): Pro
   const res = await ghlFetchWithRetry(url.toString(), {
     headers: {
       Authorization: `Bearer ${API_KEY}`,
-      Version: "2021-04-15",
+      Version: "2023-02-21",
       Accept: "application/json",
     },
   }, `GET ${path}`);
@@ -115,7 +115,7 @@ export async function ghlPut<T>(path: string, body: Record<string, unknown>): Pr
     method: "PUT",
     headers: {
       Authorization: `Bearer ${API_KEY}`,
-      Version: "2021-04-15",
+      Version: "2023-02-21",
       "Content-Type": "application/json",
       Accept: "application/json",
     },
@@ -701,7 +701,7 @@ ${feedbackBlock}
     method: "POST",
     headers: {
       Authorization: `Bearer ${API_KEY}`,
-      Version: "2021-04-15",
+      Version: "2023-02-21",
       "Content-Type": "application/json",
       Accept: "application/json",
     },
@@ -756,7 +756,7 @@ export async function sendAdminExamNotification(opts: {
     method: "POST",
     headers: {
       Authorization: `Bearer ${API_KEY}`,
-      Version: "2021-04-15",
+      Version: "2023-02-21",
       "Content-Type": "application/json",
       Accept: "application/json",
     },

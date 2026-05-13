@@ -48,7 +48,7 @@ export async function takeSnapshotForCourse(courseDateId: number): Promise<{ cou
       {
         headers: {
           Authorization: `Bearer ${API_KEY}`,
-          Version: "2021-04-15",
+          Version: "2023-02-21",
           Accept: "application/json",
         },
       }

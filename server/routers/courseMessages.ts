@@ -54,25 +54,31 @@ const LOCATION_ID = process.env.GHL_LOCATION_ID ?? "";
  */
 async function sendGhlEmail(contactId: string, subject: string, body: string): Promise<boolean> {
   try {
-    const res = await fetch(`${GHL_BASE}/conversations/messages/outbound`, {
+    const res = await fetch(`${GHL_BASE}/conversations/messages`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${API_KEY}`,
-        Version: "2021-04-15",
+        Version: "2023-02-21",
         "Content-Type": "application/json",
         Accept: "application/json",
       },
       body: JSON.stringify({
         type: "Email",
         contactId,
-        locationId: LOCATION_ID,
+        emailFrom: "info@fasciaacademy.com",
         subject,
         html: body.replace(/\n/g, "<br>"),
         message: body,
+        status: "pending",
       }),
     });
+    if (!res.ok) {
+      const text = await res.text();
+      console.error(`[sendGhlEmail] GHL error ${res.status}: ${text}`);
+    }
     return res.ok;
-  } catch {
+  } catch (err) {
+    console.error(`[sendGhlEmail] Error:`, err);
     return false;
   }
 }

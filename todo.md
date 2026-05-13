@@ -673,3 +673,6 @@
 - [x] Fix certificate delete button - 'revoked' not valid in DB status enum (changed to hard delete)
 - [x] Fix GHL email 401 - correct scope is conversations/message.write + updated API version to 2023-02-21
 - [x] Fix certificate email link URL - hardcoded to fascidash-9qucsw5g.manus.space (VITE_OAUTH_PORTAL_URL is manus.im login portal)
+- [x] Review and fix course leader messages functionality (GHL API version, endpoint, emailFrom fixed)
+- [x] Admin approval safety gate: VERIFIED - all outbound customer emails already require admin action (certs=draft, messages=pending_approval). Exam results = examiner exception. Updated all GHL API versions to 2023-02-21.
+- [ ] Future: Public verification page for certificates (for fasciaacademy.com and customer portal)

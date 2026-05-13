@@ -126,7 +126,7 @@ export async function sendSettlementApprovalEmail(opts: {
     method: "POST",
     headers: {
       Authorization: `Bearer ${API_KEY}`,
-      Version: "2021-04-15",
+      Version: "2023-02-21",
       "Content-Type": "application/json",
       Accept: "application/json",
     },

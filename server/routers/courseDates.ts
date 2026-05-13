@@ -127,7 +127,7 @@ async function getLiveBookedSeats(
           {
             headers: {
               Authorization: `Bearer ${API_KEY}`,
-              Version: "2021-04-15",
+              Version: "2023-02-21",
               Accept: "application/json",
             },
           }
@@ -1199,7 +1199,7 @@ export const courseDatesRouter = router({
               method: "POST",
               headers: {
                 Authorization: `Bearer ${apiKey}`,
-                Version: "2021-04-15",
+                Version: "2023-02-21",
                 "Content-Type": "application/json",
                 Accept: "application/json",
               },
@@ -1458,7 +1458,7 @@ export const courseDatesRouter = router({
           {
             headers: {
               Authorization: `Bearer ${API_KEY}`,
-              Version: "2021-04-15",
+              Version: "2023-02-21",
               Accept: "application/json",
             },
           }
@@ -1568,7 +1568,7 @@ export const courseDatesRouter = router({
 
       // First fetch appointment details (needed for required PUT fields + snapshot)
       const apptRes = await fetch(`${GHL_BASE}/calendars/events/appointments/${input.appointmentId}`, {
-        headers: { Authorization: `Bearer ${API_KEY}`, Version: "2021-04-15", Accept: "application/json" },
+        headers: { Authorization: `Bearer ${API_KEY}`, Version: "2023-02-21", Accept: "application/json" },
       });
       if (!apptRes.ok) {
         console.error("[markParticipantShowed] Failed to fetch appointment:", apptRes.status);
@@ -1583,7 +1583,7 @@ export const courseDatesRouter = router({
         method: "PUT",
         headers: {
           Authorization: `Bearer ${API_KEY}`,
-          Version: "2021-04-15",
+          Version: "2023-02-21",
           "Content-Type": "application/json",
           Accept: "application/json",
         },
@@ -1737,7 +1737,7 @@ export const courseDatesRouter = router({
 
       // First fetch appointment details (needed for required PUT fields + snapshot)
       const apptRes = await fetch(`${GHL_BASE}/calendars/events/appointments/${input.appointmentId}`, {
-        headers: { Authorization: `Bearer ${API_KEY}`, Version: "2021-04-15", Accept: "application/json" },
+        headers: { Authorization: `Bearer ${API_KEY}`, Version: "2023-02-21", Accept: "application/json" },
       });
       if (!apptRes.ok) {
         console.error("[markParticipantNoShow] Failed to fetch appointment:", apptRes.status);
@@ -1751,7 +1751,7 @@ export const courseDatesRouter = router({
         method: "PUT",
         headers: {
           Authorization: `Bearer ${API_KEY}`,
-          Version: "2021-04-15",
+          Version: "2023-02-21",
           "Content-Type": "application/json",
           Accept: "application/json",
         },
@@ -1990,7 +1990,7 @@ export const courseDatesRouter = router({
           const endStr = course.endDate.toISOString().split("T")[0];
           const apptRes = await fetch(
             `${GHL_BASE}/calendars/appointments?calendarId=${course.ghlCalendarId}&startDate=${startStr}&endDate=${endStr}&status=confirmed,showed`,
-            { headers: { Authorization: `Bearer ${API_KEY}`, Version: "2021-04-15", Accept: "application/json" } }
+            { headers: { Authorization: `Bearer ${API_KEY}`, Version: "2023-02-21", Accept: "application/json" } }
           );
           if (apptRes.ok) {
             const apptData = await apptRes.json();
@@ -2007,7 +2007,7 @@ export const courseDatesRouter = router({
                     method: "POST",
                     headers: {
                       Authorization: `Bearer ${API_KEY}`,
-                      Version: "2021-04-15",
+                      Version: "2023-02-21",
                       "Content-Type": "application/json",
                     },
                     body: JSON.stringify({
@@ -2048,7 +2048,7 @@ export const courseDatesRouter = router({
     .mutation(async ({ input }) => {
       // Fetch appointment details first (need calendarId, startTime, endTime for PUT)
       const apptRes = await fetch(`${GHL_BASE}/calendars/events/appointments/${input.appointmentId}`, {
-        headers: { Authorization: `Bearer ${API_KEY}`, Version: "2021-04-15", Accept: "application/json" },
+        headers: { Authorization: `Bearer ${API_KEY}`, Version: "2023-02-21", Accept: "application/json" },
       });
       if (!apptRes.ok) {
         const body = await apptRes.text();
@@ -2063,7 +2063,7 @@ export const courseDatesRouter = router({
         method: "PUT",
         headers: {
           Authorization: `Bearer ${API_KEY}`,
-          Version: "2021-04-15",
+          Version: "2023-02-21",
           "Content-Type": "application/json",
           Accept: "application/json",
         },
