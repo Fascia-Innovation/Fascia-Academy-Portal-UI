@@ -8,6 +8,7 @@
  *   - Exam-issue: called from exams.markPassed for diplo/cert
  */
 import { randomUUID } from "crypto";
+import crypto from "crypto";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { parse as parseCookies } from "cookie";
@@ -220,23 +221,33 @@ const FA_LOGO = "/manus-storage/fa-logo_9f3873fa.png";
 const ATLAS_LOGO = "/manus-storage/atlasbalans-logo_3f37aa31.png";
 
 // ─── Verification code generator ─────────────────────────────────────────────
+// Alphabet excludes confusable characters: 0/O, 1/I/L
+const VERIFY_ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
+
+function randomAlphanumeric(length: number): string {
+  const bytes = new Uint8Array(length);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes)
+    .map((b) => VERIFY_ALPHABET[b % VERIFY_ALPHABET.length])
+    .join("");
+}
+
 async function generateVerificationCode(db: Awaited<ReturnType<typeof getDb>>): Promise<string> {
   if (!db) throw new Error("DB not available");
   const year = new Date().getFullYear();
   const prefix = `FA-${year}-`;
-  // Get the highest existing number for this year
-  const [row] = await db
-    .select({ maxCode: max(certificates.verificationCode) })
-    .from(certificates)
-    .where(sql`${certificates.verificationCode} LIKE ${prefix + "%"}`);
-  const maxCode = row?.maxCode;
-  let nextNum = 1;
-  if (maxCode) {
-    const parts = maxCode.split("-");
-    const num = parseInt(parts[2] ?? "0", 10);
-    if (!isNaN(num)) nextNum = num + 1;
+
+  // Retry up to 10 times to guarantee uniqueness
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const code = `${prefix}${randomAlphanumeric(6)}`;
+    const existing = await db
+      .select({ id: certificates.id })
+      .from(certificates)
+      .where(eq(certificates.verificationCode, code))
+      .limit(1);
+    if (existing.length === 0) return code;
   }
-  return `${prefix}${String(nextNum).padStart(5, "0")}`;
+  throw new Error("Failed to generate unique verification code after 10 attempts");
 }
 
 /**
@@ -305,7 +316,68 @@ const origin = opts.origin ?? "https://fascidash-9qucsw5g.manus.space";
   return { uuid, certUrl, id: inserted.id, verificationCode };
 }
 
+// ─── Rate limiter for verification lookups (3 per 15 min per IP) ────────────
+const verifyRateLimits = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT_MAX = 3;
+const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+
+function checkRateLimit(ip: string): { allowed: boolean; retryAfterSec?: number } {
+  const now = Date.now();
+  const entry = verifyRateLimits.get(ip);
+  if (!entry || now > entry.resetAt) {
+    verifyRateLimits.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    return { allowed: true };
+  }
+  if (entry.count >= RATE_LIMIT_MAX) {
+    return { allowed: false, retryAfterSec: Math.ceil((entry.resetAt - now) / 1000) };
+  }
+  entry.count++;
+  return { allowed: true };
+}
+
+// Clean up stale entries every 30 minutes
+setInterval(() => {
+  const now = Date.now();
+  verifyRateLimits.forEach((entry, ip) => {
+    if (now > entry.resetAt) verifyRateLimits.delete(ip);
+  });
+}, 30 * 60 * 1000);
+
 export const certificatesRouter = router({
+  // ── Public: verify certificate by verification code (rate limited) ─────
+  verifyByCode: publicProcedure
+    .input(z.object({ code: z.string().min(1).max(20) }))
+    .query(async ({ input, ctx }) => {
+      const ip = ctx.req.headers["x-forwarded-for"]?.toString().split(",")[0]?.trim() ?? ctx.req.socket.remoteAddress ?? "unknown";
+      const rateCheck = checkRateLimit(ip);
+      if (!rateCheck.allowed) {
+        throw new TRPCError({
+          code: "TOO_MANY_REQUESTS",
+          message: `Too many verification attempts. Try again in ${rateCheck.retryAfterSec} seconds.`,
+        });
+      }
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const rows = await db
+        .select()
+        .from(certificates)
+        .where(eq(certificates.verificationCode, input.code.toUpperCase().trim()))
+        .limit(1);
+      const cert = rows[0];
+      if (!cert || cert.status !== "sent") {
+        return { found: false };
+      }
+      // GDPR: Only return name + course type, no email or personal data
+      return {
+        found: true,
+        contactName: cert.contactName,
+        courseType: cert.courseType,
+        language: cert.language,
+        issuedAt: cert.issuedAt,
+        verificationCode: cert.verificationCode,
+      };
+    }),
+
   // ── Public: view certificate by UUID ────────────────────────────────────
   getByUuid: publicProcedure
     .input(z.object({ uuid: z.string() }))
@@ -378,7 +450,10 @@ export const certificatesRouter = router({
   // ── Admin: send / resend certificate email ─────────────────────────────
   // Works for both draft→sent (first send) and re-send of already sent certs.
   resendEmail: adminProcedure
-    .input(z.object({ certificateId: z.number().int() }))
+    .input(z.object({
+      certificateId: z.number().int(),
+      confirmResend: z.boolean().optional(), // must be true to resend an already-sent cert
+    }))
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
@@ -391,6 +466,17 @@ export const certificatesRouter = router({
       const cert = rows[0];
       if (!cert) throw new TRPCError({ code: "NOT_FOUND" });
       if (!cert.contactEmail) throw new TRPCError({ code: "BAD_REQUEST", message: "No email on file" });
+
+      // Duplicate send protection: warn if already sent
+      if (cert.status === "sent" && !input.confirmResend) {
+        const sentDate = cert.sentAt ? new Date(cert.sentAt).toLocaleDateString("sv-SE") : "unknown";
+        return {
+          success: false,
+          alreadySent: true,
+          sentDate,
+          message: `This certificate was already sent on ${sentDate}. Confirm to resend.`,
+        };
+      }
 
       const tmplRows = await db
         .select()
@@ -443,6 +529,12 @@ export const certificatesRouter = router({
       for (const cert of certs) {
         if (!cert.contactEmail) {
           results.push({ id: cert.id, success: false, error: "No email on file" });
+          continue;
+        }
+        // Skip already-sent certificates in bulk operations
+        if (cert.status === "sent") {
+          const sentDate = cert.sentAt ? new Date(cert.sentAt).toLocaleDateString("sv-SE") : "unknown";
+          results.push({ id: cert.id, success: false, error: `Already sent on ${sentDate}` });
           continue;
         }
         try {

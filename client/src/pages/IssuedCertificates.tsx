@@ -36,8 +36,18 @@ export default function IssuedCertificates() {
 
   const { data: certs, isLoading, refetch } = trpc.certificates.listAll.useQuery({ limit: 200 });
 
+  const [resendConfirm, setResendConfirm] = useState<{ id: number; sentDate: string } | null>(null);
+
   const resendMutation = trpc.certificates.resendEmail.useMutation({
-    onSuccess: () => { toast.success("E-post skickad!"); refetch(); },
+    onSuccess: (res) => {
+      if (res.alreadySent) {
+        // Show confirmation dialog
+        setResendConfirm({ id: (resendMutation.variables as { certificateId: number }).certificateId, sentDate: res.sentDate ?? "" });
+      } else {
+        toast.success("E-post skickad!");
+        refetch();
+      }
+    },
     onError: (e) => toast.error("Misslyckades: " + e.message),
   });
 
@@ -332,6 +342,34 @@ export default function IssuedCertificates() {
           </table>
         </div>
       )}
+
+      {/* Resend confirmation dialog */}
+      <Dialog open={!!resendConfirm} onOpenChange={(v) => !v && setResendConfirm(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-amber-600">Intyget redan skickat</DialogTitle>
+            <DialogDescription>
+              Detta intyg skickades redan <strong>{resendConfirm?.sentDate}</strong>. Vill du skicka det igen?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setResendConfirm(null)}>Avbryt</Button>
+            <Button
+              className="bg-amber-600 hover:bg-amber-700 text-white"
+              disabled={resendMutation.isPending}
+              onClick={() => {
+                if (resendConfirm) {
+                  resendMutation.mutate({ certificateId: resendConfirm.id, confirmResend: true });
+                  setResendConfirm(null);
+                }
+              }}
+            >
+              <Send className="h-3 w-3 mr-1" />
+              Skicka igen
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Delete confirmation dialog */}
       <Dialog open={!!deleteTarget} onOpenChange={(v) => !v && setDeleteTarget(null)}>

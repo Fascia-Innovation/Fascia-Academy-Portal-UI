@@ -676,3 +676,11 @@
 - [x] Review and fix course leader messages functionality (GHL API version, endpoint, emailFrom fixed)
 - [x] Admin approval safety gate: VERIFIED - all outbound customer emails already require admin action (certs=draft, messages=pending_approval). Exam results = examiner exception. Updated all GHL API versions to 2023-02-21.
 - [ ] Future: Public verification page for certificates (for fasciaacademy.com and customer portal)
+- [ ] Future: Customer portal — customers log in to view booked sessions, receipts, certificates, and digital course materials (depends on booking system being built first)
+- [x] New verification code format: FA-YYYY-XXXXXX (6 alphanumeric chars, hard to guess)
+- [x] Guarantee verification code uniqueness (retry on collision, up to 10 attempts)
+- [x] Add unique constraint on verification_code column in DB (already existed)
+- [x] Duplicate send warning for already-sent certificates (confirmation dialog + bulk skip)
+- [x] Rate limiting on verification lookups (3 per 15 min per IP)
+- [x] Limited info on verification result (name + course only, no email/personal data)
+- [x] Auto-create GHL contact if not found when sending certificate email

@@ -823,8 +823,39 @@ export async function sendCertificateEmail(opts: {
   }
 
   // contactId is REQUIRED by the GHL conversations/messages API
+  // Auto-create contact in GHL if not found (for manual certificate creation)
   if (!contactId) {
-    throw new Error(`GHL sendCertificateEmail: no GHL contact found for email ${toEmail}`);
+    try {
+      const createRes = await fetch(`${GHL_BASE}/contacts/`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${API_KEY}`,
+          Version: "2023-02-21",
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          locationId: LOCATION_ID,
+          email: toEmail,
+          name: toName,
+          source: "Fascia Academy Portal",
+        }),
+      });
+      if (createRes.ok) {
+        const data = await createRes.json() as { contact?: { id?: string } };
+        contactId = data.contact?.id ?? null;
+        console.log(`[sendCertificateEmail] Auto-created GHL contact for ${toEmail}: ${contactId}`);
+      } else {
+        const errText = await createRes.text();
+        console.error(`[sendCertificateEmail] Failed to create GHL contact: ${createRes.status} ${errText}`);
+      }
+    } catch (err) {
+      console.error(`[sendCertificateEmail] Error creating GHL contact:`, err);
+    }
+  }
+
+  if (!contactId) {
+    throw new Error(`GHL sendCertificateEmail: could not find or create GHL contact for ${toEmail}`);
   }
 
   const body: Record<string, unknown> = {
